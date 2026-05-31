@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --brand: #0f3d5c;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+body {
+  @apply bg-gray-50 text-gray-900 antialiased;
+}
+
+/* Touch targets: every interactive control at least 44px */
+@layer components {
+  .btn {
+    @apply inline-flex min-h-touch items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition active:scale-[0.98];
+  }
+  .btn-primary {
+    @apply btn bg-brand text-white hover:bg-brand-light disabled:opacity-50;
+  }
+  .btn-secondary {
+    @apply btn border border-gray-300 bg-white text-gray-800 hover:bg-gray-100;
+  }
+  .card {
+    @apply rounded-xl border border-gray-200 bg-white p-4 shadow-sm;
+  }
+  .input {
+    @apply min-h-touch w-full rounded-lg border border-gray-300 px-3 py-2 text-base outline-none focus:border-brand focus:ring-1 focus:ring-brand;
+  }
+  .label {
+    @apply mb-1 block text-sm font-medium text-gray-700;
+  }
+}
+
+/* Touch-friendly range sliders */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 8px;
+  border-radius: 9999px;
+  background: #e5e7eb;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  background: var(--brand);
+  cursor: pointer;
+  border: 3px solid white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  background: var(--brand);
+  cursor: pointer;
+  border: 3px solid white;
+}
+input[type="range"].danger::-webkit-slider-thumb {
+  background: #dc2626;
+}
+input[type="range"].danger::-moz-range-thumb {
+  background: #dc2626;
+}

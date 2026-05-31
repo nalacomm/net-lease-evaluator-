@@ -1,0 +1,228 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------- Auth (single user: Ed) ----------
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  password  String // bcrypt hash
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ---------- Core domain ----------
+model Investor {
+  id         String    @id @default(cuid())
+  name       String
+  email      String?
+  phone      String?
+  entityName String?
+  notes      String?
+  buyBox     BuyBox?
+  deals      Deal[]
+  reports    Report[]
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model BuyBox {
+  id         String   @id @default(cuid())
+  investorId String   @unique
+  investor   Investor @relation(fields: [investorId], references: [id], onDelete: Cascade)
+
+  // Cap Rate
+  capRateMin    Float
+  capRateTarget Float
+
+  // Price
+  priceMax     Float
+  priceStretch Float?
+
+  // Lease
+  leaseTypePreferred  String
+  leaseTypeAcceptable String
+
+  // Term
+  termMinYears       Int
+  termPreferredYears Int?
+
+  // Rent Bumps
+  bumpMinPercent   Float?
+  bumpAltStructure String?
+  flatLeaseAllowed Boolean @default(false)
+
+  // Guaranty
+  guarantyPreferred  String
+  guarantyAcceptable String
+  guarantyFloor      String
+
+  // Operator
+  operatorMinUnits Int?
+
+  // Underwriting
+  dscrMin          Float
+  ltv              Float
+  interestRate     Float
+  amortizationYears Int
+
+  // Construction
+  constructionPreferred String?
+
+  // Demographics
+  hhiMin Float?
+
+  // Asset Types
+  assetTypesPreferred  String[]
+  assetTypesAcceptable String[]
+
+  // Cash Flow
+  currentMonthlyIncome Float?
+
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Deal {
+  id         String   @id @default(cuid())
+  investorId String
+  investor   Investor @relation(fields: [investorId], references: [id], onDelete: Cascade)
+
+  // Property
+  address   String?
+  city      String?
+  state     String?
+  assetType String?
+
+  // Tenant
+  tenantName       String?
+  operatorName     String?
+  operatorUnitCount Int?
+  guarantyType     String?
+
+  // Financials
+  askingPrice         Float?
+  noi                 Float?
+  capRateAsking       Float?
+  capRateUnderwritten Float?
+
+  // Lease
+  leaseType           String?
+  termRemainingYears  Float?
+  leaseCommenceDate   DateTime?
+  leaseExpirationDate DateTime?
+  bumpStructure       String?
+  bumpPercent         Float?
+
+  // Construction
+  constructionYear Int?
+  buildingSize     Float?
+  lotSize          Float?
+
+  // Demographics
+  hhi1Mile       Float?
+  hhi3Mile       Float?
+  hhi5Mile       Float?
+  population1Mile Int?
+
+  // Calculated
+  dscrCalculated     Float?
+  loanAmount         Float?
+  monthlyDebtService Float?
+  monthlyNetCashFlow Float?
+
+  // Scoring
+  score           Float?
+  grade           String?
+  scoreRationale  String?
+  scoreBreakdown  Json?
+  confidenceLevel String?
+  selfCheckerNotes String?
+
+  // Source
+  sourceType     String?
+  sourceBroker   String?
+  sourcePlatform String?
+  sourceUrl      String?
+
+  // Status
+  status String @default("active")
+
+  updates   DealUpdate[]
+  newsFlags DealNewsFlag[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DealUpdate {
+  id            String   @id @default(cuid())
+  dealId        String
+  deal          Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  content       String
+  sourceType    String
+  aiAnalysis    String?
+  fieldsUpdated String[]
+  previousScore Float?
+  newScore      Float?
+  createdAt     DateTime @default(now())
+}
+
+model NewsItem {
+  id          String         @id @default(cuid())
+  headline    String
+  summary     String?
+  source      String?
+  url         String?
+  publishedAt DateTime?
+  category    String?
+  rawContent  String?
+  dealFlags   DealNewsFlag[]
+  createdAt   DateTime       @default(now())
+}
+
+model DealNewsFlag {
+  id         String   @id @default(cuid())
+  dealId     String
+  deal       Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  newsItemId String
+  newsItem   NewsItem @relation(fields: [newsItemId], references: [id], onDelete: Cascade)
+  relevance  String?
+  impact     String?
+  createdAt  DateTime @default(now())
+}
+
+model Report {
+  id          String   @id @default(cuid())
+  investorId  String
+  investor    Investor @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  title       String?
+  dealIds     String[]
+  generatedAt DateTime @default(now())
+  pdfUrl      String?
+}
+
+model Comp {
+  id            String    @id @default(cuid())
+  dealId        String?
+  address       String?
+  assetType     String?
+  tenantName    String?
+  salePrice     Float?
+  capRate       Float?
+  pricePerSF    Float?
+  termRemaining Float?
+  closedAt      DateTime?
+  source        String?
+  notes         String?
+  createdAt     DateTime  @default(now())
+}
