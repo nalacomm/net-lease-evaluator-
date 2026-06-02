@@ -143,7 +143,7 @@ export default async function InvestorPage({
                   </div>
                   <div className="flex gap-2">
                     <Link
-                      href={`/deals/${a.dealId}`}
+                      href={`/deals/${a.dealId}?investorId=${investor.id}`}
                       className="btn-secondary text-xs"
                     >
                       Overview

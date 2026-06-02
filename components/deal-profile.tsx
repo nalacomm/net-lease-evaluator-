@@ -8,6 +8,7 @@ import {
   fmtPercent,
   fmtDscr,
 } from "@/lib/format";
+import { computeFinance } from "@/lib/finance";
 import {
   labelFor,
   ASSET_TYPES,
@@ -105,12 +106,24 @@ const STATUS_MAP: Record<string, string> = {
   info: "info",
 };
 
+type InvestorContext = {
+  investorId: string;
+  investorName: string;
+  dscrMin: number;
+  ltv: number;
+  interestRate: number;
+  amortizationYears: number;
+  currentMonthlyIncome: number;
+};
+
 export function DealProfile({
   deal,
   allInvestors = [],
+  investorContext = null,
 }: {
   deal: Deal;
   allInvestors?: { id: string; name: string }[];
+  investorContext?: InvestorContext | null;
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<"overview" | "financials" | "updates" | "news">(
@@ -240,11 +253,25 @@ export function DealProfile({
           <Link href={`/deals/${deal.id}/edit`} className="btn-secondary">
             <Pencil className="h-4 w-4" /> Edit
           </Link>
-          <Link href={`/finance/${deal.id}`} className="btn-secondary">
+          <Link
+            href={`/finance/${deal.id}${investorContext ? `?investorId=${investorContext.investorId}` : ""}`}
+            className="btn-secondary"
+          >
             <Calculator className="h-4 w-4" /> Finance
           </Link>
         </div>
       </div>
+
+      {/* Investor context banner */}
+      {investorContext && (
+        <div className="flex items-center gap-2 rounded-lg border border-brand/20 bg-brand/5 px-4 py-2 text-sm text-brand">
+          <span className="font-semibold">Viewing as:</span>
+          <span>{investorContext.investorName}</span>
+          <span className="ml-auto text-xs text-brand/60">
+            Score and financials use {investorContext.investorName}&apos;s buy box
+          </span>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 overflow-x-auto border-b border-gray-200">
@@ -389,27 +416,18 @@ export function DealProfile({
 
       {tab === "financials" && (
         <div className="space-y-4">
-          <div className="card grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
-            <Metric label="Loan Amount" value={fmtMoney(deal.loanAmount)} />
-            <Metric
-              label="Monthly Debt Service"
-              value={fmtMoney(deal.monthlyDebtService)}
-            />
-            <Metric
-              label="Monthly Net Cash Flow"
-              value={fmtMoney(deal.monthlyNetCashFlow)}
-            />
-            <Metric label="DSCR (calc)" value={fmtDscr(deal.dscrCalculated)} />
-            <Metric
-              label="Cap Rate (underwritten)"
-              value={fmtPercent(deal.capRateUnderwritten)}
-            />
-            <Metric label="Building SF" value={deal.buildingSize ?? "—"} />
-          </div>
+          {investorContext && (
+            <div className="rounded-lg border border-brand/20 bg-brand/5 px-4 py-2 text-xs text-brand">
+              Figures below are computed using <span className="font-semibold">{investorContext.investorName}</span>&apos;s buy box: {(investorContext.ltv * 100).toFixed(0)}% LTV · {investorContext.interestRate}% rate · {investorContext.amortizationYears}yr amort
+            </div>
+          )}
+          <FinancialsSnapshot deal={deal} investorContext={investorContext} />
           <p className="text-sm text-gray-500">
-            DSCR and debt service computed at the investor&apos;s buy-box
-            leverage. Use the{" "}
-            <Link href={`/finance/${deal.id}`} className="text-brand underline">
+            Use the{" "}
+            <Link
+              href={`/finance/${deal.id}${investorContext ? `?investorId=${investorContext.investorId}` : ""}`}
+              className="text-brand underline"
+            >
               Finance Module
             </Link>{" "}
             to model other LTVs and rates.
@@ -522,6 +540,60 @@ function Metric({ label, value }: { label: string; value: React.ReactNode }) {
         {label}
       </p>
       <p className="mt-0.5 font-semibold text-gray-900">{value}</p>
+    </div>
+  );
+}
+
+function FinancialsSnapshot({
+  deal,
+  investorContext,
+}: {
+  deal: {
+    askingPrice: number | null;
+    noi: number | null;
+    capRateUnderwritten: number | null;
+    buildingSize: number | null;
+    loanAmount: number | null;
+    monthlyDebtService: number | null;
+    monthlyNetCashFlow: number | null;
+    dscrCalculated: number | null;
+  };
+  investorContext: InvestorContext | null;
+}) {
+  // When investor context is present, recalculate live from their buy box
+  if (investorContext && deal.askingPrice && deal.noi) {
+    const fin = computeFinance({
+      price: deal.askingPrice,
+      noi: deal.noi,
+      ltv: investorContext.ltv,
+      ratePercent: investorContext.interestRate,
+      amortizationYears: investorContext.amortizationYears,
+      currentMonthlyIncome: investorContext.currentMonthlyIncome,
+    });
+    return (
+      <div className="card grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+        <Metric label="Loan Amount" value={fmtMoney(fin.loanAmount)} />
+        <Metric label="Equity Required" value={fmtMoney(fin.equityRequired)} />
+        <Metric label="Monthly Debt Service" value={fmtMoney(fin.monthlyDebtService)} />
+        <Metric label="Monthly Net Cash Flow" value={fmtMoney(fin.monthlyNetCashFlow)} />
+        <Metric label="DSCR" value={fmtDscr(fin.dscr)} />
+        <Metric label="Cash-on-Cash" value={fmtPercent(fin.cashOnCash * 100)} />
+        <Metric label="New Portfolio Total" value={`${fmtMoney(fin.newPortfolioMonthlyTotal)}/mo`} />
+        <Metric label="Cap Rate (calc)" value={fmtPercent(fin.capRate * 100)} />
+        <Metric label="Building SF" value={deal.buildingSize ?? "—"} />
+      </div>
+    );
+  }
+
+  // Default: show stored values
+  return (
+    <div className="card grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+      <Metric label="Loan Amount" value={fmtMoney(deal.loanAmount)} />
+      <Metric label="Monthly Debt Service" value={fmtMoney(deal.monthlyDebtService)} />
+      <Metric label="Monthly Net Cash Flow" value={fmtMoney(deal.monthlyNetCashFlow)} />
+      <Metric label="DSCR (calc)" value={fmtDscr(deal.dscrCalculated)} />
+      <Metric label="Cap Rate (underwritten)" value={fmtPercent(deal.capRateUnderwritten)} />
+      <Metric label="Building SF" value={deal.buildingSize ?? "—"} />
     </div>
   );
 }

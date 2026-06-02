@@ -7,8 +7,10 @@ export const dynamic = "force-dynamic";
 
 export default async function DealPage({
   params,
+  searchParams,
 }: {
   params: { id: string };
+  searchParams: { investorId?: string };
 }) {
   const [deal, allInvestors] = await Promise.all([
     prisma.deal.findUnique({
@@ -20,7 +22,12 @@ export default async function DealPage({
           orderBy: { createdAt: "desc" },
         },
         assignments: {
-          include: { investor: { select: { id: true, name: true } } },
+          include: {
+            investor: {
+              select: { id: true, name: true },
+              include: { buyBox: true } as never,
+            },
+          },
         },
       },
     }),
@@ -28,11 +35,29 @@ export default async function DealPage({
   ]);
   if (!deal) notFound();
 
+  // If viewing from a specific investor's context, use their assignment data
+  const ctxInvestorId = searchParams.investorId ?? null;
+  const ctxAssignment = ctxInvestorId
+    ? (deal.assignments as never as {
+        investorId: string;
+        score: number | null;
+        grade: string | null;
+        scoreBreakdown: unknown;
+        investor: { id: string; name: string; buyBox: { dscrMin: number; ltv: number; interestRate: number; amortizationYears: number; currentMonthlyIncome: number | null } | null };
+      }[]).find((a) => a.investorId === ctxInvestorId)
+    : null;
+
+  const ctxInvestor = ctxAssignment?.investor ?? null;
+  const ctxBuyBox = ctxInvestor?.buyBox ?? null;
+
   const serialized = {
     ...deal,
-    scoreBreakdown: (deal.scoreBreakdown as unknown) as
-      | { category: string; points: number; max: number; status: string; detail: string }[]
-      | null,
+    // Override score/grade/breakdown with the assignment-specific values when in investor context
+    score: ctxAssignment ? ctxAssignment.score : deal.score,
+    grade: ctxAssignment ? ctxAssignment.grade : deal.grade,
+    scoreBreakdown: (
+      ctxAssignment ? ctxAssignment.scoreBreakdown : deal.scoreBreakdown
+    ) as { category: string; points: number; max: number; status: string; detail: string }[] | null,
     updates: deal.updates.map((u) => ({
       ...u,
       createdAt: u.createdAt.toISOString(),
@@ -49,7 +74,7 @@ export default async function DealPage({
     })),
     assignments: deal.assignments.map((a) => ({
       investorId: a.investorId,
-      investorName: a.investor.name,
+      investorName: (a.investor as { name: string }).name,
       score: a.score,
       grade: a.grade,
     })),
@@ -59,6 +84,19 @@ export default async function DealPage({
     <DealProfile
       deal={serialized as never}
       allInvestors={allInvestors.map((i) => ({ id: i.id, name: i.name }))}
+      investorContext={
+        ctxInvestor && ctxBuyBox
+          ? {
+              investorId: ctxInvestor.id,
+              investorName: ctxInvestor.name,
+              dscrMin: ctxBuyBox.dscrMin,
+              ltv: ctxBuyBox.ltv,
+              interestRate: ctxBuyBox.interestRate,
+              amortizationYears: ctxBuyBox.amortizationYears,
+              currentMonthlyIncome: ctxBuyBox.currentMonthlyIncome ?? 0,
+            }
+          : null
+      }
     />
   );
 }
