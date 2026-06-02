@@ -1,9 +1,12 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { computeFinance } from "@/lib/finance";
-import { fmtMoney, fmtPercent, fmtDscr, GRADE_COLORS } from "@/lib/format";
-import { labelFor, ASSET_TYPES, LEASE_TYPES, GUARANTY_TYPES } from "@/lib/constants";
+import { fmtMoney, fmtPercent, fmtDscr } from "@/lib/format";
+import { labelFor, ASSET_TYPES, LEASE_TYPES, GUARANTY_TYPES, DEAL_STATUSES, SOURCE_PLATFORMS } from "@/lib/constants";
+import { runGapAnalysis } from "@/lib/gap-analysis";
 import { DealExportClient } from "@/components/deal-export-client";
+import type { BuyBoxLike, DealLike } from "@/lib/scoring";
+import type { GapAnalysisResult } from "@/lib/gap-analysis";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +28,6 @@ export default async function DealExportPage({
   });
   if (!deal) notFound();
 
-  // Resolve which investor's buy box to use
   const ctxInvestorId = searchParams.investorId;
   const ctxAssignment = ctxInvestorId
     ? deal.assignments.find((a) => a.investorId === ctxInvestorId)
@@ -51,50 +53,118 @@ export default async function DealExportPage({
     });
   }
 
+  // Run gap analysis server-side (non-blocking — if it fails, export still renders)
+  let gapAnalysis: GapAnalysisResult | null = null;
+  if (bb) {
+    try {
+      gapAnalysis = await runGapAnalysis(
+        deal as DealLike & { tenantName?: string | null; address?: string | null; assetType?: string | null },
+        bb as BuyBoxLike & {
+          capRateMin: number; capRateTarget: number; priceMax: number;
+          priceStretch?: number | null; termMinYears: number; dscrMin: number;
+          bumpMinPercent?: number | null; guarantyPreferred: string;
+        }
+      );
+    } catch {
+      // Gap analysis is best-effort; don't block the export if AI is unavailable
+    }
+  }
+
+  const date = new Date().toLocaleDateString("en-US", {
+    year: "numeric", month: "long", day: "numeric",
+  });
+
   const data = {
     deal: {
-      id: deal.id,
+      // Identity
       address: deal.address,
       city: deal.city,
       state: deal.state,
+      status: labelFor(DEAL_STATUSES, deal.status),
+      assetType: labelFor(ASSET_TYPES, deal.assetType),
+
+      // Tenant
       tenantName: deal.tenantName,
       operatorName: deal.operatorName,
-      assetType: labelFor(ASSET_TYPES, deal.assetType),
+      operatorUnitCount: deal.operatorUnitCount,
+      guaranty: labelFor(GUARANTY_TYPES, deal.guarantyType),
+
+      // Financials
       askingPrice: fmtMoney(deal.askingPrice),
       noi: fmtMoney(deal.noi),
-      capRate: fmtPercent(deal.capRateAsking),
+      capRateAsking: fmtPercent(deal.capRateAsking),
+      capRateUnderwritten: deal.capRateUnderwritten ? fmtPercent(deal.capRateUnderwritten) : null,
+      dscrCalculated: deal.dscrCalculated ? fmtDscr(deal.dscrCalculated) : null,
+
+      // Lease
       leaseType: labelFor(LEASE_TYPES, deal.leaseType),
       termRemainingYears: deal.termRemainingYears,
-      bumpStructure: deal.bumpStructure ?? (deal.bumpPercent ? `${deal.bumpPercent}%` : null),
-      guaranty: labelFor(GUARANTY_TYPES, deal.guarantyType),
-      operatorUnitCount: deal.operatorUnitCount,
+      leaseCommenceDate: deal.leaseCommenceDate
+        ? new Date(deal.leaseCommenceDate).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })
+        : null,
+      leaseExpirationDate: deal.leaseExpirationDate
+        ? new Date(deal.leaseExpirationDate).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })
+        : null,
+      bumpStructure: deal.bumpStructure ?? (deal.bumpPercent ? `${deal.bumpPercent}% annual` : null),
+
+      // Physical
       constructionYear: deal.constructionYear,
-      buildingSize: deal.buildingSize,
+      buildingSize: deal.buildingSize ? `${deal.buildingSize.toLocaleString()} SF` : null,
+      lotSize: deal.lotSize ? `${deal.lotSize.toLocaleString()} SF` : null,
+
+      // Shopping center
+      numberOfTenants: deal.numberOfTenants,
+      anchorTenant: deal.anchorTenant,
+      vacancyRate: deal.vacancyRate != null ? fmtPercent(deal.vacancyRate) : null,
+      grossLeasableArea: deal.grossLeasableArea ? `${deal.grossLeasableArea.toLocaleString()} SF` : null,
+
+      // Demographics
+      hhi1Mile: deal.hhi1Mile ? fmtMoney(deal.hhi1Mile, 0) : null,
       hhi3Mile: deal.hhi3Mile ? fmtMoney(deal.hhi3Mile, 0) : null,
-      selfCheckerNotes: deal.selfCheckerNotes,
+      hhi5Mile: deal.hhi5Mile ? fmtMoney(deal.hhi5Mile, 0) : null,
+      population1Mile: deal.population1Mile?.toLocaleString() ?? null,
+
+      // Source
       sourceBroker: deal.sourceBroker,
+      sourcePlatform: labelFor(SOURCE_PLATFORMS, deal.sourcePlatform),
+      sourceUrl: deal.sourceUrl,
+
+      // AI
+      confidenceLevel: deal.confidenceLevel,
+      selfCheckerNotes: deal.selfCheckerNotes,
+      scoreRationale: deal.scoreRationale,
     },
     investor: investor ? { name: investor.name, entityName: investor.entityName } : null,
-    buyBox: bb ? {
-      ltv: bb.ltv,
-      interestRate: bb.interestRate,
-      amortizationYears: bb.amortizationYears,
-      dscrMin: bb.dscrMin,
-    } : null,
+    buyBox: bb
+      ? {
+          ltv: bb.ltv,
+          interestRate: bb.interestRate,
+          amortizationYears: bb.amortizationYears,
+          dscrMin: bb.dscrMin,
+          capRateMin: bb.capRateMin,
+          capRateTarget: bb.capRateTarget,
+          priceMax: bb.priceMax,
+          leaseTypePreferred: labelFor(LEASE_TYPES, bb.leaseTypePreferred),
+          termMinYears: bb.termMinYears,
+        }
+      : null,
     score,
     grade,
     scoreBreakdown,
-    fin: fin ? {
-      loanAmount: fmtMoney(fin.loanAmount),
-      equityRequired: fmtMoney(fin.equityRequired),
-      monthlyDebtService: fmtMoney(fin.monthlyDebtService),
-      monthlyNetCashFlow: fmtMoney(fin.monthlyNetCashFlow),
-      annualNetCashFlow: fmtMoney(fin.monthlyNetCashFlow * 12),
-      dscr: fmtDscr(fin.dscr),
-      cashOnCash: fmtPercent(fin.cashOnCash * 100),
-      capRate: fmtPercent(fin.capRate * 100),
-    } : null,
-    date: new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
+    fin: fin
+      ? {
+          equityRequired: fmtMoney(fin.equityRequired),
+          loanAmount: fmtMoney(fin.loanAmount),
+          monthlyDebtService: fmtMoney(fin.monthlyDebtService),
+          monthlyNetCashFlow: fmtMoney(fin.monthlyNetCashFlow),
+          annualNetCashFlow: fmtMoney(fin.monthlyNetCashFlow * 12),
+          dscr: fmtDscr(fin.dscr),
+          cashOnCash: fmtPercent(fin.cashOnCash * 100),
+          capRate: fmtPercent(fin.capRate * 100),
+        }
+      : null,
+    gapAnalysis,
+    date,
   };
 
   return <DealExportClient data={data} />;
