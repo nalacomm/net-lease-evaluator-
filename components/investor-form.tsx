@@ -83,17 +83,18 @@ export function InvestorForm() {
   const Field = ({
     k,
     label,
-    type = "text",
+    numeric = false,
   }: {
     k: keyof typeof form;
     label: string;
-    type?: string;
+    numeric?: boolean;
   }) => (
     <div>
       <label className="label">{label}</label>
       <input
         className="input"
-        type={type}
+        type="text"
+        inputMode={numeric ? "decimal" : "text"}
         value={form[k]}
         onChange={(e) => set(k, e.target.value)}
       />
@@ -126,32 +127,32 @@ export function InvestorForm() {
       <div className="card grid gap-3 sm:grid-cols-2">
         <Field k="name" label="Name *" />
         <Field k="entityName" label="Entity Name" />
-        <Field k="email" label="Email" type="email" />
+        <Field k="email" label="Email" />
         <Field k="phone" label="Phone" />
       </div>
 
       <div className="card">
         <h3 className="mb-3 font-semibold">Buy Box</h3>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field k="capRateMin" label="Cap Rate Floor (%)" type="number" />
-          <Field k="capRateTarget" label="Cap Rate Target (%)" type="number" />
-          <Field k="priceMax" label="Max Price ($)" type="number" />
-          <Field k="priceStretch" label="Stretch Price ($)" type="number" />
+          <Field k="capRateMin" label="Cap Rate Floor (%)" numeric />
+          <Field k="capRateTarget" label="Cap Rate Target (%)" numeric />
+          <Field k="priceMax" label="Max Price ($)" numeric />
+          <Field k="priceStretch" label="Stretch Price ($)" numeric />
           <Select k="leaseTypePreferred" label="Preferred Lease" options={LEASE_TYPES} />
           <Select k="leaseTypeAcceptable" label="Acceptable Lease" options={LEASE_TYPES} />
-          <Field k="termMinYears" label="Min Term (yrs)" type="number" />
-          <Field k="termPreferredYears" label="Preferred Term (yrs)" type="number" />
-          <Field k="bumpMinPercent" label="Min Bump (%)" type="number" />
+          <Field k="termMinYears" label="Min Term (yrs)" numeric />
+          <Field k="termPreferredYears" label="Preferred Term (yrs)" numeric />
+          <Field k="bumpMinPercent" label="Min Bump (%)" numeric />
           <Field k="bumpAltStructure" label="Alt Bump Structure" />
           <Select k="guarantyPreferred" label="Preferred Guaranty" options={GUARANTY_TYPES} />
           <Select k="guarantyFloor" label="Guaranty Floor" options={GUARANTY_TYPES} />
-          <Field k="operatorMinUnits" label="Min Operator Units" type="number" />
-          <Field k="dscrMin" label="Min DSCR" type="number" />
-          <Field k="ltv" label="LTV (0-1)" type="number" />
-          <Field k="interestRate" label="Interest Rate (%)" type="number" />
-          <Field k="amortizationYears" label="Amortization (yrs)" type="number" />
-          <Field k="hhiMin" label="Min HHI ($)" type="number" />
-          <Field k="currentMonthlyIncome" label="Current Monthly Income ($)" type="number" />
+          <Field k="operatorMinUnits" label="Min Operator Units" numeric />
+          <Field k="dscrMin" label="Min DSCR" numeric />
+          <Field k="ltv" label="LTV (0–1, e.g. 0.65)" numeric />
+          <Field k="interestRate" label="Interest Rate (%)" numeric />
+          <Field k="amortizationYears" label="Amortization (yrs)" numeric />
+          <Field k="hhiMin" label="Min HHI ($)" numeric />
+          <Field k="currentMonthlyIncome" label="Current Monthly Income ($)" numeric />
         </div>
 
         <div className="mt-4">

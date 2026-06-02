@@ -1,17 +1,23 @@
 import Link from "next/link";
-import { getActiveInvestor } from "@/lib/investor";
+import { getActiveInvestor, getAllInvestors } from "@/lib/investor";
 import { prisma } from "@/lib/prisma";
 import { computeFinance } from "@/lib/finance";
 import { fmtMoney, fmtMoneyShort } from "@/lib/format";
 import { labelFor, ASSET_TYPES } from "@/lib/constants";
 import { PageHeader, Stat, GradeBadge, EmptyState } from "@/components/ui";
 import { AssetClassChart } from "@/components/charts";
+import { InvestorSwitcher } from "@/components/investor-switcher";
 import { Plus, FileText, Newspaper } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
-export default async function DashboardPage() {
-  const investor = await getActiveInvestor();
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: { investor?: string };
+}) {
+  const allInvestors = await getAllInvestors();
+  const investor = await getActiveInvestor(searchParams.investor);
 
   if (!investor) {
     return (
@@ -84,6 +90,14 @@ export default async function DashboardPage() {
           investor.entityName ? ` · ${investor.entityName}` : ""
         }`}
       />
+
+      {/* Investor switcher */}
+      {allInvestors.length > 1 && (
+        <InvestorSwitcher
+          investors={allInvestors.map((i) => ({ id: i.id, name: i.name }))}
+          activeId={investor.id}
+        />
+      )}
 
       {/* Quick actions */}
       <div className="flex flex-wrap gap-2">

@@ -33,6 +33,13 @@ type Category = {
   detail: string;
 };
 
+type Assignment = {
+  investorId: string;
+  investorName: string;
+  score: number | null;
+  grade: string | null;
+};
+
 type Deal = {
   id: string;
   address: string | null;
@@ -53,6 +60,10 @@ type Deal = {
   bumpPercent: number | null;
   constructionYear: number | null;
   buildingSize: number | null;
+  numberOfTenants: number | null;
+  anchorTenant: string | null;
+  vacancyRate: number | null;
+  grossLeasableArea: number | null;
   hhi3Mile: number | null;
   population1Mile: number | null;
   dscrCalculated: number | null;
@@ -68,6 +79,7 @@ type Deal = {
   sourceBroker: string | null;
   sourcePlatform: string | null;
   status: string;
+  assignments: Assignment[];
   updates: {
     id: string;
     content: string;
@@ -93,7 +105,13 @@ const STATUS_MAP: Record<string, string> = {
   info: "info",
 };
 
-export function DealProfile({ deal }: { deal: Deal }) {
+export function DealProfile({
+  deal,
+  allInvestors = [],
+}: {
+  deal: Deal;
+  allInvestors?: { id: string; name: string }[];
+}) {
   const router = useRouter();
   const [tab, setTab] = useState<"overview" | "financials" | "updates" | "news">(
     "overview"
@@ -102,6 +120,37 @@ export function DealProfile({ deal }: { deal: Deal }) {
   const [showBreakdown, setShowBreakdown] = useState(true);
   const [updateText, setUpdateText] = useState("");
   const [updating, setUpdating] = useState(false);
+  const [assignments, setAssignments] = useState<Assignment[]>(deal.assignments ?? []);
+  const [assigning, setAssigning] = useState(false);
+
+  async function toggleAssignment(investorId: string) {
+    const isAssigned = assignments.some((a) => a.investorId === investorId);
+    setAssigning(true);
+    try {
+      if (isAssigned) {
+        await fetch(`/api/deals/${deal.id}/assign`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ investorId }),
+        });
+        setAssignments((a) => a.filter((x) => x.investorId !== investorId));
+      } else {
+        const res = await fetch(`/api/deals/${deal.id}/assign`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ investorId }),
+        });
+        const data = await res.json();
+        const inv = allInvestors.find((i) => i.id === investorId);
+        setAssignments((a) => [
+          ...a,
+          { investorId, investorName: inv?.name ?? "Investor", score: data.score, grade: data.grade },
+        ]);
+      }
+    } finally {
+      setAssigning(false);
+    }
+  }
 
   async function reanalyze() {
     setBusy(true);
@@ -283,6 +332,56 @@ export function DealProfile({ deal }: { deal: Deal }) {
                 Self-Checker Notes
               </h3>
               <p className="text-sm text-amber-800">{deal.selfCheckerNotes}</p>
+            </div>
+          )}
+
+          {/* Shopping center fields */}
+          {deal.assetType === "shopping_center" && (
+            <div className="card">
+              <h3 className="mb-2 font-semibold">Shopping Center Details</h3>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+                <Metric label="# Tenants" value={deal.numberOfTenants ?? "—"} />
+                <Metric label="Anchor Tenant" value={deal.anchorTenant ?? "—"} />
+                <Metric label="Vacancy Rate" value={deal.vacancyRate != null ? `${deal.vacancyRate}%` : "—"} />
+                <Metric label="GLA (SF)" value={deal.grossLeasableArea?.toLocaleString() ?? "—"} />
+              </div>
+            </div>
+          )}
+
+          {/* Investor assignments */}
+          {allInvestors.length > 0 && (
+            <div className="card">
+              <h3 className="mb-2 font-semibold">Evaluate Against Investors</h3>
+              <p className="mb-3 text-xs text-gray-500">Check which investors to score this deal against. Each uses their own buy box.</p>
+              <ul className="divide-y divide-gray-100">
+                {allInvestors.map((inv) => {
+                  const existing = assignments.find((a) => a.investorId === inv.id);
+                  const isAssigned = !!existing;
+                  return (
+                    <li key={inv.id} className="flex min-h-[44px] items-center justify-between gap-3 py-2">
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          id={`assign-${inv.id}`}
+                          checked={isAssigned}
+                          onChange={() => toggleAssignment(inv.id)}
+                          disabled={assigning}
+                          className="h-5 w-5 rounded border-gray-300 accent-brand"
+                        />
+                        <label htmlFor={`assign-${inv.id}`} className="text-sm font-medium text-gray-900 cursor-pointer">
+                          {inv.name}
+                        </label>
+                      </div>
+                      {existing && (
+                        <div className="flex items-center gap-2">
+                          <GradeBadge grade={existing.grade} size="sm" />
+                          <span className="text-sm font-semibold text-gray-600">{existing.score?.toFixed(0)}</span>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
           )}
         </div>

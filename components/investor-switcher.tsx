@@ -1,0 +1,29 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+
+export function InvestorSwitcher({
+  investors,
+  activeId,
+}: {
+  investors: { id: string; name: string }[];
+  activeId: string;
+}) {
+  const router = useRouter();
+  return (
+    <div className="flex items-center gap-2">
+      <label className="text-sm font-medium text-gray-600 whitespace-nowrap">Viewing:</label>
+      <select
+        className="input max-w-xs"
+        value={activeId}
+        onChange={(e) => router.push(`/?investor=${e.target.value}`)}
+      >
+        {investors.map((i) => (
+          <option key={i.id} value={i.id}>
+            {i.name}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}

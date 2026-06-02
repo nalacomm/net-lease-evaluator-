@@ -18,7 +18,7 @@ export default async function FinancePage({
     include: { investor: { include: { buyBox: true } } },
   });
   if (!deal) notFound();
-  const bb = deal.investor.buyBox;
+  const bb = deal.investor?.buyBox ?? null;
 
   if (!deal.askingPrice || !deal.noi || !bb) {
     return (

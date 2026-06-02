@@ -26,9 +26,10 @@ model Investor {
   phone      String?
   entityName String?
   notes      String?
-  buyBox     BuyBox?
-  deals      Deal[]
-  reports    Report[]
+  buyBox      BuyBox?
+  deals       Deal[]
+  reports     Report[]
+  assignments DealAssignment[]
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 }
@@ -93,9 +94,10 @@ model BuyBox {
 }
 
 model Deal {
-  id         String   @id @default(cuid())
-  investorId String
-  investor   Investor @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  id         String    @id @default(cuid())
+  // Nullable — deals live in a global pool; investorId is the "primary" investor
+  investorId String?
+  investor   Investor? @relation(fields: [investorId], references: [id], onDelete: SetNull)
 
   // Property
   address   String?
@@ -104,10 +106,10 @@ model Deal {
   assetType String?
 
   // Tenant
-  tenantName       String?
-  operatorName     String?
+  tenantName        String?
+  operatorName      String?
   operatorUnitCount Int?
-  guarantyType     String?
+  guarantyType      String?
 
   // Financials
   askingPrice         Float?
@@ -128,24 +130,30 @@ model Deal {
   buildingSize     Float?
   lotSize          Float?
 
+  // Shopping Center specific
+  numberOfTenants   Int?
+  anchorTenant      String?
+  vacancyRate       Float?    // percent, e.g. 5.0
+  grossLeasableArea Float?    // total GLA in SF
+
   // Demographics
-  hhi1Mile       Float?
-  hhi3Mile       Float?
-  hhi5Mile       Float?
+  hhi1Mile        Float?
+  hhi3Mile        Float?
+  hhi5Mile        Float?
   population1Mile Int?
 
-  // Calculated
+  // Calculated (against primary investor buy box)
   dscrCalculated     Float?
   loanAmount         Float?
   monthlyDebtService Float?
   monthlyNetCashFlow Float?
 
-  // Scoring
-  score           Float?
-  grade           String?
-  scoreRationale  String?
-  scoreBreakdown  Json?
-  confidenceLevel String?
+  // Scoring (against primary investor buy box)
+  score            Float?
+  grade            String?
+  scoreRationale   String?
+  scoreBreakdown   Json?
+  confidenceLevel  String?
   selfCheckerNotes String?
 
   // Source
@@ -157,11 +165,29 @@ model Deal {
   // Status
   status String @default("active")
 
-  updates   DealUpdate[]
-  newsFlags DealNewsFlag[]
+  updates     DealUpdate[]
+  newsFlags   DealNewsFlag[]
+  assignments DealAssignment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Per-investor scoring for deals shared across investors
+model DealAssignment {
+  id         String   @id @default(cuid())
+  dealId     String
+  deal       Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  investorId String
+  investor   Investor @relation(fields: [investorId], references: [id], onDelete: Cascade)
+
+  score          Float?
+  grade          String?
+  scoreBreakdown Json?
+
+  createdAt DateTime @default(now())
+
+  @@unique([dealId, investorId])
 }
 
 model DealUpdate {

@@ -13,6 +13,8 @@ import { GradeBadge, StatusPill } from "@/components/ui";
 export type DealRow = {
   id: string;
   address: string | null;
+  city: string | null;
+  state: string | null;
   tenantName: string | null;
   assetType: string | null;
   askingPrice: number | null;
@@ -31,12 +33,25 @@ export function DealList({ deals }: { deals: DealRow[] }) {
   const [assetFilter, setAssetFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [gradeFilter, setGradeFilter] = useState("");
+  const [stateFilter, setStateFilter] = useState("");
+  const [priceMin, setPriceMin] = useState("");
+  const [priceMax, setPriceMax] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Derive unique states from deal data
+  const stateOptions = useMemo(() => {
+    const set = new Set(deals.map((d) => d.state).filter(Boolean) as string[]);
+    return Array.from(set).sort();
+  }, [deals]);
 
   const filtered = useMemo(() => {
     let r = [...deals];
     if (assetFilter) r = r.filter((d) => d.assetType === assetFilter);
     if (statusFilter) r = r.filter((d) => d.status === statusFilter);
     if (gradeFilter) r = r.filter((d) => d.grade === gradeFilter);
+    if (stateFilter) r = r.filter((d) => d.state === stateFilter);
+    if (priceMin) r = r.filter((d) => d.askingPrice != null && d.askingPrice >= Number(priceMin));
+    if (priceMax) r = r.filter((d) => d.askingPrice != null && d.askingPrice <= Number(priceMax));
     r.sort((a, b) => {
       const av = (a[sort] ?? -Infinity) as number | string;
       const bv = (b[sort] ?? -Infinity) as number | string;
@@ -44,37 +59,61 @@ export function DealList({ deals }: { deals: DealRow[] }) {
       return (bv as number) - (av as number);
     });
     return r;
-  }, [deals, sort, assetFilter, statusFilter, gradeFilter]);
+  }, [deals, sort, assetFilter, statusFilter, gradeFilter, stateFilter, priceMin, priceMax]);
+
+  const activeFilters = [assetFilter, statusFilter, gradeFilter, stateFilter, priceMin, priceMax].filter(Boolean).length;
 
   return (
     <div className="space-y-4">
-      {/* Controls */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <select className="input" value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
+      {/* Primary controls row */}
+      <div className="flex flex-wrap items-center gap-2">
+        <select className="input flex-1 min-w-[140px]" value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
           <option value="score">Sort: Score</option>
           <option value="capRateAsking">Sort: Cap Rate</option>
           <option value="askingPrice">Sort: Price</option>
           <option value="grade">Sort: Grade</option>
         </select>
-        <select className="input" value={assetFilter} onChange={(e) => setAssetFilter(e.target.value)}>
-          <option value="">All Types</option>
-          {ASSET_TYPES.map((a) => (
-            <option key={a.value} value={a.value}>{a.label}</option>
-          ))}
-        </select>
-        <select className="input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-          <option value="">All Status</option>
-          {DEAL_STATUSES.map((s) => (
-            <option key={s.value} value={s.value}>{s.label}</option>
-          ))}
-        </select>
-        <select className="input" value={gradeFilter} onChange={(e) => setGradeFilter(e.target.value)}>
-          <option value="">All Grades</option>
-          {["A", "B", "C", "D", "F"].map((g) => (
-            <option key={g} value={g}>{g}</option>
-          ))}
-        </select>
+        <button
+          onClick={() => setShowFilters((s) => !s)}
+          className={`btn-secondary gap-1 ${activeFilters > 0 ? "border-brand text-brand" : ""}`}
+        >
+          Filters {activeFilters > 0 && <span className="rounded-full bg-brand px-1.5 text-xs text-white">{activeFilters}</span>}
+        </button>
       </div>
+
+      {/* Expanded filters */}
+      {showFilters && (
+        <div className="card grid gap-3 sm:grid-cols-3">
+          <select className="input" value={assetFilter} onChange={(e) => setAssetFilter(e.target.value)}>
+            <option value="">All Types</option>
+            {ASSET_TYPES.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
+          </select>
+          <select className="input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <option value="">All Status</option>
+            {DEAL_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+          </select>
+          <select className="input" value={gradeFilter} onChange={(e) => setGradeFilter(e.target.value)}>
+            <option value="">All Grades</option>
+            {["A", "B", "C", "D", "F"].map((g) => <option key={g} value={g}>{g}</option>)}
+          </select>
+          <select className="input" value={stateFilter} onChange={(e) => setStateFilter(e.target.value)}>
+            <option value="">All States</option>
+            {stateOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <input type="text" inputMode="numeric" className="input" placeholder="Min price ($)" value={priceMin} onChange={(e) => setPriceMin(e.target.value)} />
+          <input type="text" inputMode="numeric" className="input" placeholder="Max price ($)" value={priceMax} onChange={(e) => setPriceMax(e.target.value)} />
+          {activeFilters > 0 && (
+            <button className="btn-secondary sm:col-span-3 text-sm" onClick={() => {
+              setAssetFilter(""); setStatusFilter(""); setGradeFilter("");
+              setStateFilter(""); setPriceMin(""); setPriceMax("");
+            }}>
+              Clear all filters
+            </button>
+          )}
+        </div>
+      )}
+
+      <p className="text-xs text-gray-400">{filtered.length} of {deals.length} deals</p>
 
       {/* Desktop table */}
       <div className="hidden overflow-x-auto md:block">

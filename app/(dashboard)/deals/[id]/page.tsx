@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { getAllInvestors } from "@/lib/investor";
 import { DealProfile } from "@/components/deal-profile";
 
 export const dynamic = "force-dynamic";
@@ -9,29 +10,28 @@ export default async function DealPage({
 }: {
   params: { id: string };
 }) {
-  const deal = await prisma.deal.findUnique({
-    where: { id: params.id },
-    include: {
-      updates: { orderBy: { createdAt: "desc" } },
-      newsFlags: {
-        include: { newsItem: true },
-        orderBy: { createdAt: "desc" },
+  const [deal, allInvestors] = await Promise.all([
+    prisma.deal.findUnique({
+      where: { id: params.id },
+      include: {
+        updates: { orderBy: { createdAt: "desc" } },
+        newsFlags: {
+          include: { newsItem: true },
+          orderBy: { createdAt: "desc" },
+        },
+        assignments: {
+          include: { investor: { select: { id: true, name: true } } },
+        },
       },
-    },
-  });
+    }),
+    getAllInvestors(),
+  ]);
   if (!deal) notFound();
 
-  // Serialize dates for the client component.
   const serialized = {
     ...deal,
     scoreBreakdown: (deal.scoreBreakdown as unknown) as
-      | {
-          category: string;
-          points: number;
-          max: number;
-          status: string;
-          detail: string;
-        }[]
+      | { category: string; points: number; max: number; status: string; detail: string }[]
       | null,
     updates: deal.updates.map((u) => ({
       ...u,
@@ -44,12 +44,21 @@ export default async function DealPage({
       newsItem: {
         headline: f.newsItem.headline,
         source: f.newsItem.source,
-        publishedAt: f.newsItem.publishedAt
-          ? f.newsItem.publishedAt.toISOString()
-          : null,
+        publishedAt: f.newsItem.publishedAt ? f.newsItem.publishedAt.toISOString() : null,
       },
+    })),
+    assignments: deal.assignments.map((a) => ({
+      investorId: a.investorId,
+      investorName: a.investor.name,
+      score: a.score,
+      grade: a.grade,
     })),
   };
 
-  return <DealProfile deal={serialized as never} />;
+  return (
+    <DealProfile
+      deal={serialized as never}
+      allInvestors={allInvestors.map((i) => ({ id: i.id, name: i.name }))}
+    />
+  );
 }

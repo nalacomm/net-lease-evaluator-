@@ -5,9 +5,18 @@ export const ASSET_TYPES: { value: string; label: string }[] = [
   { value: "medical", label: "Medical" },
   { value: "dollar_store", label: "Dollar Store" },
   { value: "retail", label: "Retail" },
+  { value: "shopping_center", label: "Shopping Center" },
   { value: "restaurant", label: "Restaurant" },
   { value: "other", label: "Other" },
 ];
+
+// Fields specific to shopping centers shown in intake + deal profile
+export const SHOPPING_CENTER_FIELDS = [
+  { key: "numberOfTenants", label: "Number of Tenants", type: "number" },
+  { key: "anchorTenant", label: "Anchor Tenant", type: "text" },
+  { key: "vacancyRate", label: "Vacancy Rate (%)", type: "number" },
+  { key: "grossLeasableArea", label: "Gross Leasable Area (SF)", type: "number" },
+] as const;
 
 export const LEASE_TYPES: { value: string; label: string }[] = [
   { value: "absolute_nnn", label: "Absolute NNN" },

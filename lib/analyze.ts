@@ -15,6 +15,7 @@ export async function analyzeDeal(dealId: string): Promise<{
     include: { investor: { include: { buyBox: true } } },
   });
   if (!deal) throw new Error("Deal not found");
+  if (!deal.investor) throw new Error("Deal has no primary investor — re-assign to an investor first");
   const bb = deal.investor.buyBox;
   if (!bb) throw new Error("Investor has no buy box");
 

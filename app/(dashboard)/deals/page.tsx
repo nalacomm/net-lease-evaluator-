@@ -12,6 +12,8 @@ export default async function DealsPage() {
     select: {
       id: true,
       address: true,
+      city: true,
+      state: true,
       tenantName: true,
       assetType: true,
       askingPrice: true,
