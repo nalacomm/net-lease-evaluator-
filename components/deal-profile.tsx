@@ -120,14 +120,23 @@ type InvestorContext = {
   currentMonthlyIncome: number;
 };
 
+type GapAnalysisData = {
+  isExceptional: boolean;
+  exceptionalReason: string | null;
+  buyBoxAdjustments: { field: string; currentValue: string; requiredValue: string; impact: string }[];
+  verdict: string;
+};
+
 export function DealProfile({
   deal,
   allInvestors = [],
   investorContext = null,
+  cachedGapAnalysis = null,
 }: {
   deal: Deal;
   allInvestors?: { id: string; name: string }[];
   investorContext?: InvestorContext | null;
+  cachedGapAnalysis?: GapAnalysisData | null;
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<"overview" | "financials" | "updates" | "news">(
@@ -140,12 +149,8 @@ export function DealProfile({
   const [assignments, setAssignments] = useState<Assignment[]>(deal.assignments ?? []);
   const [assigning, setAssigning] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [gapAnalysis, setGapAnalysis] = useState<null | {
-    isExceptional: boolean;
-    exceptionalReason: string | null;
-    buyBoxAdjustments: { field: string; currentValue: string; requiredValue: string; impact: string }[];
-    verdict: string;
-  }>(null);
+  // Initialize from cached assignment data — no re-run needed on revisit
+  const [gapAnalysis, setGapAnalysis] = useState<GapAnalysisData | null>(cachedGapAnalysis ?? null);
   const [gapLoading, setGapLoading] = useState(false);
 
   async function toggleAssignment(investorId: string) {
@@ -196,7 +201,12 @@ export function DealProfile({
     setGapLoading(true);
     setGapAnalysis(null);
     try {
-      const res = await fetch(`/api/deals/${deal.id}/gap-analysis`, { method: "POST" });
+      const res = await fetch(`/api/deals/${deal.id}/gap-analysis`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // Pass investorId so the result is saved to the right DealAssignment
+        body: JSON.stringify({ investorId: investorContext?.investorId ?? null }),
+      });
       const data = await res.json();
       if (res.ok) setGapAnalysis(data);
     } finally {
@@ -420,7 +430,7 @@ export function DealProfile({
           {/* Gap analysis result */}
           {gapAnalysis && (
             <div className={clsx("card border-2", gapAnalysis.isExceptional ? "border-amber-400 bg-amber-50" : "border-gray-200")}>
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex flex-wrap items-center gap-2 mb-2">
                 <Lightbulb className={clsx("h-5 w-5", gapAnalysis.isExceptional ? "text-amber-600" : "text-gray-400")} />
                 <h3 className="font-semibold text-gray-900">
                   {gapAnalysis.isExceptional ? "Exceptional Deal Flag" : "Gap Analysis"}
@@ -430,6 +440,13 @@ export function DealProfile({
                     Worth a look
                   </span>
                 )}
+                <button
+                  onClick={runGapAnalysis}
+                  disabled={gapLoading}
+                  className="ml-auto text-xs text-gray-400 hover:text-brand"
+                >
+                  {gapLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : "↺ Refresh"}
+                </button>
               </div>
               <p className="text-sm text-gray-700 mb-3">{gapAnalysis.verdict}</p>
               {gapAnalysis.exceptionalReason && (

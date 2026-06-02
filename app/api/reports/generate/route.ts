@@ -21,55 +21,106 @@ export async function POST(req: Request) {
     if (!investor) return NextResponse.json({ error: "Investor not found" }, { status: 404 });
     const bb = investor.buyBox!;
 
-    const deals = await prisma.deal.findMany({
-      where: { id: { in: dealIds } },
-    });
+    // Only pull deals that belong to this investor (primary or assigned)
+    const [primaryDeals, assignments] = await Promise.all([
+      prisma.deal.findMany({
+        where: { id: { in: dealIds }, investorId },
+      }),
+      prisma.dealAssignment.findMany({
+        where: { dealId: { in: dealIds }, investorId },
+        include: { deal: true },
+      }),
+    ]);
 
-    // Build deal summaries for AI
+    // Merge — primary deals take precedence; assignments fill the rest
+    const primaryIds = new Set(primaryDeals.map((d) => d.id));
+    const assignedDeals = assignments
+      .filter((a) => !primaryIds.has(a.dealId))
+      .map((a) => a.deal);
+
+    const deals = [...primaryDeals, ...assignedDeals];
+
+    // Per-deal: use investor-specific score/grade from DealAssignment when available
+    const assignmentMap = new Map(assignments.map((a) => [a.dealId, a]));
+
     function dealSummary(d: (typeof deals)[0]) {
+      const a = assignmentMap.get(d.id);
+      const score = a?.score ?? d.score;
+      const grade = a?.grade ?? d.grade;
       const fin = computeFinance({
         price: d.askingPrice ?? 0,
         noi: d.noi ?? 0,
         ltv: bb.ltv,
         ratePercent: bb.interestRate,
         amortizationYears: bb.amortizationYears,
-        currentMonthlyIncome: bb.currentMonthlyIncome ?? 0,
       });
       return `
-Deal: ${d.address ?? "Unknown"} | Tenant: ${d.tenantName ?? "?"} | Type: ${labelFor(ASSET_TYPES, d.assetType)}
+Property: ${d.address ?? "Unknown"} | Tenant: ${d.tenantName ?? "?"} | Type: ${labelFor(ASSET_TYPES, d.assetType)}
 Price: ${fmtMoney(d.askingPrice)} | NOI: ${fmtMoney(d.noi)} | Cap Rate: ${fmtPercent(d.capRateAsking)}
 Lease: ${labelFor(LEASE_TYPES, d.leaseType)} | Term: ${d.termRemainingYears ?? "?"}yr | Bumps: ${d.bumpStructure ?? "?"}
-Guaranty: ${labelFor(GUARANTY_TYPES, d.guarantyType)} | DSCR: ${fmtDscr(fin.dscr)} | Score: ${d.score?.toFixed(0) ?? "?"}/100 (${d.grade ?? "?"})
+Guaranty: ${labelFor(GUARANTY_TYPES, d.guarantyType)} | DSCR: ${fmtDscr(fin.dscr)} | Score: ${score?.toFixed(0) ?? "?"}/100 (${grade ?? "?"})
 Monthly Net Cash Flow: ${fmtMoney(fin.monthlyNetCashFlow)}`;
     }
 
     const allSummaries = deals.map(dealSummary).join("\n\n---\n");
 
+    const bbContext = `Your investment criteria: cap rate floor ${bb.capRateMin}%, target ${bb.capRateTarget}%. Maximum price ${fmtMoney(bb.priceMax)}. Preferred lease structure: ${bb.leaseTypePreferred.replace(/_/g, " ")}. Minimum DSCR: ${bb.dscrMin}x.`;
+
     const [execSummary, recommendation] = await Promise.all([
       askText(
-        `You are a commercial real estate broker writing a client investment report for ${investor.name}.\n\nInvestor buy box: Cap rate floor ${bb.capRateMin}%, target ${bb.capRateTarget}%. Max price ${fmtMoney(bb.priceMax)}. Preferred lease: ${bb.leaseTypePreferred}. Min DSCR: ${bb.dscrMin}x.\n\nDeals being presented:\n${allSummaries}\n\nWrite a 2-3 sentence executive summary suitable for a professional investment report. Focus on fit with the investor's buy box and income growth potential. No preamble, no "Here is the summary".`,
+        `You are a commercial real estate advisor writing a personalized investment report for a client named ${investor.name}${investor.entityName ? ` (${investor.entityName})` : ""}.
+
+Write directly TO the investor using "you" and "your" — not about them in third person.
+${bbContext}
+
+Properties being presented:
+${allSummaries}
+
+Write a 2-3 sentence executive summary. Speak directly to the investor about how these opportunities fit their strategy and goals. No preamble, no "Here is the summary".`,
         { maxTokens: 300 }
       ),
       askText(
-        `You are a commercial real estate broker.\n\nInvestor: ${investor.name}. Buy box: Cap rate floor ${bb.capRateMin}%, target ${bb.capRateTarget}%. Min DSCR ${bb.dscrMin}x.\n\nDeals:\n${allSummaries}\n\nWrite a 2-3 sentence recommendation: which deal best fits this investor's thesis and why. Be direct and specific. No preamble.`,
+        `You are a commercial real estate advisor writing directly to your client, ${investor.name}.
+
+Use "you" and "your" throughout — never third person.
+${bbContext}
+
+Properties under review:
+${allSummaries}
+
+Write a 2-3 sentence recommendation telling the client which property best fits their investment thesis and exactly why. Be direct, specific, and speak as their advisor. No preamble.`,
         { maxTokens: 300 }
       ),
     ]);
 
-    // Per-deal AI risks/strengths
+    // Per-deal AI risks/strengths — written to the investor directly
     const dealDetails = await Promise.all(
       deals.map(async (d) => {
+        const a = assignmentMap.get(d.id);
+        const score = a?.score ?? d.score;
+        const grade = a?.grade ?? d.grade;
         const fin = computeFinance({
           price: d.askingPrice ?? 0,
           noi: d.noi ?? 0,
           ltv: bb.ltv,
           ratePercent: bb.interestRate,
           amortizationYears: bb.amortizationYears,
-          currentMonthlyIncome: bb.currentMonthlyIncome ?? 0,
         });
 
         const risksStrengths = await askText(
-          `Net lease deal: ${dealSummary(d)}\n\nReturn exactly this format (no extra text):\nSTRENGTHS:\n- [bullet 1]\n- [bullet 2]\n- [bullet 3]\nRISKS:\n- [bullet 1]\n- [bullet 2]\n- [bullet 3]`,
+          `You are advising ${investor.name} on this net lease property. Write strengths and risks speaking directly to the investor using "you/your".
+
+Property: ${dealSummary(d)}
+
+Return exactly this format (no extra text):
+STRENGTHS:
+- [bullet 1]
+- [bullet 2]
+- [bullet 3]
+RISKS:
+- [bullet 1]
+- [bullet 2]
+- [bullet 3]`,
           { maxTokens: 300 }
         );
 
@@ -85,21 +136,15 @@ Monthly Net Cash Flow: ${fmtMoney(fin.monthlyNetCashFlow)}`;
           }
         }
 
-        return {
-          deal: d,
-          finance: fin,
-          strengths,
-          risks,
-        };
+        return { deal: d, finance: fin, score, grade, strengths, risks };
       })
     );
 
-    // Save report record
     const report = await prisma.report.create({
       data: {
         investorId,
         dealIds,
-        title: `Top ${deals.length} Deals — ${investor.name}`,
+        title: `Top ${deals.length} Deals`,
       },
     });
 
@@ -119,8 +164,8 @@ Monthly Net Cash Flow: ${fmtMoney(fin.monthlyNetCashFlow)}`;
         leaseType: d.deal.leaseType,
         termRemainingYears: d.deal.termRemainingYears,
         guarantyType: d.deal.guarantyType,
-        grade: d.deal.grade,
-        score: d.deal.score,
+        grade: d.score,  // investor-specific
+        score: d.score,  // investor-specific
         scoreBreakdown: d.deal.scoreBreakdown,
         selfCheckerNotes: d.deal.selfCheckerNotes,
         finance: {
@@ -130,7 +175,6 @@ Monthly Net Cash Flow: ${fmtMoney(fin.monthlyNetCashFlow)}`;
           monthlyNetCashFlow: d.finance.monthlyNetCashFlow,
           dscr: d.finance.dscr,
           cashOnCash: d.finance.cashOnCash,
-          newPortfolioMonthlyTotal: d.finance.newPortfolioMonthlyTotal,
         },
         strengths: d.strengths,
         risks: d.risks,

@@ -73,10 +73,21 @@ export default async function DealPage({
     })),
   };
 
+  // Load cached gap analysis from the assignment (if it exists)
+  const cachedGapAnalysis = ctxAssignment?.gapAnalysis
+    ? (ctxAssignment.gapAnalysis as {
+        isExceptional: boolean;
+        exceptionalReason: string | null;
+        buyBoxAdjustments: { field: string; currentValue: string; requiredValue: string; impact: string }[];
+        verdict: string;
+      })
+    : null;
+
   return (
     <DealProfile
       deal={serialized as never}
       allInvestors={allInvestors.map((i) => ({ id: i.id, name: i.name }))}
+      cachedGapAnalysis={cachedGapAnalysis}
       investorContext={
         ctxInvestor && ctxBuyBox
           ? {

@@ -72,6 +72,11 @@ input[type="range"].danger::-moz-range-thumb {
   background: #dc2626;
 }
 
+/* Hide print footer on screen — shown only in @media print below */
+.print-footer {
+  display: none;
+}
+
 /* ===== PRINT STYLES ===== */
 @media print {
   /* Hide all navigation */
@@ -108,8 +113,9 @@ input[type="range"].danger::-moz-range-thumb {
     break-inside: avoid;
   }
 
-  /* Footer always at bottom when printing */
+  /* Footer: show on every printed page */
   .print-footer {
+    display: flex !important;  /* override the screen display:none */
     position: fixed;
     bottom: 0;
     left: 0;
@@ -119,7 +125,6 @@ input[type="range"].danger::-moz-range-thumb {
     font-size: 10px;
     color: #6b7280;
     background: white;
-    display: flex;
     justify-content: space-between;
   }
 }

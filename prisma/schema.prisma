@@ -184,8 +184,9 @@ model DealAssignment {
   score          Float?
   grade          String?
   scoreBreakdown Json?
+  gapAnalysis    Json?   // cached result from runGapAnalysis — persists so it doesn't need re-running
 
-  createdAt DateTime @default(now())
+  createdAt      DateTime @default(now())
 
   @@unique([dealId, investorId])
 }
