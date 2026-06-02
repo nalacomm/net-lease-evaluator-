@@ -1,4 +1,47 @@
 # Session Notes — Net Lease Deal Evaluator
+Last updated: 2026-06-01
+
+## Quick Reference
+- Repo: github.com/nalacomm/net-lease-evaluator- (trailing dash)
+- Local: ~/net-lease-evaluator
+- Vercel project: net-lease-evaluator (gmgworldmedia team)
+- DB: Neon, ep-young-surf-aqdpzdkb, database=neondb
+- Login: ed@blakedickson.com / changeme123
+- Anthropic model in use: claude-sonnet-4-20250514
+
+## All Modules Built
+1. Auth (NextAuth credentials, JWT, middleware)
+2. Navigation (sidebar desktop, bottom tabs mobile)
+3. Investors: list, profile, create (manual + AI wizard from narrative/docs), edit
+4. Deals: global pool (investorId nullable), text/PDF/URL intake, AI extraction,
+   self-checker, scoring, deal profile 4-tab, export page, investor assignment checkboxes
+5. Scoring: 0-100pts across 8 categories + asset type bonus. Grades A/B/C/D/F.
+   Validated against Mark Coleman's Owings Mills (83/B) and Newington (80/B).
+6. Finance: LTV slider, break-even LTV/rate, sensitivity, Export/Print button.
+   Finance page accepts ?investorId= for investor-specific buy box.
+7. Dashboard: investor switcher, stats, asset class chart, news flags.
+   Portfolio income stats removed per user request.
+8. Reports: investor selector tabs, top-3 deal picker (primary + assigned deals),
+   AI exec summary / risks / strengths / recommendation, print to PDF.
+9. News: manual entry, AI deal tagging on submission.
+10. Deal Export: /deals/[id]/export — print-ready per-investor report.
+
+## Schema Changes from Original Spec
+- Deal.investorId nullable (global deal pool)
+- DealAssignment table added (dealId + investorId, per-investor score/grade/breakdown)
+- Deal fields added: numberOfTenants, anchorTenant, vacancyRate, grossLeasableArea
+- Asset types: dollar_store removed, shopping_center added
+- BuyBox.currentMonthlyIncome: kept in DB, removed from all UI
+
+## Stub Pages (not yet built)
+- /comps — comp tracker
+- /deals/compare — side-by-side comparison
+
+## Open Issues
+- NEXTAUTH_URL in Vercel must match actual deployed domain exactly
+- Shopping center asset type not yet weighted differently in scoring engine
+
+## Previous Session Summary
 
 ## What was worked on
 Scaffolded a brand-new Next.js 14 app, `net-lease-evaluator`, at
