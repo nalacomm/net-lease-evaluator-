@@ -31,16 +31,61 @@ export default async function DashboardPage({
     );
   }
 
-  const deals = await prisma.deal.findMany({
-    where: { investorId: investor.id },
-    orderBy: { score: "desc" },
-  });
+  // Pull primary deals AND assigned deals, then merge
+  const [primaryDeals, assignments] = await Promise.all([
+    prisma.deal.findMany({
+      where: { investorId: investor.id },
+      orderBy: { score: "desc" },
+    }),
+    prisma.dealAssignment.findMany({
+      where: { investorId: investor.id },
+      include: { deal: true },
+      orderBy: { score: "desc" },
+    }),
+  ]);
 
-  const activeDeals = deals.filter((d) => d.status === "active");
-  const scored = deals.filter((d) => d.score != null);
+  // Unified deal shape for dashboard stats
+  type DashDeal = {
+    id: string;
+    address: string | null;
+    tenantName: string | null;
+    assetType: string | null;
+    status: string;
+    score: number | null;
+    grade: string | null;
+  };
+
+  const seen = new Set(primaryDeals.map((d) => d.id));
+
+  const allDeals: DashDeal[] = [
+    ...primaryDeals.map((d) => ({
+      id: d.id,
+      address: d.address,
+      tenantName: d.tenantName,
+      assetType: d.assetType,
+      status: d.status,
+      score: d.score,
+      grade: d.grade,
+    })),
+    // Assigned deals not already in primary — use assignment-specific score/grade
+    ...assignments
+      .filter((a) => !seen.has(a.dealId))
+      .map((a) => ({
+        id: a.dealId,
+        address: a.deal.address,
+        tenantName: a.deal.tenantName,
+        assetType: a.deal.assetType,
+        status: a.deal.status,
+        score: a.score,       // investor-specific score
+        grade: a.grade,       // investor-specific grade
+      })),
+  ].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+
+  const activeDeals = allDeals.filter((d) => d.status === "active");
+  const scored = allDeals.filter((d) => d.score != null);
   const topDeal = scored[0] ?? null;
 
-  // Asset class ranking
+  // Asset class ranking — use investor-specific scores
   const byType = new Map<string, { sum: number; n: number }>();
   for (const d of scored) {
     const t = d.assetType ?? "other";
@@ -55,8 +100,10 @@ export default async function DashboardPage({
     count: v.n,
   }));
 
+  // News flags: primary deals + assigned deal IDs
+  const allDealIds = allDeals.map((d) => d.id);
   const recentFlags = await prisma.dealNewsFlag.findMany({
-    where: { deal: { investorId: investor.id } },
+    where: { dealId: { in: allDealIds } },
     orderBy: { createdAt: "desc" },
     take: 3,
     include: { newsItem: true, deal: true },
