@@ -31,7 +31,7 @@ function isActive(pathname: string, href: string): boolean {
 export function Sidebar() {
   const pathname = usePathname();
   return (
-    <aside className="hidden md:flex md:w-60 md:shrink-0 md:flex-col md:border-r md:border-gray-200 md:bg-white">
+    <aside className="hidden md:flex md:w-60 md:shrink-0 md:flex-col md:border-r md:border-gray-200 md:bg-white print:!hidden">
       <div className="flex h-16 items-center px-5">
         <span className="text-lg font-bold text-brand">Net Lease</span>
       </div>
@@ -70,7 +70,7 @@ export function Sidebar() {
 export function BottomTabs() {
   const pathname = usePathname();
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-6 border-t border-gray-200 bg-white md:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-6 border-t border-gray-200 bg-white md:hidden print:!hidden">
       {TABS.map((t) => {
         const Icon = t.icon;
         const active = isActive(pathname, t.href);

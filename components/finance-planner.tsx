@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { computeFinance, breakEvenLtv, breakEvenRate } from "@/lib/finance";
 import { fmtMoney, fmtPercent, fmtDscr } from "@/lib/format";
 import { Printer } from "lucide-react";
+import { PrintFooter } from "@/components/print-footer";
 import clsx from "clsx";
 
 export function FinancePlanner({
@@ -160,6 +161,7 @@ export function FinancePlanner({
       </div>
 
       <p className="text-center text-xs text-gray-400 print:hidden">Modeling {dealLabel}</p>
+      <PrintFooter />
     </div>
   );
 }

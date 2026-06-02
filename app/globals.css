@@ -71,3 +71,55 @@ input[type="range"].danger::-webkit-slider-thumb {
 input[type="range"].danger::-moz-range-thumb {
   background: #dc2626;
 }
+
+/* ===== PRINT STYLES ===== */
+@media print {
+  /* Hide all navigation */
+  aside,
+  nav,
+  [data-print-hide] {
+    display: none !important;
+  }
+
+  /* Full-width content — remove sidebar offset */
+  .flex.min-h-screen {
+    display: block !important;
+  }
+
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Clean white background */
+  body {
+    background: white !important;
+  }
+
+  /* Remove shadows and rounded corners on cards */
+  .card,
+  [class*="shadow"] {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+
+  /* Prevent page breaks inside cards */
+  .card {
+    break-inside: avoid;
+  }
+
+  /* Footer always at bottom when printing */
+  .print-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    border-top: 1px solid #e5e7eb;
+    padding: 6px 16px;
+    font-size: 10px;
+    color: #6b7280;
+    background: white;
+    display: flex;
+    justify-content: space-between;
+  }
+}

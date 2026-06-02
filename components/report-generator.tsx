@@ -5,6 +5,7 @@ import { GradeBadge } from "@/components/ui";
 import { labelFor, ASSET_TYPES, LEASE_TYPES, GUARANTY_TYPES } from "@/lib/constants";
 import { fmtMoney, fmtPercent, fmtDscr } from "@/lib/format";
 import { Loader2, FileText, CheckSquare, Square } from "lucide-react";
+import { PrintFooter } from "@/components/print-footer";
 import clsx from "clsx";
 
 type DealOption = {
@@ -258,6 +259,7 @@ export function ReportGenerator({
           <button onClick={printReport} className="btn-secondary w-full print:hidden">
             <FileText className="h-4 w-4" /> Print / Save as PDF
           </button>
+          <PrintFooter />
         </div>
       )}
 
