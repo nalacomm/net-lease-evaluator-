@@ -61,8 +61,8 @@ async function main() {
             "qsr",
             "pharmacy",
             "medical",
-            "dollar_store",
             "retail",
+            "shopping_center",
           ],
           currentMonthlyIncome: 31033,
           notes:

@@ -3,7 +3,6 @@ export const ASSET_TYPES: { value: string; label: string }[] = [
   { value: "qsr", label: "QSR" },
   { value: "pharmacy", label: "Pharmacy" },
   { value: "medical", label: "Medical" },
-  { value: "dollar_store", label: "Dollar Store" },
   { value: "retail", label: "Retail" },
   { value: "shopping_center", label: "Shopping Center" },
   { value: "restaurant", label: "Restaurant" },

@@ -10,15 +10,27 @@ export const dynamic = "force-dynamic";
 
 export default async function FinancePage({
   params,
+  searchParams,
 }: {
   params: { dealId: string };
+  searchParams: { investorId?: string };
 }) {
-  const deal = await prisma.deal.findUnique({
-    where: { id: params.dealId },
-    include: { investor: { include: { buyBox: true } } },
-  });
+  const [deal, contextInvestor] = await Promise.all([
+    prisma.deal.findUnique({
+      where: { id: params.dealId },
+      include: { investor: { include: { buyBox: true } } },
+    }),
+    searchParams.investorId
+      ? prisma.investor.findUnique({
+          where: { id: searchParams.investorId },
+          include: { buyBox: true },
+        })
+      : null,
+  ]);
   if (!deal) notFound();
-  const bb = deal.investor?.buyBox ?? null;
+  // Use the context investor's buy box if provided (e.g. from investor profile page)
+  const bb = contextInvestor?.buyBox ?? deal.investor?.buyBox ?? null;
+  const investorLabel = contextInvestor?.name ?? deal.investor?.name ?? null;
 
   if (!deal.askingPrice || !deal.noi || !bb) {
     return (
@@ -45,7 +57,7 @@ export default async function FinancePage({
       </Link>
       <PageHeader
         title="Finance Planning"
-        subtitle={`${deal.address ?? "Deal"} · ${deal.tenantName ?? ""}`}
+        subtitle={[deal.address ?? deal.tenantName ?? "Deal", investorLabel ? `Modeled for ${investorLabel}` : null].filter(Boolean).join(" · ")}
       />
 
       <div className="card grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">

@@ -18,6 +18,10 @@ export default async function InvestorPage({
     include: {
       buyBox: true,
       deals: { where: { status: "active" }, orderBy: { score: "desc" } },
+      assignments: {
+        include: { deal: true },
+        orderBy: { score: "desc" },
+      },
     },
   });
   if (!investor) notFound();
@@ -53,15 +57,16 @@ export default async function InvestorPage({
         title={investor.name}
         subtitle={investor.entityName ?? undefined}
         action={
-          bb ? (
-            <Link href={`/investors/${investor.id}/buybox`} className="btn-secondary">
-              Edit Buy Box
+          <div className="flex flex-wrap gap-2">
+            <Link href={`/investors/${investor.id}/edit`} className="btn-secondary">
+              Edit Investor
             </Link>
-          ) : (
-            <Link href={`/investors/${investor.id}/buybox`} className="btn-primary">
-              Build Buy Box
-            </Link>
-          )
+            {!bb && (
+              <Link href={`/investors/${investor.id}/buybox`} className="btn-primary">
+                Build Buy Box
+              </Link>
+            )}
+          </div>
         }
       />
 
@@ -109,6 +114,51 @@ export default async function InvestorPage({
               ))}
             </ul>
           )}
+        </div>
+      )}
+
+      {/* Assigned deals (evaluated against this investor's buy box) */}
+      {investor.assignments.length > 0 && (
+        <div className="card">
+          <h2 className="mb-2 font-semibold">
+            Deals Evaluated Against This Buy Box
+          </h2>
+          <p className="mb-3 text-xs text-gray-500">
+            All modules — Finance, Scoring, Sensitivity — use this investor's buy box defaults.
+          </p>
+          <ul className="space-y-2">
+            {investor.assignments.map((a) => (
+              <li key={a.id}>
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-100 p-3">
+                  <div className="flex items-center gap-2">
+                    <GradeBadge grade={a.grade} size="sm" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        {a.deal.address ?? a.deal.tenantName ?? "Deal"}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {a.deal.tenantName} · Score {a.score?.toFixed(0) ?? "—"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Link
+                      href={`/deals/${a.dealId}`}
+                      className="btn-secondary text-xs"
+                    >
+                      Overview
+                    </Link>
+                    <Link
+                      href={`/finance/${a.dealId}?investorId=${investor.id}`}
+                      className="btn-primary text-xs"
+                    >
+                      Finance
+                    </Link>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

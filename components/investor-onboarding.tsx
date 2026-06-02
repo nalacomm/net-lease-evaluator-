@@ -5,21 +5,79 @@ import { useRouter } from "next/navigation";
 import { ASSET_TYPES, LEASE_TYPES, GUARANTY_TYPES } from "@/lib/constants";
 import { Loader2, Sparkles, ClipboardList, AlertCircle, Upload, X } from "lucide-react";
 
+// ---- Stable helper components (MUST be outside the parent to avoid remount on every render) ----
+function BbInput({
+  label,
+  value,
+  onChange,
+  inferred,
+  missing,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  inferred?: boolean;
+  missing?: boolean;
+}) {
+  return (
+    <div>
+      <label className="label flex items-center gap-1.5">
+        {label}
+        {missing && <span className="h-2 w-2 rounded-full bg-red-500" title="Missing" />}
+        {inferred && !missing && <span className="h-2 w-2 rounded-full bg-amber-400" title="AI-inferred" />}
+      </label>
+      <input
+        type="text"
+        inputMode="decimal"
+        className="input"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </div>
+  );
+}
+
+function BbSelect({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <div>
+      <label className="label">{label}</label>
+      <select className="input" value={value} onChange={(e) => onChange(e.target.value)}>
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+// ---- End helpers ----
+
 type BuyBoxDraft = {
   capRateMin: number | null;
   capRateTarget: number | null;
   priceMax: number | null;
   priceStretch: number | null;
-  leaseTypePreferred: string;
-  leaseTypeAcceptable: string;
+  leaseTypePreferred: string | null;
+  leaseTypeAcceptable: string | null;
   termMinYears: number | null;
   termPreferredYears: number | null;
   bumpMinPercent: number | null;
   bumpAltStructure: string | null;
   flatLeaseAllowed: boolean;
-  guarantyPreferred: string;
-  guarantyAcceptable: string;
-  guarantyFloor: string;
+  guarantyPreferred: string | null;
+  guarantyAcceptable: string | null;
+  guarantyFloor: string | null;
   operatorMinUnits: number | null;
   dscrMin: number | null;
   ltv: number | null;
@@ -42,47 +100,71 @@ function n(v: number | null | undefined) {
   return v != null ? String(v) : "";
 }
 
+export type BbFormState = {
+  capRateMin: string;
+  capRateTarget: string;
+  priceMax: string;
+  priceStretch: string;
+  leaseTypePreferred: string;
+  leaseTypeAcceptable: string;
+  termMinYears: string;
+  termPreferredYears: string;
+  bumpMinPercent: string;
+  bumpAltStructure: string;
+  flatLeaseAllowed: boolean;
+  guarantyPreferred: string;
+  guarantyAcceptable: string;
+  guarantyFloor: string;
+  operatorMinUnits: string;
+  dscrMin: string;
+  ltv: string;
+  interestRate: string;
+  amortizationYears: string;
+  hhiMin: string;
+  currentMonthlyIncome: string;
+};
+
+export const DEFAULT_BB: BbFormState = {
+  capRateMin: "",
+  capRateTarget: "",
+  priceMax: "",
+  priceStretch: "",
+  leaseTypePreferred: "absolute_nnn",
+  leaseTypeAcceptable: "nnn",
+  termMinYears: "",
+  termPreferredYears: "",
+  bumpMinPercent: "",
+  bumpAltStructure: "",
+  flatLeaseAllowed: false,
+  guarantyPreferred: "corporate",
+  guarantyAcceptable: "multi_unit_franchisee",
+  guarantyFloor: "single_personal",
+  operatorMinUnits: "",
+  dscrMin: "1.35",
+  ltv: "0.65",
+  interestRate: "7.0",
+  amortizationYears: "25",
+  hhiMin: "",
+  currentMonthlyIncome: "0",
+};
+
 export function InvestorOnboarding() {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("choose");
 
-  // AI wizard state
   const [narrative, setNarrative] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [wizarding, setWizarding] = useState(false);
   const [wizardResult, setWizardResult] = useState<BuyBoxDraft | null>(null);
   const [wizardError, setWizardError] = useState("");
 
-  // Shared form state (populated by manual or AI)
   const [name, setName] = useState("");
   const [entityName, setEntityName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
 
-  const [bb, setBb] = useState({
-    capRateMin: "",
-    capRateTarget: "",
-    priceMax: "",
-    priceStretch: "",
-    leaseTypePreferred: "absolute_nnn",
-    leaseTypeAcceptable: "nnn",
-    termMinYears: "",
-    termPreferredYears: "",
-    bumpMinPercent: "",
-    bumpAltStructure: "",
-    flatLeaseAllowed: false,
-    guarantyPreferred: "corporate",
-    guarantyAcceptable: "multi_unit_franchisee",
-    guarantyFloor: "single_personal",
-    operatorMinUnits: "",
-    dscrMin: "1.35",
-    ltv: "0.65",
-    interestRate: "7.0",
-    amortizationYears: "25",
-    hhiMin: "",
-    currentMonthlyIncome: "0",
-  });
+  const [bb, setBb] = useState<BbFormState>(DEFAULT_BB);
   const [preferred, setPreferred] = useState<string[]>([]);
   const [acceptable, setAcceptable] = useState<string[]>([]);
 
@@ -90,14 +172,13 @@ export function InvestorOnboarding() {
   const [saveError, setSaveError] = useState("");
 
   function setBbField(k: string, v: string | boolean) {
-    setBb((b) => ({ ...b, [k]: v }));
+    setBb((prev) => ({ ...prev, [k]: v }));
   }
 
   function toggle(list: string[], setList: (v: string[]) => void, v: string) {
     setList(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
   }
 
-  // Populate form from AI wizard result
   function applyWizard(d: BuyBoxDraft) {
     setBb({
       capRateMin: n(d.capRateMin),
@@ -126,7 +207,7 @@ export function InvestorOnboarding() {
     setAcceptable(d.assetTypesAcceptable ?? []);
     if (d.notes) setNotes(d.notes);
     setWizardResult(d);
-    setMode("manual"); // Switch to review form
+    setMode("manual");
   }
 
   async function runWizard() {
@@ -170,24 +251,17 @@ export function InvestorOnboarding() {
     }
   }
 
-  // ---- CHOOSE MODE ----
   if (mode === "choose") {
     return (
       <div className="grid gap-4 sm:grid-cols-2">
-        <button
-          onClick={() => setMode("manual")}
-          className="card flex flex-col items-start gap-3 text-left hover:border-brand"
-        >
+        <button onClick={() => setMode("manual")} className="card flex flex-col items-start gap-3 text-left hover:border-brand">
           <ClipboardList className="h-8 w-8 text-brand" />
           <div>
             <p className="font-semibold text-gray-900">Manual entry</p>
             <p className="text-sm text-gray-500">You know the buy box numbers. Fill in the form directly.</p>
           </div>
         </button>
-        <button
-          onClick={() => setMode("ai")}
-          className="card flex flex-col items-start gap-3 text-left hover:border-brand"
-        >
+        <button onClick={() => setMode("ai")} className="card flex flex-col items-start gap-3 text-left hover:border-brand">
           <Sparkles className="h-8 w-8 text-brand" />
           <div>
             <p className="font-semibold text-gray-900">AI Buy Box Wizard</p>
@@ -198,31 +272,25 @@ export function InvestorOnboarding() {
     );
   }
 
-  // ---- AI WIZARD INPUT ----
   if (mode === "ai") {
     return (
       <div className="space-y-4">
         <button onClick={() => setMode("choose")} className="btn-secondary text-sm">← Back</button>
         <div className="card space-y-4">
           <div>
-            <label className="label">Describe the investor and what they're looking for</label>
+            <label className="label">Describe the investor and what they want</label>
             <textarea
               className="input min-h-[140px]"
-              placeholder="e.g. This is Chris. He wants shopping centers, looking to spend up to $2M. He has a bank approval for $2M. Wants stable tenants, prefers NNN leases, open to multi-tenant. Doesn't need bumps but would like some. Has no existing portfolio."
+              placeholder="e.g. This is Chris. He wants shopping centers, up to $2M, bank approval for $2M. Wants NNN leases, stable tenants. No existing portfolio."
               value={narrative}
               onChange={(e) => setNarrative(e.target.value)}
             />
           </div>
           <div>
             <label className="label">Upload supporting docs (optional)</label>
-            <p className="mb-2 text-xs text-gray-500">Bank approval letters, deal flyers, OMs — anything that shows what they like or what they can afford.</p>
-            <input
-              type="file"
-              multiple
-              accept=".pdf,.txt"
-              className="input"
-              onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
-            />
+            <p className="mb-2 text-xs text-gray-500">Bank approval letters, deal flyers, OMs the investor liked.</p>
+            <input type="file" multiple accept=".pdf,.txt" className="input"
+              onChange={(e) => setFiles(Array.from(e.target.files ?? []))} />
             {files.length > 0 && (
               <ul className="mt-2 space-y-1">
                 {files.map((f, i) => (
@@ -241,11 +309,7 @@ export function InvestorOnboarding() {
               <AlertCircle className="h-4 w-4" /> {wizardError}
             </div>
           )}
-          <button
-            onClick={runWizard}
-            disabled={wizarding || (!narrative.trim() && files.length === 0)}
-            className="btn-primary w-full"
-          >
+          <button onClick={runWizard} disabled={wizarding || (!narrative.trim() && files.length === 0)} className="btn-primary w-full">
             {wizarding ? <><Loader2 className="h-4 w-4 animate-spin" /> Building buy box…</> : <><Sparkles className="h-4 w-4" /> Build Buy Box with AI</>}
           </button>
         </div>
@@ -253,44 +317,9 @@ export function InvestorOnboarding() {
     );
   }
 
-  // ---- REVIEW / MANUAL FORM ----
+  // Manual / Review form
   const inferred = new Set(wizardResult?.inferredFields ?? []);
   const missing = new Set(wizardResult?.missingFields ?? []);
-
-  const F = ({ k, label }: { k: string; label: string }) => {
-    const val = (bb as Record<string, unknown>)[k] as string;
-    const isInferred = inferred.has(k);
-    const isMissing = missing.has(k) && !val;
-    return (
-      <div>
-        <label className="label flex items-center gap-1.5">
-          {label}
-          {isMissing && <span className="h-2 w-2 rounded-full bg-red-500" title="Missing" />}
-          {isInferred && !isMissing && <span className="h-2 w-2 rounded-full bg-amber-400" title="AI-inferred" />}
-        </label>
-        <input
-          type="text"
-          inputMode="decimal"
-          className="input"
-          value={val ?? ""}
-          onChange={(e) => setBbField(k, e.target.value)}
-        />
-      </div>
-    );
-  };
-
-  const S = ({ k, label, options }: { k: string; label: string; options: { value: string; label: string }[] }) => (
-    <div>
-      <label className="label">{label}</label>
-      <select
-        className="input"
-        value={(bb as Record<string, unknown>)[k] as string}
-        onChange={(e) => setBbField(k, e.target.value)}
-      >
-        {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-      </select>
-    </div>
-  );
 
   return (
     <div className="space-y-4">
@@ -300,68 +329,67 @@ export function InvestorOnboarding() {
         <div className="card">
           <div className="flex flex-wrap items-center gap-2">
             <Sparkles className="h-4 w-4 text-brand" />
-            <span className="font-medium text-gray-900">AI-generated buy box — review before saving</span>
+            <span className="font-medium">AI-generated buy box — review before saving</span>
             <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
               wizardResult.confidenceLevel === "high" ? "bg-green-100 text-green-800" :
               wizardResult.confidenceLevel === "medium" ? "bg-yellow-100 text-yellow-800" :
               "bg-red-100 text-red-800"
-            }`}>{wizardResult.confidenceLevel.toUpperCase()} confidence</span>
+            }`}>{wizardResult.confidenceLevel.toUpperCase()}</span>
           </div>
-          {wizardResult.narrativeSummary && (
-            <p className="mt-2 text-sm text-gray-600">{wizardResult.narrativeSummary}</p>
-          )}
-          <p className="mt-1 text-xs text-gray-400">
-            Amber dots = AI-inferred. Red dots = missing. Edit any field before saving.
-          </p>
+          {wizardResult.narrativeSummary && <p className="mt-2 text-sm text-gray-600">{wizardResult.narrativeSummary}</p>}
+          <p className="mt-1 text-xs text-gray-400">Amber = AI-inferred. Red = missing. Edit before saving.</p>
         </div>
       )}
 
-      {/* Investor info */}
       <div className="card grid gap-3 sm:grid-cols-2">
         <h3 className="col-span-full font-semibold">Investor Info</h3>
-        {[
-          { k: "name", label: "Full Name *", val: name, set: setName },
-          { k: "entityName", label: "Entity / LLC", val: entityName, set: setEntityName },
-          { k: "email", label: "Email", val: email, set: setEmail },
-          { k: "phone", label: "Phone", val: phone, set: setPhone },
-        ].map(({ k, label, val, set }) => (
-          <div key={k}>
-            <label className="label">{label}</label>
-            <input type="text" className="input" value={val} onChange={(e) => set(e.target.value)} />
-          </div>
-        ))}
+        <div>
+          <label className="label">Full Name *</label>
+          <input type="text" className="input" value={name} onChange={(e) => setName(e.target.value)} />
+        </div>
+        <div>
+          <label className="label">Entity / LLC</label>
+          <input type="text" className="input" value={entityName} onChange={(e) => setEntityName(e.target.value)} />
+        </div>
+        <div>
+          <label className="label">Email</label>
+          <input type="text" className="input" value={email} onChange={(e) => setEmail(e.target.value)} />
+        </div>
+        <div>
+          <label className="label">Phone</label>
+          <input type="text" className="input" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        </div>
         <div className="col-span-full">
           <label className="label">Notes</label>
           <textarea className="input min-h-[80px]" value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
       </div>
 
-      {/* Buy box */}
       <div className="card">
         <h3 className="mb-3 font-semibold">Buy Box</h3>
         <div className="grid gap-3 sm:grid-cols-2">
-          <F k="capRateMin" label="Cap Rate Floor (%)" />
-          <F k="capRateTarget" label="Cap Rate Target (%)" />
-          <F k="priceMax" label="Max Price ($)" />
-          <F k="priceStretch" label="Stretch Price ($)" />
-          <S k="leaseTypePreferred" label="Preferred Lease" options={LEASE_TYPES} />
-          <S k="leaseTypeAcceptable" label="Acceptable Lease" options={LEASE_TYPES} />
-          <F k="termMinYears" label="Min Term (yrs)" />
-          <F k="termPreferredYears" label="Preferred Term (yrs)" />
-          <F k="bumpMinPercent" label="Min Bump (%)" />
+          <BbInput label="Cap Rate Floor (%)" value={bb.capRateMin} onChange={(v) => setBbField("capRateMin", v)} inferred={inferred.has("capRateMin")} missing={missing.has("capRateMin") && !bb.capRateMin} />
+          <BbInput label="Cap Rate Target (%)" value={bb.capRateTarget} onChange={(v) => setBbField("capRateTarget", v)} inferred={inferred.has("capRateTarget")} missing={missing.has("capRateTarget") && !bb.capRateTarget} />
+          <BbInput label="Max Price ($)" value={bb.priceMax} onChange={(v) => setBbField("priceMax", v)} inferred={inferred.has("priceMax")} missing={missing.has("priceMax") && !bb.priceMax} />
+          <BbInput label="Stretch Price ($)" value={bb.priceStretch} onChange={(v) => setBbField("priceStretch", v)} inferred={inferred.has("priceStretch")} />
+          <BbSelect label="Preferred Lease" value={bb.leaseTypePreferred} onChange={(v) => setBbField("leaseTypePreferred", v)} options={LEASE_TYPES} />
+          <BbSelect label="Acceptable Lease" value={bb.leaseTypeAcceptable} onChange={(v) => setBbField("leaseTypeAcceptable", v)} options={LEASE_TYPES} />
+          <BbInput label="Min Term (yrs)" value={bb.termMinYears} onChange={(v) => setBbField("termMinYears", v)} inferred={inferred.has("termMinYears")} missing={missing.has("termMinYears") && !bb.termMinYears} />
+          <BbInput label="Preferred Term (yrs)" value={bb.termPreferredYears} onChange={(v) => setBbField("termPreferredYears", v)} inferred={inferred.has("termPreferredYears")} />
+          <BbInput label="Min Bump (%)" value={bb.bumpMinPercent} onChange={(v) => setBbField("bumpMinPercent", v)} inferred={inferred.has("bumpMinPercent")} />
           <div>
             <label className="label">Alt Bump Structure</label>
             <input type="text" className="input" value={bb.bumpAltStructure} onChange={(e) => setBbField("bumpAltStructure", e.target.value)} />
           </div>
-          <S k="guarantyPreferred" label="Preferred Guaranty" options={GUARANTY_TYPES} />
-          <S k="guarantyFloor" label="Guaranty Floor" options={GUARANTY_TYPES} />
-          <F k="operatorMinUnits" label="Min Operator Units" />
-          <F k="dscrMin" label="Min DSCR" />
-          <F k="ltv" label="LTV (e.g. 0.65)" />
-          <F k="interestRate" label="Interest Rate (%)" />
-          <F k="amortizationYears" label="Amortization (yrs)" />
-          <F k="hhiMin" label="Min HHI ($)" />
-          <F k="currentMonthlyIncome" label="Current Monthly Income ($)" />
+          <BbSelect label="Preferred Guaranty" value={bb.guarantyPreferred} onChange={(v) => setBbField("guarantyPreferred", v)} options={GUARANTY_TYPES} />
+          <BbSelect label="Guaranty Floor" value={bb.guarantyFloor} onChange={(v) => setBbField("guarantyFloor", v)} options={GUARANTY_TYPES} />
+          <BbInput label="Min Operator Units" value={bb.operatorMinUnits} onChange={(v) => setBbField("operatorMinUnits", v)} inferred={inferred.has("operatorMinUnits")} />
+          <BbInput label="Min DSCR" value={bb.dscrMin} onChange={(v) => setBbField("dscrMin", v)} inferred={inferred.has("dscrMin")} />
+          <BbInput label="LTV (e.g. 0.65)" value={bb.ltv} onChange={(v) => setBbField("ltv", v)} inferred={inferred.has("ltv")} />
+          <BbInput label="Interest Rate (%)" value={bb.interestRate} onChange={(v) => setBbField("interestRate", v)} inferred={inferred.has("interestRate")} />
+          <BbInput label="Amortization (yrs)" value={bb.amortizationYears} onChange={(v) => setBbField("amortizationYears", v)} inferred={inferred.has("amortizationYears")} />
+          <BbInput label="Min HHI ($)" value={bb.hhiMin} onChange={(v) => setBbField("hhiMin", v)} inferred={inferred.has("hhiMin")} />
+          <BbInput label="Current Monthly Income ($)" value={bb.currentMonthlyIncome} onChange={(v) => setBbField("currentMonthlyIncome", v)} inferred={inferred.has("currentMonthlyIncome")} />
         </div>
 
         <div className="mt-4">
