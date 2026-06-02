@@ -24,6 +24,7 @@ import {
   Calculator,
   Loader2,
   ChevronDown,
+  FileDown,
 } from "lucide-react";
 
 type Category = {
@@ -258,6 +259,12 @@ export function DealProfile({
             className="btn-secondary"
           >
             <Calculator className="h-4 w-4" /> Finance
+          </Link>
+          <Link
+            href={`/deals/${deal.id}/export${investorContext ? `?investorId=${investorContext.investorId}` : ""}`}
+            className="btn-secondary"
+          >
+            <FileDown className="h-4 w-4" /> Export
           </Link>
         </div>
       </div>

@@ -212,7 +212,6 @@ export function InvestorEditForm({ investor }: { investor: InvestorWithBuyBox })
           <BbInput label="Interest Rate (%)" value={form.interestRate} onChange={(v) => setF("interestRate", v)} />
           <BbInput label="Amortization (yrs)" value={form.amortizationYears} onChange={(v) => setF("amortizationYears", v)} />
           <BbInput label="Min HHI ($)" value={form.hhiMin} onChange={(v) => setF("hhiMin", v)} />
-          <BbInput label="Current Monthly Income ($)" value={form.currentMonthlyIncome} onChange={(v) => setF("currentMonthlyIncome", v)} />
         </div>
 
         <div className="mt-4">

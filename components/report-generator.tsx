@@ -62,10 +62,14 @@ type ReportData = {
 };
 
 export function ReportGenerator({
+  allInvestors = [],
+  activeInvestorId,
   investor,
   deals,
   pastReports,
 }: {
+  allInvestors?: { id: string; name: string }[];
+  activeInvestorId?: string | null;
   investor: { id: string; name: string } | null;
   deals: DealOption[];
   pastReports: PastReport[];
@@ -106,12 +110,36 @@ export function ReportGenerator({
     window.print();
   }
 
-  if (!investor) {
-    return <p className="text-sm text-gray-400">No investor selected.</p>;
-  }
-
   return (
     <div className="space-y-5">
+      {/* Investor selector */}
+      {allInvestors.length > 1 && (
+        <div className="card flex flex-wrap items-center gap-3">
+          <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Generate report for:</label>
+          <div className="flex flex-wrap gap-2">
+            {allInvestors.map((inv) => (
+              <a
+                key={inv.id}
+                href={`/reports?investorId=${inv.id}`}
+                className={`rounded-full border px-3 py-1.5 text-sm font-medium ${
+                  activeInvestorId === inv.id
+                    ? "border-brand bg-brand text-white"
+                    : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                {inv.name}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!investor && (
+        <p className="text-sm text-gray-400">Select an investor above to generate a report.</p>
+      )}
+
+      {investor && (
+      <>
       {/* Deal picker */}
       <div className="card">
         <h2 className="mb-1 font-semibold">Select up to 3 deals</h2>
@@ -246,6 +274,8 @@ export function ReportGenerator({
             ))}
           </ul>
         </div>
+      )}
+      </>
       )}
     </div>
   );

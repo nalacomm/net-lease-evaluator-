@@ -389,7 +389,6 @@ export function InvestorOnboarding() {
           <BbInput label="Interest Rate (%)" value={bb.interestRate} onChange={(v) => setBbField("interestRate", v)} inferred={inferred.has("interestRate")} />
           <BbInput label="Amortization (yrs)" value={bb.amortizationYears} onChange={(v) => setBbField("amortizationYears", v)} inferred={inferred.has("amortizationYears")} />
           <BbInput label="Min HHI ($)" value={bb.hhiMin} onChange={(v) => setBbField("hhiMin", v)} inferred={inferred.has("hhiMin")} />
-          <BbInput label="Current Monthly Income ($)" value={bb.currentMonthlyIncome} onChange={(v) => setBbField("currentMonthlyIncome", v)} inferred={inferred.has("currentMonthlyIncome")} />
         </div>
 
         <div className="mt-4">

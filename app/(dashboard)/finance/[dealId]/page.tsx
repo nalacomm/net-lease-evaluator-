@@ -86,8 +86,8 @@ export default async function FinancePage({
         defaultRate={bb.interestRate}
         defaultAmort={bb.amortizationYears}
         dscrFloor={bb.dscrMin}
-        currentMonthlyIncome={bb.currentMonthlyIncome ?? 0}
         dealLabel={deal.address ?? deal.tenantName ?? "deal"}
+        investorName={investorLabel ?? undefined}
       />
     </div>
   );
