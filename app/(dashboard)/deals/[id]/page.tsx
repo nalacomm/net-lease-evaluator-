@@ -24,8 +24,7 @@ export default async function DealPage({
         assignments: {
           include: {
             investor: {
-              select: { id: true, name: true },
-              include: { buyBox: true } as never,
+              include: { buyBox: true },
             },
           },
         },
@@ -38,13 +37,7 @@ export default async function DealPage({
   // If viewing from a specific investor's context, use their assignment data
   const ctxInvestorId = searchParams.investorId ?? null;
   const ctxAssignment = ctxInvestorId
-    ? (deal.assignments as never as {
-        investorId: string;
-        score: number | null;
-        grade: string | null;
-        scoreBreakdown: unknown;
-        investor: { id: string; name: string; buyBox: { dscrMin: number; ltv: number; interestRate: number; amortizationYears: number; currentMonthlyIncome: number | null } | null };
-      }[]).find((a) => a.investorId === ctxInvestorId)
+    ? deal.assignments.find((a) => a.investorId === ctxInvestorId)
     : null;
 
   const ctxInvestor = ctxAssignment?.investor ?? null;
@@ -74,7 +67,7 @@ export default async function DealPage({
     })),
     assignments: deal.assignments.map((a) => ({
       investorId: a.investorId,
-      investorName: (a.investor as { name: string }).name,
+      investorName: a.investor.name,
       score: a.score,
       grade: a.grade,
     })),
