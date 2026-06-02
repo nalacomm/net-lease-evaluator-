@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { analyzeDeal } from "@/lib/analyze";
 
 function parseBb(bb: Record<string, unknown>) {
   return {
@@ -70,6 +71,22 @@ export async function PATCH(
       },
       include: { buyBox: true },
     });
+
+    // Re-analyze all deals associated with this investor after buy box change
+    if (bb) {
+      const [primaryDeals, assignments] = await Promise.all([
+        prisma.deal.findMany({ where: { investorId: params.id }, select: { id: true } }),
+        prisma.dealAssignment.findMany({ where: { investorId: params.id }, select: { dealId: true } }),
+      ]);
+      const allIds = [
+        ...primaryDeals.map((d) => d.id),
+        ...assignments.map((a) => a.dealId),
+      ];
+      // Re-analyze up to 30 deals synchronously; log if more exist
+      const toAnalyze = [...new Set(allIds)].slice(0, 30);
+      await Promise.allSettled(toAnalyze.map((id) => analyzeDeal(id).catch(() => null)));
+    }
+
     return NextResponse.json(investor);
   } catch (e) {
     console.error("investors PATCH error", e);

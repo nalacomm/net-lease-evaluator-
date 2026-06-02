@@ -9,6 +9,7 @@ import {
   fmtDscr,
 } from "@/lib/format";
 import { computeFinance } from "@/lib/finance";
+import clsx from "clsx";
 import {
   labelFor,
   ASSET_TYPES,
@@ -25,6 +26,8 @@ import {
   Loader2,
   ChevronDown,
   FileDown,
+  Trash2,
+  Lightbulb,
 } from "lucide-react";
 
 type Category = {
@@ -136,6 +139,14 @@ export function DealProfile({
   const [updating, setUpdating] = useState(false);
   const [assignments, setAssignments] = useState<Assignment[]>(deal.assignments ?? []);
   const [assigning, setAssigning] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [gapAnalysis, setGapAnalysis] = useState<null | {
+    isExceptional: boolean;
+    exceptionalReason: string | null;
+    buyBoxAdjustments: { field: string; currentValue: string; requiredValue: string; impact: string }[];
+    verdict: string;
+  }>(null);
+  const [gapLoading, setGapLoading] = useState(false);
 
   async function toggleAssignment(investorId: string) {
     const isAssigned = assignments.some((a) => a.investorId === investorId);
@@ -171,6 +182,26 @@ export function DealProfile({
     await fetch(`/api/deals/${deal.id}/analyze`, { method: "POST" });
     router.refresh();
     setBusy(false);
+  }
+
+  async function deleteDeal() {
+    if (!confirm("Delete this deal? This cannot be undone.")) return;
+    setDeleting(true);
+    await fetch(`/api/deals/${deal.id}`, { method: "DELETE" });
+    router.push("/deals");
+    router.refresh();
+  }
+
+  async function runGapAnalysis() {
+    setGapLoading(true);
+    setGapAnalysis(null);
+    try {
+      const res = await fetch(`/api/deals/${deal.id}/gap-analysis`, { method: "POST" });
+      const data = await res.json();
+      if (res.ok) setGapAnalysis(data);
+    } finally {
+      setGapLoading(false);
+    }
   }
 
   async function submitUpdate() {
@@ -266,6 +297,23 @@ export function DealProfile({
           >
             <FileDown className="h-4 w-4" /> Export
           </Link>
+          <button
+            onClick={runGapAnalysis}
+            disabled={gapLoading}
+            className="btn-secondary"
+            title="Evaluate this deal even if it misses the buy box"
+          >
+            {gapLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lightbulb className="h-4 w-4" />}
+            Gap Analysis
+          </button>
+          <button
+            onClick={deleteDeal}
+            disabled={deleting}
+            className="btn-secondary text-red-600 hover:border-red-300 hover:bg-red-50"
+          >
+            {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            Delete
+          </button>
         </div>
       </div>
 
@@ -366,6 +414,43 @@ export function DealProfile({
                 Self-Checker Notes
               </h3>
               <p className="text-sm text-amber-800">{deal.selfCheckerNotes}</p>
+            </div>
+          )}
+
+          {/* Gap analysis result */}
+          {gapAnalysis && (
+            <div className={clsx("card border-2", gapAnalysis.isExceptional ? "border-amber-400 bg-amber-50" : "border-gray-200")}>
+              <div className="flex items-center gap-2 mb-2">
+                <Lightbulb className={clsx("h-5 w-5", gapAnalysis.isExceptional ? "text-amber-600" : "text-gray-400")} />
+                <h3 className="font-semibold text-gray-900">
+                  {gapAnalysis.isExceptional ? "Exceptional Deal Flag" : "Gap Analysis"}
+                </h3>
+                {gapAnalysis.isExceptional && (
+                  <span className="rounded-full bg-amber-500 px-2 py-0.5 text-xs font-bold text-white">
+                    Worth a look
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-gray-700 mb-3">{gapAnalysis.verdict}</p>
+              {gapAnalysis.exceptionalReason && (
+                <p className="text-sm text-amber-800 mb-3 font-medium">{gapAnalysis.exceptionalReason}</p>
+              )}
+              {gapAnalysis.buyBoxAdjustments.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Buy box adjustments needed</p>
+                  <ul className="space-y-1">
+                    {gapAnalysis.buyBoxAdjustments.map((a, i) => (
+                      <li key={i} className="flex flex-wrap items-start gap-2 text-sm">
+                        <span className="font-medium text-gray-800 w-36 shrink-0">{a.field}</span>
+                        <span className="text-red-600 line-through">{a.currentValue}</span>
+                        <span className="text-gray-400">→</span>
+                        <span className="text-green-700 font-medium">{a.requiredValue}</span>
+                        <span className="text-gray-500">{a.impact}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
 
