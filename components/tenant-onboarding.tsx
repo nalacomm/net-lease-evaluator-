@@ -194,6 +194,15 @@ export function TenantOnboarding() {
       if (data.population3mi) setReqField("minPopulation", String(data.population3mi));
       if (data.dailyTraffic) setReqField("minTraffic", String(data.dailyTraffic));
       if (data.notes) setLocationNote(data.notes);
+      // Add location to target markets
+      const q = locationQuery.trim();
+      setTargetMarkets((prev) => {
+        const existing = prev.split(",").map((s) => s.trim()).filter(Boolean);
+        if (!existing.some((m) => m.toLowerCase() === q.toLowerCase())) {
+          return existing.length ? `${prev}, ${q}` : q;
+        }
+        return prev;
+      });
     } catch (e) {
       setLocationNote(e instanceof Error ? e.message : "Lookup failed");
     } finally {

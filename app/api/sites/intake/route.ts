@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import { askJson } from "@/lib/anthropic";
+import { humanizeAiError } from "@/lib/ai-error";
+
+const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5 MB
 
 export const maxDuration = 60;
 
@@ -43,6 +46,12 @@ export async function POST(req: Request) {
     let combined = text.trim();
 
     for (const file of files) {
+      if (file.size > MAX_FILE_BYTES) {
+        return NextResponse.json(
+          { error: `"${file.name}" is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum file size is 5 MB. Try compressing the PDF or paste the key text instead.` },
+          { status: 400 }
+        );
+      }
       const buffer = Buffer.from(await file.arrayBuffer());
       if (file.type === "application/pdf") {
         try {
@@ -98,7 +107,7 @@ ${combined.slice(0, 15000)}`,
     return NextResponse.json(result);
   } catch (e) {
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Failed" },
+      { error: humanizeAiError(e) },
       { status: 500 }
     );
   }

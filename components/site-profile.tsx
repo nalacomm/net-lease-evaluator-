@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Loader2, Lightbulb, RefreshCw, Pencil } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Loader2, Lightbulb, Pencil, Trash2 } from "lucide-react";
 import clsx from "clsx";
 import { GradeBadge, StatusPill } from "@/components/ui";
 import { labelFor, SITE_TYPES, TENANT_LEASE_TYPES } from "@/lib/constants";
@@ -183,6 +184,8 @@ export function SiteProfile({
   site: Site;
   availableTenants?: Tenant[];
 }) {
+  const router = useRouter();
+  const [deleting, setDeleting] = useState(false);
   const [tab, setTab] = useState<"overview" | "scoring" | "news">("overview");
   const [assignments, setAssignments] = useState<SiteAssignment[]>(
     site.assignments ?? []
@@ -261,6 +264,19 @@ export function SiteProfile({
     (t) => !assignedTenantIds.has(t.id)
   );
 
+  async function deleteSite() {
+    if (!confirm("Delete this site? This cannot be undone.")) return;
+    setDeleting(true);
+    const res = await fetch(`/api/sites/${site.id}`, { method: "DELETE" });
+    if (res.ok) {
+      router.push("/sites");
+      router.refresh();
+    } else {
+      alert("Delete failed. Please try again.");
+      setDeleting(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
       {/* Header card */}
@@ -292,9 +308,19 @@ export function SiteProfile({
               )}
             </div>
           </div>
-          <Link href={`/sites/${site.id}/edit`} className="btn-secondary shrink-0">
-            <Pencil className="h-4 w-4" /> Edit
-          </Link>
+          <div className="flex gap-2 shrink-0">
+            <Link href={`/sites/${site.id}/edit`} className="btn-secondary">
+              <Pencil className="h-4 w-4" /> Edit
+            </Link>
+            <button
+              onClick={deleteSite}
+              disabled={deleting}
+              className="btn-secondary text-red-600 hover:border-red-300 hover:bg-red-50"
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              Delete
+            </button>
+          </div>
         </div>
       </div>
 

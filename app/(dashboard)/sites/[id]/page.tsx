@@ -4,33 +4,27 @@ import { SiteProfile } from "@/components/site-profile";
 
 export const dynamic = "force-dynamic";
 
-export default async function SitePage({
-  params,
-}: {
-  params: { id: string };
-}) {
-  const site = await prisma.prospectiveSite.findUnique({
-    where: { id: params.id },
-    include: {
-      assignments: {
-        include: {
-          tenant: {
-            include: {
-              requirements: true,
-            },
+export default async function SitePage({ params }: { params: { id: string } }) {
+  const [site, allTenants] = await Promise.all([
+    prisma.prospectiveSite.findUnique({
+      where: { id: params.id },
+      include: {
+        assignments: {
+          include: {
+            tenant: { include: { requirements: true } },
           },
         },
+        newsFlags: {
+          include: { newsItem: true },
+          orderBy: { createdAt: "desc" },
+        },
       },
-      newsFlags: {
-        include: { newsItem: true },
-        orderBy: { createdAt: "desc" },
-      },
-    },
-  });
+    }),
+    prisma.tenant.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
+  ]);
 
   if (!site) notFound();
 
-  // Remap Prisma field names to the shape SiteProfile expects
   const serialized = {
     id: site.id,
     name: site.name,
@@ -57,51 +51,18 @@ export default async function SitePage({
     brokerName: site.brokerName,
     brokerEmail: site.brokerEmail,
     brokerPhone: site.brokerPhone,
-    newsFlags: site.newsFlags.map((f: {
-      id: string;
-      relevance: string | null;
-      impact: string | null;
-      createdAt: Date;
-      newsItemId: string;
-      siteId: string;
-      newsItem: {
-        headline: string;
-        source: string | null;
-        publishedAt: Date | null;
-      };
-    }) => ({
+    notes: site.notes,
+    newsFlags: site.newsFlags.map((f) => ({
       id: f.id,
       relevance: f.relevance,
       impact: f.impact,
       newsItem: {
         headline: f.newsItem.headline,
         source: f.newsItem.source,
-        publishedAt: f.newsItem.publishedAt
-          ? f.newsItem.publishedAt.toISOString()
-          : null,
+        publishedAt: f.newsItem.publishedAt ? f.newsItem.publishedAt.toISOString() : null,
       },
     })),
-    assignments: site.assignments.map((a: {
-      id: string;
-      siteId: string;
-      tenantId: string;
-      score: number | null;
-      grade: string | null;
-      scoreBreakdown: unknown;
-      gapAnalysis: unknown;
-      createdAt: Date;
-      tenant: {
-        id: string;
-        name: string;
-        requirements: {
-          minSF: number | null;
-          maxSF: number | null;
-          minTerm: number | null;
-          minTraffic: number | null;
-          siteTypePrefs: string[];
-        } | null;
-      };
-    }) => ({
+    assignments: site.assignments.map((a) => ({
       id: a.id,
       tenantId: a.tenantId,
       score: a.score,
@@ -109,18 +70,10 @@ export default async function SitePage({
       gapAnalysis: a.gapAnalysis as {
         isExceptional: boolean;
         exceptionalReason: string | null;
-        buyBoxAdjustments: {
-          field: string;
-          currentValue: string;
-          requiredValue: string;
-          impact: string;
-        }[];
+        buyBoxAdjustments: { field: string; currentValue: string; requiredValue: string; impact: string }[];
         verdict: string;
       } | null,
-      tenant: {
-        id: a.tenant.id,
-        name: a.tenant.name,
-      },
+      tenant: { id: a.tenant.id, name: a.tenant.name },
       requirements: a.tenant.requirements
         ? {
             minSF: a.tenant.requirements.minSF,
@@ -133,5 +86,5 @@ export default async function SitePage({
     })),
   };
 
-  return <SiteProfile site={serialized} />;
+  return <SiteProfile site={serialized} availableTenants={allTenants} />;
 }
