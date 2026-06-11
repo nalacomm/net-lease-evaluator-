@@ -3,10 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { fmtMoney } from "@/lib/format";
-import { GRADE_COLORS } from "@/lib/format";
+import { fmtMoney, GRADE_COLORS } from "@/lib/format";
 import clsx from "clsx";
-import { Loader2, Pencil, Trash2, Copy, Check, ChevronDown, ChevronRight } from "lucide-react";
+import { Loader2, Pencil, Trash2, Copy, Check, ChevronDown, ChevronRight, Eye, Code } from "lucide-react";
 
 type TenantRequirements = {
   id: string;
@@ -98,6 +97,8 @@ export function TenantProfile({ tenant }: { tenant: Tenant }) {
   const [campaignHtml, setCampaignHtml] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [expandedCampaign, setExpandedCampaign] = useState<string | null>(null);
+  const [campaignView, setCampaignView] = useState<"preview" | "html">("preview");
+  const [expandedView, setExpandedView] = useState<Record<string, "preview" | "html">>({});
 
   async function deleteTenant() {
     if (!confirm("Delete this tenant? This cannot be undone.")) return;
@@ -133,12 +134,12 @@ export function TenantProfile({ tenant }: { tenant: Tenant }) {
   const req = tenant.requirements;
 
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 space-y-4">
       {/* Header */}
       <div className="card">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="text-xl font-bold text-gray-900">{tenant.name}</h1>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl font-bold text-gray-900 break-words">{tenant.name}</h1>
             {tenant.company && (
               <p className="text-sm text-gray-500">{tenant.company}</p>
             )}
@@ -146,7 +147,7 @@ export function TenantProfile({ tenant }: { tenant: Tenant }) {
               {tenant.contact && <p>{tenant.contact}</p>}
               {tenant.email && (
                 <p>
-                  <a href={`mailto:${tenant.email}`} className="text-brand underline">
+                  <a href={`mailto:${tenant.email}`} className="text-brand underline break-all">
                     {tenant.email}
                   </a>
                 </p>
@@ -157,7 +158,7 @@ export function TenantProfile({ tenant }: { tenant: Tenant }) {
               <p className="mt-2 text-sm text-gray-500">{tenant.notes}</p>
             )}
           </div>
-          <div className="flex gap-2 shrink-0">
+          <div className="flex flex-wrap gap-2 shrink-0">
             <Link href={`/tenants/${tenant.id}/edit`} className="btn-secondary">
               <Pencil className="h-4 w-4" /> Edit
             </Link>
@@ -369,29 +370,36 @@ export function TenantProfile({ tenant }: { tenant: Tenant }) {
         </div>
 
         {campaignHtml && (
-          <div className="mb-4">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                Generated HTML
-              </span>
-              <button
-                onClick={() => copyToClipboard(campaignHtml)}
-                className="btn-secondary text-xs"
-              >
-                {copied ? (
-                  <>
-                    <Check className="h-3 w-3 text-green-600" /> Copied
-                  </>
-                ) : (
-                  <>
-                    <Copy className="h-3 w-3" /> Copy
-                  </>
-                )}
+          <div className="mb-4 rounded-lg border border-gray-200 overflow-hidden">
+            <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-3 py-2">
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setCampaignView("preview")}
+                  className={clsx("flex items-center gap-1 rounded px-2 py-1 text-xs font-medium", campaignView === "preview" ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700")}
+                >
+                  <Eye className="h-3 w-3" /> Preview
+                </button>
+                <button
+                  onClick={() => setCampaignView("html")}
+                  className={clsx("flex items-center gap-1 rounded px-2 py-1 text-xs font-medium", campaignView === "html" ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700")}
+                >
+                  <Code className="h-3 w-3" /> HTML
+                </button>
+              </div>
+              <button onClick={() => copyToClipboard(campaignHtml)} className="btn-secondary text-xs h-7">
+                {copied ? <><Check className="h-3 w-3 text-green-600" /> Copied</> : <><Copy className="h-3 w-3" /> Copy HTML</>}
               </button>
             </div>
-            <pre className="overflow-auto rounded-lg bg-gray-900 p-4 text-xs text-gray-100 max-h-64">
-              {campaignHtml}
-            </pre>
+            {campaignView === "preview" ? (
+              <iframe
+                srcDoc={campaignHtml}
+                className="w-full border-0"
+                style={{ height: "480px" }}
+                sandbox="allow-same-origin"
+              />
+            ) : (
+              <pre className="overflow-x-auto bg-gray-900 p-4 text-xs text-gray-100 max-h-64">{campaignHtml}</pre>
+            )}
           </div>
         )}
 
@@ -423,18 +431,31 @@ export function TenantProfile({ tenant }: { tenant: Tenant }) {
                   </div>
                 </button>
                 {expandedCampaign === c.id && (
-                  <div className="border-t border-gray-100 px-3 pb-3 pt-2">
-                    <div className="flex justify-end mb-1">
-                      <button
-                        onClick={() => copyToClipboard(c.html)}
-                        className="btn-secondary text-xs"
-                      >
-                        <Copy className="h-3 w-3" /> Copy HTML
+                  <div className="border-t border-gray-100">
+                    <div className="flex items-center justify-between bg-gray-50 px-3 py-2">
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => setExpandedView((v) => ({ ...v, [c.id]: "preview" }))}
+                          className={clsx("flex items-center gap-1 rounded px-2 py-1 text-xs font-medium", (expandedView[c.id] ?? "preview") === "preview" ? "bg-white shadow-sm text-gray-900" : "text-gray-500")}
+                        >
+                          <Eye className="h-3 w-3" /> Preview
+                        </button>
+                        <button
+                          onClick={() => setExpandedView((v) => ({ ...v, [c.id]: "html" }))}
+                          className={clsx("flex items-center gap-1 rounded px-2 py-1 text-xs font-medium", expandedView[c.id] === "html" ? "bg-white shadow-sm text-gray-900" : "text-gray-500")}
+                        >
+                          <Code className="h-3 w-3" /> HTML
+                        </button>
+                      </div>
+                      <button onClick={() => copyToClipboard(c.html)} className="btn-secondary text-xs h-7">
+                        <Copy className="h-3 w-3" /> Copy
                       </button>
                     </div>
-                    <pre className="overflow-auto rounded-lg bg-gray-900 p-3 text-xs text-gray-100 max-h-48">
-                      {c.html}
-                    </pre>
+                    {(expandedView[c.id] ?? "preview") === "preview" ? (
+                      <iframe srcDoc={c.html} className="w-full border-0" style={{ height: "400px" }} sandbox="allow-same-origin" />
+                    ) : (
+                      <pre className="overflow-x-auto bg-gray-900 p-3 text-xs text-gray-100 max-h-48">{c.html}</pre>
+                    )}
                   </div>
                 )}
               </li>

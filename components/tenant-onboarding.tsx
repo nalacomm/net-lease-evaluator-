@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { SITE_TYPES, TENANT_LEASE_TYPES } from "@/lib/constants";
-import { Loader2, Sparkles, ClipboardList, AlertCircle, Upload, X } from "lucide-react";
+import { Loader2, Sparkles, ClipboardList, AlertCircle, Upload, X, MapPin } from "lucide-react";
 
 // ---- Stable helper components (MUST be outside the parent to avoid remount on every render) ----
 function BbInput({
@@ -64,6 +64,11 @@ function BbSelect({
 // ---- End helpers ----
 
 type TenantRequirementsDraft = {
+  tenantName: string | null;
+  contactName: string | null;
+  company: string | null;
+  email: string | null;
+  phone: string | null;
   minSF: number | null;
   maxSF: number | null;
   preferredSF: number | null;
@@ -156,6 +161,10 @@ export function TenantOnboarding() {
   const [targetMarkets, setTargetMarkets] = useState("");
   const [siteTypePrefs, setSiteTypePrefs] = useState<string[]>([]);
 
+  const [locationQuery, setLocationQuery] = useState("");
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationNote, setLocationNote] = useState("");
+
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
 
@@ -169,7 +178,35 @@ export function TenantOnboarding() {
     );
   }
 
+  async function lookupLocation() {
+    if (!locationQuery.trim()) return;
+    setLocationLoading(true);
+    setLocationNote("");
+    try {
+      const res = await fetch("/api/location/lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ location: locationQuery }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      if (data.medianIncome) setReqField("minIncome", String(Math.round(data.medianIncome)));
+      if (data.population3mi) setReqField("minPopulation", String(data.population3mi));
+      if (data.dailyTraffic) setReqField("minTraffic", String(data.dailyTraffic));
+      if (data.notes) setLocationNote(data.notes);
+    } catch (e) {
+      setLocationNote(e instanceof Error ? e.message : "Lookup failed");
+    } finally {
+      setLocationLoading(false);
+    }
+  }
+
   function applyWizard(d: TenantRequirementsDraft) {
+    if (d.tenantName && !name) setName(d.tenantName);
+    if (d.contactName && !contact) setContact(d.contactName);
+    if (d.company && !company) setCompany(d.company);
+    if (d.email && !email) setEmail(d.email);
+    if (d.phone && !phone) setPhone(d.phone);
     setReq({
       minSF: n(d.minSF),
       maxSF: n(d.maxSF),
@@ -391,6 +428,34 @@ export function TenantOnboarding() {
 
       <div className="card">
         <h3 className="mb-3 font-semibold">Site Requirements</h3>
+
+        {/* Location lookup */}
+        <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
+          <p className="mb-2 text-xs font-medium text-gray-600">Auto-fill demographics by location</p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              className="input flex-1"
+              placeholder="City, zip code, or area (e.g. Bethesda MD, 20814)"
+              value={locationQuery}
+              onChange={(e) => setLocationQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && lookupLocation()}
+            />
+            <button
+              type="button"
+              onClick={lookupLocation}
+              disabled={locationLoading || !locationQuery.trim()}
+              className="btn-secondary shrink-0"
+            >
+              {locationLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
+              Lookup
+            </button>
+          </div>
+          {locationNote && (
+            <p className="mt-1.5 text-xs text-gray-500">{locationNote}</p>
+          )}
+        </div>
+
         <div className="grid gap-3 sm:grid-cols-2">
           <BbInput label="Min SF" value={req.minSF} onChange={(v) => setReqField("minSF", v)} inferred={inferred.has("minSF")} missing={missing.has("minSF") && !req.minSF} />
           <BbInput label="Max SF" value={req.maxSF} onChange={(v) => setReqField("maxSF", v)} inferred={inferred.has("maxSF")} missing={missing.has("maxSF") && !req.maxSF} />

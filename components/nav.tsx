@@ -60,13 +60,16 @@ export function Sidebar() {
           );
         })}
       </nav>
-      <button
-        onClick={() => signOut({ callbackUrl: "/login" })}
-        className="m-3 flex min-h-touch items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
-      >
-        <LogOut className="h-5 w-5" />
-        Sign out
-      </button>
+      <div className="m-3">
+        <button
+          onClick={() => signOut({ callbackUrl: "/login" })}
+          className="flex min-h-touch w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+        >
+          <LogOut className="h-5 w-5" />
+          Sign out
+        </button>
+        <p className="px-3 pt-1 text-[10px] text-gray-400">v0.2.0</p>
+      </div>
     </aside>
   );
 }

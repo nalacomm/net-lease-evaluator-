@@ -4,6 +4,13 @@ import { askJson } from "@/lib/anthropic";
 export const maxDuration = 60;
 
 interface RequirementsDraft {
+  // Tenant identity (extracted from narrative)
+  tenantName: string | null;
+  contactName: string | null;
+  company: string | null;
+  email: string | null;
+  phone: string | null;
+  // Site requirements
   minSF: number | null;
   maxSF: number | null;
   preferredSF: number | null;
@@ -58,7 +65,7 @@ export async function POST(req: Request) {
     const result = await askJson<RequirementsDraft>(
       `You are a commercial real estate tenant rep analyst building a site requirement profile from a tenant description.
 
-Extract site requirements from the description below. Use reasonable retail/restaurant CRE defaults for anything not stated. Infer when reasonable; note inferred fields.
+Extract BOTH the tenant identity AND their site requirements from the description below. Use reasonable retail/restaurant CRE defaults for anything not stated. Infer when reasonable; note inferred fields.
 
 Enums:
 - leaseType: "nnn" | "modified_nnn" | "gross" | null
@@ -66,12 +73,17 @@ Enums:
 - targetMarkets: array of city or metro names (e.g. ["Baltimore", "Annapolis", "Northern Virginia"])
 
 Rules:
+- tenantName: the brand or business name (e.g. "Shake Shack", "Urgent Care Plus") — NOT the contact person's name
+- contactName: the person's name if mentioned
+- company: franchisee group or development company name if different from brand
+- email / phone: contact info if mentioned
 - minSF / maxSF: square footage as numbers
 - minRentPsf / maxRentPsf: annual rent per SF as number (e.g. 28 for $28/SF/yr)
 - minTraffic: minimum daily vehicle count as integer
 - minIncome: minimum median household income as integer (e.g. 75000)
 - minPopulation: minimum population within radius as integer
 - radiusMiles: demographic radius (default 3 if not stated)
+- additionalNotes: capture any operational/build-out requirements (e.g. "Type 1 hood required", "drive-thru required", "rooftop HVAC", "dedicated transformer") — these are important
 - inferredFields: list every field you inferred
 - missingFields: list key fields still unknown
 - confidenceLevel: "high" | "medium" | "low"
@@ -79,6 +91,7 @@ Rules:
 
 Return JSON only:
 {
+  "tenantName": null, "contactName": null, "company": null, "email": null, "phone": null,
   "minSF": null, "maxSF": null, "preferredSF": null,
   "minRentPsf": null, "maxRentPsf": null, "leaseType": null,
   "minParking": null, "minTraffic": null, "minPopulation": null,
@@ -93,7 +106,7 @@ Return JSON only:
 
 TENANT DESCRIPTION:
 ${combinedContext.slice(0, 15000)}`,
-      { maxTokens: 1200 }
+      { maxTokens: 1400 }
     );
 
     return NextResponse.json(result);
