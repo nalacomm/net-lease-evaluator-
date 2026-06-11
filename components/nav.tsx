@@ -7,6 +7,8 @@ import {
   LayoutDashboard,
   Building2,
   Users,
+  Store,
+  MapPin,
   Newspaper,
   FileText,
   Settings,
@@ -18,6 +20,8 @@ const TABS = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/deals", label: "Deals", icon: Building2 },
   { href: "/investors", label: "Investors", icon: Users },
+  { href: "/tenants", label: "Tenants", icon: Store },
+  { href: "/sites", label: "Sites", icon: MapPin },
   { href: "/news", label: "News", icon: Newspaper },
   { href: "/reports", label: "Reports", icon: FileText },
   { href: "/settings", label: "Settings", icon: Settings },
@@ -70,7 +74,7 @@ export function Sidebar() {
 export function BottomTabs() {
   const pathname = usePathname();
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-6 border-t border-gray-200 bg-white md:hidden print:!hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-8 border-t border-gray-200 bg-white md:hidden print:!hidden">
       {TABS.map((t) => {
         const Icon = t.icon;
         const active = isActive(pathname, t.href);
@@ -83,7 +87,7 @@ export function BottomTabs() {
               active ? "text-brand" : "text-gray-500"
             )}
           >
-            <Icon className={clsx("h-5 w-5", active && "text-brand")} />
+            <Icon className={clsx("h-4 w-4", active && "text-brand")} />
             {t.label}
           </Link>
         );

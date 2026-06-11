@@ -82,6 +82,54 @@ export async function POST(req: Request) {
       }
     }
 
+    // AI tag active prospective sites
+    const sites = await prisma.prospectiveSite.findMany({
+      where: { status: "active" },
+      select: {
+        id: true,
+        name: true,
+        city: true,
+        state: true,
+        coTenants: true,
+      },
+    });
+
+    if (sites.length > 0 && process.env.ANTHROPIC_API_KEY) {
+      try {
+        const siteList = sites
+          .map(
+            (s) =>
+              `ID:${s.id} | Name:${s.name} | City:${s.city ?? "?"} | State:${s.state ?? "?"} | CoTenants:${s.coTenants ?? "none"}`
+          )
+          .join("\n");
+
+        type SiteFlagResult = {
+          siteId: string;
+          impact: "positive" | "negative" | "neutral" | "watch";
+          relevance: string;
+        };
+
+        const siteResult = await askJson<{ flags: SiteFlagResult[] }>(
+          `News headline: "${headline}"\nSummary: ${summary ?? "(none)"}\n\nActive prospective sites:\n${siteList}\n\nFor each site that could be affected by this news, return a flag. Only flag genuinely relevant sites — do not flag all sites.\n\nReturn JSON only:\n{"flags":[{"siteId":"...","impact":"positive"|"negative"|"neutral"|"watch","relevance":"one sentence"}]}`,
+          { maxTokens: 800 }
+        );
+
+        if (siteResult.flags?.length) {
+          await prisma.siteNewsFlag.createMany({
+            data: siteResult.flags.map((f) => ({
+              siteId: f.siteId,
+              newsItemId: newsItem.id,
+              impact: f.impact,
+              relevance: f.relevance,
+            })),
+            skipDuplicates: true,
+          });
+        }
+      } catch (aiErr) {
+        console.warn("News AI site tagging failed (non-fatal):", aiErr);
+      }
+    }
+
     const full = await prisma.newsItem.findUnique({
       where: { id: newsItem.id },
       include: {

@@ -214,6 +214,7 @@ model NewsItem {
   category    String?
   rawContent  String?
   dealFlags   DealNewsFlag[]
+  siteFlags   SiteNewsFlag[]
   createdAt   DateTime       @default(now())
 }
 
@@ -252,4 +253,134 @@ model Comp {
   source        String?
   notes         String?
   createdAt     DateTime  @default(now())
+}
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  company   String?
+  contact   String?
+  email     String?
+  phone     String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  requirements    TenantRequirements?
+  siteAssignments SiteAssignment[]
+  campaigns       Campaign[]
+}
+
+model TenantRequirements {
+  id       String @id @default(cuid())
+  tenantId String @unique
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  minSF          Float?
+  maxSF          Float?
+  preferredSF    Float?
+  minRentPsf     Float?
+  maxRentPsf     Float?
+  leaseType      String?
+  minParking     Float?
+  minTraffic     Int?
+  minPopulation  Int?
+  minIncome      Int?
+  radiusMiles    Float?
+  minTerm        Int?
+  preferredTerm  Int?
+  targetMarkets  String[]
+  coTenancy      String?
+  exclusivity    String?
+  zoningReqs     String?
+  siteTypePrefs  String[]
+  additionalNotes String?
+  rawInput        String?
+  inferredFields  String[]
+  missingFields   String[]
+  confidenceLevel String?
+  narrativeSummary String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ProspectiveSite {
+  id    String @id @default(cuid())
+  name  String
+  address String?
+  city    String?
+  state   String?
+  zip     String?
+
+  squareFeet       Float?
+  parkingSpaces    Int?
+  parkingRatio     Float?
+  siteType         String?
+
+  askingRentPsf    Float?
+  nnnEstimate      Float?
+  leaseType        String?
+  leaseTermOffered Int?
+
+  dailyTraffic  Int?
+  population1mi Int?
+  population3mi Int?
+  population5mi Int?
+  medianIncome  Float?
+
+  coTenants     String?
+  zoning        String?
+  availableDate String?
+
+  source      String?
+  brokerName  String?
+  brokerEmail String?
+  brokerPhone String?
+
+  notes  String?
+  status String @default("active")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignments SiteAssignment[]
+  newsFlags   SiteNewsFlag[]
+}
+
+model SiteAssignment {
+  id       String @id @default(cuid())
+  siteId   String
+  tenantId String
+  site     ProspectiveSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  score          Float?
+  grade          String?
+  scoreBreakdown Json?
+  gapAnalysis    Json?
+
+  createdAt DateTime @default(now())
+
+  @@unique([siteId, tenantId])
+}
+
+model SiteNewsFlag {
+  id         String @id @default(cuid())
+  siteId     String
+  site       ProspectiveSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  newsItemId String
+  newsItem   NewsItem @relation(fields: [newsItemId], references: [id], onDelete: Cascade)
+  relevance  String?
+  impact     String?
+  createdAt  DateTime @default(now())
+}
+
+model Campaign {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title    String
+  html     String
+  createdAt DateTime @default(now())
 }

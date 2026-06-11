@@ -54,6 +54,30 @@ export const NEWS_CATEGORIES: { value: string; label: string }[] = [
   { value: "market", label: "Market" },
 ];
 
+export const SITE_TYPES: { value: string; label: string }[] = [
+  { value: "freestanding", label: "Freestanding" },
+  { value: "endcap", label: "End Cap" },
+  { value: "inline", label: "Inline" },
+  { value: "pad", label: "Pad Site" },
+  { value: "strip_center", label: "Strip Center" },
+  { value: "power_center", label: "Power Center" },
+  { value: "other", label: "Other" },
+];
+
+export const SITE_STATUSES: { value: string; label: string }[] = [
+  { value: "active", label: "Active" },
+  { value: "under_review", label: "Under Review" },
+  { value: "loi_submitted", label: "LOI Submitted" },
+  { value: "leased", label: "Leased" },
+  { value: "passed", label: "Passed" },
+];
+
+export const TENANT_LEASE_TYPES: { value: string; label: string }[] = [
+  { value: "nnn", label: "NNN" },
+  { value: "modified_nnn", label: "Modified NNN" },
+  { value: "gross", label: "Gross" },
+];
+
 export function labelFor(
   list: { value: string; label: string }[],
   value?: string | null

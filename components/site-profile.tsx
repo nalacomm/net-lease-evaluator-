@@ -1,0 +1,630 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { Loader2, Lightbulb, RefreshCw, Pencil } from "lucide-react";
+import clsx from "clsx";
+import { GradeBadge, StatusPill } from "@/components/ui";
+import { labelFor, SITE_TYPES, TENANT_LEASE_TYPES } from "@/lib/constants";
+
+type Tenant = {
+  id: string;
+  name: string;
+};
+
+type Requirements = {
+  minSF?: number | null;
+  maxSF?: number | null;
+  leaseTermYears?: number | null;
+  minTrafficCount?: number | null;
+  preferredSiteTypes?: string[] | null;
+  [key: string]: unknown;
+};
+
+type GapAnalysisData = {
+  isExceptional: boolean;
+  exceptionalReason: string | null;
+  buyBoxAdjustments: {
+    field: string;
+    currentValue: string;
+    requiredValue: string;
+    impact: string;
+  }[];
+  verdict: string;
+};
+
+type SiteAssignment = {
+  id: string;
+  tenantId: string;
+  score: number | null;
+  grade: string | null;
+  gapAnalysis: GapAnalysisData | null;
+  tenant: Tenant;
+  requirements: Requirements | null;
+};
+
+type SiteNewsFlag = {
+  id: string;
+  relevance: string | null;
+  impact: string | null;
+  newsItem: {
+    headline: string;
+    source: string | null;
+    publishedAt: string | null;
+  };
+};
+
+type Site = {
+  id: string;
+  name: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  siteType: string | null;
+  availableDate: string | null;
+  squareFeet: number | null;
+  parkingSpaces: number | null;
+  parkingRatio: number | null;
+  askingRentPerSF: number | null;
+  nnnEstimate: number | null;
+  leaseType: string | null;
+  leaseTermOffered: number | null;
+  dailyTrafficCount: number | null;
+  population1Mile: number | null;
+  population3Mile: number | null;
+  population5Mile: number | null;
+  medianIncome: number | null;
+  coTenants: string | null;
+  zoning: string | null;
+  brokerName: string | null;
+  brokerEmail: string | null;
+  brokerPhone: string | null;
+  assignments: SiteAssignment[];
+  newsFlags: SiteNewsFlag[];
+};
+
+function Metric({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div>
+      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+        {label}
+      </p>
+      <p className="mt-0.5 font-semibold text-gray-900">{value ?? "—"}</p>
+    </div>
+  );
+}
+
+function ImpactStatus(impact: string | null): "pass" | "fail" | "warn" | "info" {
+  if (impact === "positive") return "pass";
+  if (impact === "negative") return "fail";
+  if (impact === "watch") return "warn";
+  return "info";
+}
+
+function GapAnalysisBlock({
+  analysis,
+  onRefresh,
+  loading,
+}: {
+  analysis: GapAnalysisData;
+  onRefresh: () => void;
+  loading: boolean;
+}) {
+  return (
+    <div
+      className={clsx(
+        "mt-3 rounded-lg border-2 p-3",
+        analysis.isExceptional
+          ? "border-amber-400 bg-amber-50"
+          : "border-gray-200 bg-white"
+      )}
+    >
+      <div className="flex flex-wrap items-center gap-2 mb-2">
+        <Lightbulb
+          className={clsx(
+            "h-4 w-4",
+            analysis.isExceptional ? "text-amber-600" : "text-gray-400"
+          )}
+        />
+        <span className="font-semibold text-sm text-gray-900">
+          {analysis.isExceptional ? "Exceptional Flag" : "Gap Analysis"}
+        </span>
+        {analysis.isExceptional && (
+          <span className="rounded-full bg-amber-500 px-2 py-0.5 text-xs font-bold text-white">
+            Worth a look
+          </span>
+        )}
+        <button
+          onClick={onRefresh}
+          disabled={loading}
+          className="ml-auto text-xs text-gray-400 hover:text-brand"
+        >
+          {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : "↺ Refresh"}
+        </button>
+      </div>
+      <p className="text-sm text-gray-700 mb-2">{analysis.verdict}</p>
+      {analysis.exceptionalReason && (
+        <p className="text-sm text-amber-800 mb-2 font-medium">
+          {analysis.exceptionalReason}
+        </p>
+      )}
+      {analysis.buyBoxAdjustments.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">
+            Adjustments needed
+          </p>
+          <ul className="space-y-1">
+            {analysis.buyBoxAdjustments.map((a, i) => (
+              <li
+                key={i}
+                className="flex flex-wrap items-start gap-2 text-sm"
+              >
+                <span className="font-medium text-gray-800 w-36 shrink-0">
+                  {a.field}
+                </span>
+                <span className="text-red-600 line-through">{a.currentValue}</span>
+                <span className="text-gray-400">→</span>
+                <span className="text-green-700 font-medium">{a.requiredValue}</span>
+                <span className="text-gray-500">{a.impact}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function SiteProfile({
+  site,
+  availableTenants = [],
+}: {
+  site: Site;
+  availableTenants?: Tenant[];
+}) {
+  const [tab, setTab] = useState<"overview" | "scoring" | "news">("overview");
+  const [assignments, setAssignments] = useState<SiteAssignment[]>(
+    site.assignments ?? []
+  );
+  const [showAssignForm, setShowAssignForm] = useState(false);
+  const [selectedTenantId, setSelectedTenantId] = useState("");
+  const [assigning, setAssigning] = useState(false);
+  const [gapLoadingId, setGapLoadingId] = useState<string | null>(null);
+  const [gapResults, setGapResults] = useState<Record<string, GapAnalysisData>>(
+    () => {
+      const initial: Record<string, GapAnalysisData> = {};
+      for (const a of site.assignments ?? []) {
+        if (a.gapAnalysis) initial[a.tenantId] = a.gapAnalysis;
+      }
+      return initial;
+    }
+  );
+
+  const tabs = [
+    { id: "overview", label: "Overview" },
+    { id: "scoring", label: `Scoring (${assignments.length})` },
+    { id: "news", label: `News (${site.newsFlags.length})` },
+  ] as const;
+
+  async function assignTenant() {
+    if (!selectedTenantId) return;
+    setAssigning(true);
+    try {
+      const res = await fetch(`/api/sites/${site.id}/assign`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenantId: selectedTenantId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const tenant = availableTenants.find((t) => t.id === selectedTenantId);
+        setAssignments((prev) => [
+          ...prev.filter((a) => a.tenantId !== selectedTenantId),
+          {
+            id: data.id ?? selectedTenantId,
+            tenantId: selectedTenantId,
+            score: data.score ?? null,
+            grade: data.grade ?? null,
+            gapAnalysis: null,
+            tenant: tenant ?? { id: selectedTenantId, name: "Tenant" },
+            requirements: data.requirements ?? null,
+          },
+        ]);
+        setShowAssignForm(false);
+        setSelectedTenantId("");
+      }
+    } finally {
+      setAssigning(false);
+    }
+  }
+
+  async function runGap(tenantId: string) {
+    setGapLoadingId(tenantId);
+    try {
+      const res = await fetch(`/api/sites/${site.id}/gap`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenantId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setGapResults((prev) => ({ ...prev, [tenantId]: data }));
+      }
+    } finally {
+      setGapLoadingId(null);
+    }
+  }
+
+  const assignedTenantIds = new Set(assignments.map((a) => a.tenantId));
+  const unassignedTenants = availableTenants.filter(
+    (t) => !assignedTenantIds.has(t.id)
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* Header card */}
+      <div className="card">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold text-gray-900">
+              {site.name ?? site.address ?? "Untitled site"}
+            </h1>
+            <p className="text-sm text-gray-500">
+              {[site.address, site.city, site.state, site.zip]
+                .filter(Boolean)
+                .join(", ")}
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              {site.siteType && (
+                <StatusPill status="info">
+                  {labelFor(SITE_TYPES, site.siteType)}
+                </StatusPill>
+              )}
+              {site.availableDate && (
+                <span className="text-xs text-gray-400">
+                  Available{" "}
+                  {new Date(site.availableDate).toLocaleDateString("en-US", {
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </span>
+              )}
+            </div>
+          </div>
+          <Link href={`/sites/${site.id}/edit`} className="btn-secondary shrink-0">
+            <Pencil className="h-4 w-4" /> Edit
+          </Link>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 overflow-x-auto border-b border-gray-200">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium ${
+              tab === t.id
+                ? "border-brand text-brand"
+                : "border-transparent text-gray-500"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Overview tab */}
+      {tab === "overview" && (
+        <div className="space-y-4">
+          {/* Property details */}
+          <div className="card">
+            <h3 className="mb-3 font-semibold text-gray-900">Property</h3>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+              <Metric label="Name" value={site.name} />
+              <Metric label="Address" value={site.address} />
+              <Metric
+                label="City / State / ZIP"
+                value={
+                  [site.city, site.state, site.zip].filter(Boolean).join(", ") ||
+                  null
+                }
+              />
+              <Metric
+                label="Site Type"
+                value={labelFor(SITE_TYPES, site.siteType)}
+              />
+              <Metric
+                label="Available Date"
+                value={
+                  site.availableDate
+                    ? new Date(site.availableDate).toLocaleDateString()
+                    : null
+                }
+              />
+            </div>
+          </div>
+
+          {/* Physical */}
+          <div className="card">
+            <h3 className="mb-3 font-semibold text-gray-900">Physical</h3>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+              <Metric
+                label="Square Feet"
+                value={site.squareFeet?.toLocaleString()}
+              />
+              <Metric
+                label="Parking Spaces"
+                value={site.parkingSpaces?.toLocaleString()}
+              />
+              <Metric
+                label="Parking Ratio"
+                value={
+                  site.parkingRatio != null
+                    ? `${site.parkingRatio.toFixed(1)}/1,000 SF`
+                    : null
+                }
+              />
+            </div>
+          </div>
+
+          {/* Financial */}
+          <div className="card">
+            <h3 className="mb-3 font-semibold text-gray-900">Financial</h3>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+              <Metric
+                label="Asking Rent/SF"
+                value={
+                  site.askingRentPerSF != null
+                    ? `$${site.askingRentPerSF.toFixed(2)}`
+                    : null
+                }
+              />
+              <Metric
+                label="NNN Estimate"
+                value={
+                  site.nnnEstimate != null
+                    ? `$${site.nnnEstimate.toFixed(2)}/SF`
+                    : null
+                }
+              />
+              <Metric
+                label="Lease Type"
+                value={labelFor(TENANT_LEASE_TYPES, site.leaseType)}
+              />
+              <Metric
+                label="Lease Term Offered"
+                value={
+                  site.leaseTermOffered != null
+                    ? `${site.leaseTermOffered} yrs`
+                    : null
+                }
+              />
+            </div>
+          </div>
+
+          {/* Demographics */}
+          <div className="card">
+            <h3 className="mb-3 font-semibold text-gray-900">Demographics</h3>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+              <Metric
+                label="Daily Traffic"
+                value={site.dailyTrafficCount?.toLocaleString()}
+              />
+              <Metric
+                label="Pop. 1 Mile"
+                value={site.population1Mile?.toLocaleString()}
+              />
+              <Metric
+                label="Pop. 3 Mile"
+                value={site.population3Mile?.toLocaleString()}
+              />
+              <Metric
+                label="Pop. 5 Mile"
+                value={site.population5Mile?.toLocaleString()}
+              />
+              <Metric
+                label="Median Income"
+                value={
+                  site.medianIncome != null
+                    ? `$${site.medianIncome.toLocaleString()}`
+                    : null
+                }
+              />
+            </div>
+          </div>
+
+          {/* Co-tenants + Zoning */}
+          {(site.coTenants || site.zoning) && (
+            <div className="card">
+              <h3 className="mb-3 font-semibold text-gray-900">
+                Co-Tenants &amp; Zoning
+              </h3>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                <Metric label="Co-Tenants" value={site.coTenants} />
+                <Metric label="Zoning" value={site.zoning} />
+              </div>
+            </div>
+          )}
+
+          {/* Broker */}
+          {(site.brokerName || site.brokerEmail || site.brokerPhone) && (
+            <div className="card">
+              <h3 className="mb-3 font-semibold text-gray-900">Broker</h3>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+                <Metric label="Name" value={site.brokerName} />
+                <Metric
+                  label="Email"
+                  value={
+                    site.brokerEmail ? (
+                      <a
+                        href={`mailto:${site.brokerEmail}`}
+                        className="text-brand underline"
+                      >
+                        {site.brokerEmail}
+                      </a>
+                    ) : null
+                  }
+                />
+                <Metric label="Phone" value={site.brokerPhone} />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Scoring tab */}
+      {tab === "scoring" && (
+        <div className="space-y-3">
+          {assignments.length === 0 ? (
+            <p className="py-4 text-center text-sm text-gray-400">
+              No tenant assignments yet.
+            </p>
+          ) : (
+            assignments.map((a) => {
+              const gap = gapResults[a.tenantId] ?? null;
+              const isGapLoading = gapLoadingId === a.tenantId;
+              const belowThreshold = a.score != null && a.score < 70;
+              return (
+                <div key={a.tenantId} className="card space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-semibold text-gray-900">
+                      {a.tenant.name}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {a.grade && <GradeBadge grade={a.grade} size="sm" />}
+                      {a.score != null && (
+                        <span className="text-sm font-bold text-gray-700">
+                          {a.score.toFixed(0)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {belowThreshold && !gap && (
+                    <button
+                      onClick={() => runGap(a.tenantId)}
+                      disabled={isGapLoading}
+                      className="btn-secondary text-sm"
+                    >
+                      {isGapLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Lightbulb className="h-4 w-4" />
+                      )}
+                      Run Gap Analysis
+                    </button>
+                  )}
+
+                  {gap && (
+                    <GapAnalysisBlock
+                      analysis={gap}
+                      onRefresh={() => runGap(a.tenantId)}
+                      loading={isGapLoading}
+                    />
+                  )}
+
+                  {!gap && !belowThreshold && isGapLoading && (
+                    <button
+                      disabled
+                      className="btn-secondary text-sm"
+                    >
+                      <Loader2 className="h-4 w-4 animate-spin" /> Running…
+                    </button>
+                  )}
+
+                  {gap && belowThreshold && !isGapLoading && null}
+                </div>
+              );
+            })
+          )}
+
+          {/* Assign form */}
+          {showAssignForm ? (
+            <div className="card space-y-3">
+              <h3 className="font-semibold text-gray-900">Assign to Tenant</h3>
+              <select
+                className="input"
+                value={selectedTenantId}
+                onChange={(e) => setSelectedTenantId(e.target.value)}
+              >
+                <option value="">Select a tenant…</option>
+                {unassignedTenants.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+              <div className="flex gap-2">
+                <button
+                  onClick={assignTenant}
+                  disabled={assigning || !selectedTenantId}
+                  className="btn-primary"
+                >
+                  {assigning ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : null}
+                  Assign
+                </button>
+                <button
+                  onClick={() => {
+                    setShowAssignForm(false);
+                    setSelectedTenantId("");
+                  }}
+                  className="btn-secondary"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            unassignedTenants.length > 0 && (
+              <button
+                onClick={() => setShowAssignForm(true)}
+                className="btn-secondary w-full"
+              >
+                + Assign to Tenant
+              </button>
+            )
+          )}
+        </div>
+      )}
+
+      {/* News tab */}
+      {tab === "news" && (
+        <div className="space-y-2">
+          {site.newsFlags.length === 0 ? (
+            <p className="py-4 text-center text-sm text-gray-400">
+              No news flags for this site.
+            </p>
+          ) : (
+            site.newsFlags.map((f) => (
+              <div key={f.id} className="card">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-medium text-gray-900">
+                    {f.newsItem.headline}
+                  </p>
+                  {f.impact && (
+                    <StatusPill status={ImpactStatus(f.impact)}>
+                      {f.impact}
+                    </StatusPill>
+                  )}
+                </div>
+                {f.relevance && (
+                  <p className="mt-1 text-sm text-gray-600">{f.relevance}</p>
+                )}
+                {f.newsItem.publishedAt && (
+                  <p className="mt-1 text-xs text-gray-400">
+                    {new Date(f.newsItem.publishedAt).toLocaleDateString()}
+                    {f.newsItem.source ? ` · ${f.newsItem.source}` : ""}
+                  </p>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
