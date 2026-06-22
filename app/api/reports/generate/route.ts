@@ -10,8 +10,8 @@ export const maxDuration = 60;
 export async function POST(req: Request) {
   try {
     const { investorId, dealIds } = await req.json();
-    if (!investorId || !dealIds?.length || dealIds.length > 3) {
-      return NextResponse.json({ error: "investorId + 1-3 dealIds required" }, { status: 400 });
+    if (!investorId || !dealIds?.length) {
+      return NextResponse.json({ error: "investorId + dealIds required" }, { status: 400 });
     }
 
     const investor = await prisma.investor.findUnique({

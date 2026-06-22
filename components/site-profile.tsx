@@ -40,6 +40,7 @@ type SiteAssignment = {
   score: number | null;
   grade: string | null;
   gapAnalysis: GapAnalysisData | null;
+  scoreBreakdown: { category: string; points: number; max: number; status: string; detail: string }[] | null;
   tenant: Tenant;
   requirements: Requirements | null;
 };
@@ -235,6 +236,7 @@ export function SiteProfile({
             score: data.score ?? null,
             grade: data.grade ?? null,
             gapAnalysis: null,
+            scoreBreakdown: null,
             tenant: tenant ?? { id: selectedTenantId, name: "Tenant" },
             requirements: data.requirements ?? null,
           },
@@ -526,7 +528,6 @@ export function SiteProfile({
             assignments.map((a) => {
               const gap = gapResults[a.tenantId] ?? null;
               const isGapLoading = gapLoadingId === a.tenantId;
-              const belowThreshold = a.score != null && a.score < 70;
               return (
                 <div key={a.tenantId} className="card space-y-2">
                   <div className="flex items-center justify-between gap-3">
@@ -543,7 +544,49 @@ export function SiteProfile({
                     </div>
                   </div>
 
-                  {belowThreshold && !gap && (
+                  {a.scoreBreakdown && a.scoreBreakdown.length > 0 && (
+                    <div className="overflow-hidden rounded border border-gray-200">
+                      <table className="w-full text-xs">
+                        <tbody>
+                          {a.scoreBreakdown.map((row, i) => {
+                            const pillClass =
+                              row.status === "pass"
+                                ? "bg-green-100 text-green-800"
+                                : row.status === "warn"
+                                ? "bg-yellow-100 text-yellow-800"
+                                : row.status === "fail"
+                                ? "bg-red-100 text-red-800"
+                                : "bg-gray-100 text-gray-600";
+                            return (
+                              <tr
+                                key={i}
+                                className="border-b border-gray-100 last:border-0"
+                              >
+                                <td className="px-2 py-1 whitespace-nowrap">
+                                  <span
+                                    className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-none ${pillClass}`}
+                                  >
+                                    {row.status}
+                                  </span>
+                                </td>
+                                <td className="px-2 py-1 font-medium text-gray-800 whitespace-nowrap">
+                                  {row.category}
+                                </td>
+                                <td className="px-2 py-1 text-gray-500 whitespace-nowrap">
+                                  {row.points}/{row.max}
+                                </td>
+                                <td className="px-2 py-1 text-gray-500">
+                                  {row.detail}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {!gap && (
                     <button
                       onClick={() => runGap(a.tenantId)}
                       disabled={isGapLoading}
@@ -554,7 +597,7 @@ export function SiteProfile({
                       ) : (
                         <Lightbulb className="h-4 w-4" />
                       )}
-                      Run Gap Analysis
+                      {isGapLoading ? "Running…" : "Run Gap Analysis"}
                     </button>
                   )}
 
@@ -565,17 +608,6 @@ export function SiteProfile({
                       loading={isGapLoading}
                     />
                   )}
-
-                  {!gap && !belowThreshold && isGapLoading && (
-                    <button
-                      disabled
-                      className="btn-secondary text-sm"
-                    >
-                      <Loader2 className="h-4 w-4 animate-spin" /> Running…
-                    </button>
-                  )}
-
-                  {gap && belowThreshold && !isGapLoading && null}
                 </div>
               );
             })
