@@ -62,6 +62,7 @@ type Site = {
   city: string | null;
   state: string | null;
   zip: string | null;
+  quadrant: string | null;
   siteType: string | null;
   availableDate: string | null;
   squareFeet: number | null;
@@ -112,6 +113,10 @@ function GapAnalysisBlock({
   onRefresh: () => void;
   loading: boolean;
 }) {
+  const adjustments: GapAnalysisData["buyBoxAdjustments"] =
+    analysis.buyBoxAdjustments ??
+    ((analysis as Record<string, unknown>)["requirementAdjustments"] as GapAnalysisData["buyBoxAdjustments"]) ??
+    [];
   return (
     <div
       className={clsx(
@@ -150,13 +155,13 @@ function GapAnalysisBlock({
           {analysis.exceptionalReason}
         </p>
       )}
-      {analysis.buyBoxAdjustments.length > 0 && (
+      {adjustments.length > 0 && (
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">
             Adjustments needed
           </p>
           <ul className="space-y-1">
-            {analysis.buyBoxAdjustments.map((a, i) => (
+            {adjustments.map((a, i) => (
               <li
                 key={i}
                 className="flex flex-wrap items-start gap-2 text-sm"
@@ -297,6 +302,11 @@ export function SiteProfile({
                   {labelFor(SITE_TYPES, site.siteType)}
                 </StatusPill>
               )}
+              {site.quadrant && (
+                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                  {site.quadrant}
+                </span>
+              )}
               {site.availableDate && (
                 <span className="text-xs text-gray-400">
                   Available{" "}
@@ -357,6 +367,7 @@ export function SiteProfile({
                   null
                 }
               />
+              <Metric label="Quadrant" value={site.quadrant} />
               <Metric
                 label="Site Type"
                 value={labelFor(SITE_TYPES, site.siteType)}

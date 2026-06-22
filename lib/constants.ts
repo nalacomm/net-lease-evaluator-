@@ -54,6 +54,17 @@ export const NEWS_CATEGORIES: { value: string; label: string }[] = [
   { value: "market", label: "Market" },
 ];
 
+export const QUADRANTS: { value: string; label: string }[] = [
+  { value: "NW", label: "NW" },
+  { value: "NE", label: "NE" },
+  { value: "SW", label: "SW" },
+  { value: "SE", label: "SE" },
+  { value: "N", label: "N" },
+  { value: "S", label: "S" },
+  { value: "E", label: "E" },
+  { value: "W", label: "W" },
+];
+
 export const SITE_TYPE_CATEGORIES: {
   category: string;
   types: { value: string; label: string }[];

@@ -26,6 +26,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         city: body.city ?? undefined,
         state: body.state ?? undefined,
         zip: body.zip ?? undefined,
+        quadrant: body.quadrant ?? undefined,
         squareFeet: body.squareFeet != null ? parseFloat(body.squareFeet) : undefined,
         parkingSpaces: body.parkingSpaces != null ? parseInt(body.parkingSpaces) : undefined,
         parkingRatio: body.parkingRatio != null ? parseFloat(body.parkingRatio) : undefined,

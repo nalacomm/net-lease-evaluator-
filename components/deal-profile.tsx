@@ -50,6 +50,7 @@ type Deal = {
   address: string | null;
   city: string | null;
   state: string | null;
+  quadrant: string | null;
   assetType: string | null;
   tenantName: string | null;
   operatorName: string | null;
@@ -246,6 +247,11 @@ export function DealProfile({
             <p className="text-sm text-gray-500">
               {deal.tenantName ?? "—"} · {labelFor(ASSET_TYPES, deal.assetType)}
               {deal.city ? ` · ${deal.city}, ${deal.state ?? ""}` : ""}
+              {deal.quadrant ? (
+                <span className="ml-1 inline-block rounded-full bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-600">
+                  {deal.quadrant}
+                </span>
+              ) : null}
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <StatusPill status="info">

@@ -4,11 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { PageHeader } from "@/components/ui";
-import { SITE_TYPE_CATEGORIES, TENANT_LEASE_TYPES } from "@/lib/constants";
+import { SITE_TYPE_CATEGORIES, TENANT_LEASE_TYPES, QUADRANTS } from "@/lib/constants";
 import { ArrowLeft, Loader2, Sparkles, ClipboardList, AlertCircle, Upload, X, MapPin } from "lucide-react";
 
 type FormState = {
-  name: string; address: string; city: string; state: string; zip: string;
+  name: string; address: string; city: string; state: string; zip: string; quadrant: string;
   siteType: string; squareFeet: string; parkingSpaces: string; parkingRatio: string;
   askingRentPsf: string; nnnEstimate: string; leaseType: string; leaseTermOffered: string;
   dailyTraffic: string; population1mi: string; population3mi: string; population5mi: string;
@@ -17,7 +17,7 @@ type FormState = {
 };
 
 const EMPTY: FormState = {
-  name: "", address: "", city: "", state: "", zip: "", siteType: "",
+  name: "", address: "", city: "", state: "", zip: "", quadrant: "", siteType: "",
   squareFeet: "", parkingSpaces: "", parkingRatio: "",
   askingRentPsf: "", nnnEstimate: "", leaseType: "", leaseTermOffered: "",
   dailyTraffic: "", population1mi: "", population3mi: "", population5mi: "",
@@ -97,7 +97,7 @@ function SiteIntakeForm({ initial, onSaved }: { initial?: Partial<FormState>; on
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: form.name, address: form.address || null, city: form.city || null,
-          state: form.state || null, zip: form.zip || null, siteType: form.siteType || null,
+          state: form.state || null, zip: form.zip || null, quadrant: form.quadrant || null, siteType: form.siteType || null,
           squareFeet: form.squareFeet ? parseFloat(form.squareFeet) : null,
           parkingSpaces: form.parkingSpaces ? parseInt(form.parkingSpaces) : null,
           parkingRatio: form.parkingRatio ? parseFloat(form.parkingRatio) : null,
@@ -157,6 +157,13 @@ function SiteIntakeForm({ initial, onSaved }: { initial?: Partial<FormState>; on
           <div>
             <label className="label">ZIP</label>
             <input className="input" value={form.zip} onChange={(e) => set("zip", e.target.value)} />
+          </div>
+          <div>
+            <label className="label">Quadrant</label>
+            <select className="input" value={form.quadrant} onChange={(e) => set("quadrant", e.target.value)}>
+              <option value="">— None —</option>
+              {QUADRANTS.map((q) => <option key={q.value} value={q.value}>{q.label}</option>)}
+            </select>
           </div>
           <div>
             <label className="label">Site Type</label>
@@ -357,6 +364,7 @@ function AiIntake({ onResult }: { onResult: (data: Partial<FormState>) => void }
       if (data.city) mapped.city = data.city;
       if (data.state) mapped.state = data.state;
       if (data.zip) mapped.zip = data.zip;
+      if (data.quadrant) mapped.quadrant = data.quadrant;
       if (data.siteType) mapped.siteType = data.siteType;
       if (data.squareFeet) mapped.squareFeet = String(data.squareFeet);
       if (data.parkingSpaces) mapped.parkingSpaces = String(data.parkingSpaces);

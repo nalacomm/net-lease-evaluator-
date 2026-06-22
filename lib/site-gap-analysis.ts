@@ -4,7 +4,7 @@ import { scoreSite, RequirementsLike, SiteLike } from "./site-scoring";
 export interface SiteGapResult {
   isExceptional: boolean;
   exceptionalReason: string | null;
-  requirementAdjustments: {
+  buyBoxAdjustments: {
     field: string;
     currentValue: string;
     requiredValue: string;
@@ -70,7 +70,7 @@ Return JSON only:
 {
   "isExceptional": true/false,
   "exceptionalReason": "string or null",
-  "requirementAdjustments": [
+  "buyBoxAdjustments": [
     { "field": "human-readable name", "currentValue": "current req value", "requiredValue": "what it needs to be", "impact": "brief trade-off note" }
   ],
   "verdict": "2-3 sentence plain summary"

@@ -5,10 +5,10 @@ import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Loader2, MapPin, X } from "lucide-react";
 import { PageHeader } from "@/components/ui";
-import { SITE_TYPE_CATEGORIES, TENANT_LEASE_TYPES } from "@/lib/constants";
+import { SITE_TYPE_CATEGORIES, TENANT_LEASE_TYPES, QUADRANTS } from "@/lib/constants";
 
 type FormState = {
-  name: string; address: string; city: string; state: string; zip: string;
+  name: string; address: string; city: string; state: string; zip: string; quadrant: string;
   siteType: string; squareFeet: string; parkingSpaces: string; parkingRatio: string;
   askingRentPsf: string; nnnEstimate: string; leaseType: string; leaseTermOffered: string;
   dailyTraffic: string; population1mi: string; population3mi: string; population5mi: string;
@@ -17,7 +17,7 @@ type FormState = {
 };
 
 const EMPTY: FormState = {
-  name: "", address: "", city: "", state: "", zip: "", siteType: "",
+  name: "", address: "", city: "", state: "", zip: "", quadrant: "", siteType: "",
   squareFeet: "", parkingSpaces: "", parkingRatio: "",
   askingRentPsf: "", nnnEstimate: "", leaseType: "", leaseTermOffered: "",
   dailyTraffic: "", population1mi: "", population3mi: "", population5mi: "",
@@ -51,6 +51,7 @@ export default function EditSitePage() {
           city: s.city ?? "",
           state: s.state ?? "",
           zip: s.zip ?? "",
+          quadrant: s.quadrant ?? "",
           siteType: s.siteType ?? "",
           squareFeet: n(s.squareFeet),
           parkingSpaces: n(s.parkingSpaces),
@@ -147,6 +148,7 @@ export default function EditSitePage() {
           city: form.city || null,
           state: form.state || null,
           zip: form.zip || null,
+          quadrant: form.quadrant || null,
           siteType: form.siteType || null,
           squareFeet: form.squareFeet ? parseFloat(form.squareFeet) : null,
           parkingSpaces: form.parkingSpaces ? parseInt(form.parkingSpaces) : null,
@@ -226,6 +228,13 @@ export default function EditSitePage() {
             <div>
               <label className="label">ZIP</label>
               <input className="input" value={form.zip} onChange={(e) => set("zip", e.target.value)} />
+            </div>
+            <div>
+              <label className="label">Quadrant</label>
+              <select className="input" value={form.quadrant} onChange={(e) => set("quadrant", e.target.value)}>
+                <option value="">— None —</option>
+                {QUADRANTS.map((q) => <option key={q.value} value={q.value}>{q.label}</option>)}
+              </select>
             </div>
             <div>
               <label className="label">Site Type</label>

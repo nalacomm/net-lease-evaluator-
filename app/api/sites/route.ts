@@ -26,7 +26,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { name, address, city, state, zip, squareFeet, parkingSpaces, parkingRatio, siteType,
+    const { name, address, city, state, zip, quadrant, squareFeet, parkingSpaces, parkingRatio, siteType,
       askingRentPsf, nnnEstimate, leaseType, leaseTermOffered, dailyTraffic,
       population1mi, population3mi, population5mi, medianIncome,
       coTenants, zoning, availableDate, source, brokerName, brokerEmail, brokerPhone, notes } = body;
@@ -40,6 +40,7 @@ export async function POST(req: Request) {
         city: city || null,
         state: state || null,
         zip: zip || null,
+        quadrant: quadrant || null,
         squareFeet: squareFeet ? parseFloat(squareFeet) : null,
         parkingSpaces: parkingSpaces ? parseInt(parkingSpaces) : null,
         parkingRatio: parkingRatio ? parseFloat(parkingRatio) : null,

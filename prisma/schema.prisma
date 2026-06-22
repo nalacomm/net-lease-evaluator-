@@ -103,6 +103,7 @@ model Deal {
   address   String?
   city      String?
   state     String?
+  quadrant  String?
   assetType String?
 
   // Tenant
@@ -308,10 +309,11 @@ model TenantRequirements {
 model ProspectiveSite {
   id    String @id @default(cuid())
   name  String
-  address String?
-  city    String?
-  state   String?
-  zip     String?
+  address  String?
+  city     String?
+  state    String?
+  zip      String?
+  quadrant String?
 
   squareFeet       Float?
   parkingSpaces    Int?

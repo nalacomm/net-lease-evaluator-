@@ -32,6 +32,7 @@ export default async function SitePage({ params }: { params: { id: string } }) {
     city: site.city,
     state: site.state,
     zip: site.zip,
+    quadrant: site.quadrant,
     siteType: site.siteType,
     availableDate: site.availableDate,
     squareFeet: site.squareFeet,

@@ -12,6 +12,7 @@ interface SiteDraft {
   city: string | null;
   state: string | null;
   zip: string | null;
+  quadrant: string | null;
   siteType: string | null;
   squareFeet: number | null;
   parkingSpaces: number | null;
@@ -84,12 +85,13 @@ Rules:
 - nnnEstimate: estimated NNN expenses per SF per year
 - availableDate: ISO date string YYYY-MM-DD or null
 - coTenants: comma-separated string of nearby/co-tenants (e.g. "Whole Foods, Starbucks") — NOT an array, always a string or null
+- quadrant: directional suffix of the address if present (e.g. "NW", "NE", "SW", "SE") — extract from address string, do not infer
 - inferredFields: list every field you estimated rather than read directly
 - confidenceLevel: "high" | "medium" | "low"
 
 Return JSON only:
 {
-  "name": null, "address": null, "city": null, "state": null, "zip": null,
+  "name": null, "address": null, "city": null, "state": null, "zip": null, "quadrant": null,
   "siteType": null, "squareFeet": null, "parkingSpaces": null, "parkingRatio": null,
   "askingRentPsf": null, "nnnEstimate": null, "leaseType": null, "leaseTermOffered": null,
   "dailyTraffic": null,

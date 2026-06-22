@@ -7,6 +7,7 @@ import {
   LEASE_TYPES,
   GUARANTY_TYPES,
   SOURCE_PLATFORMS,
+  QUADRANTS,
 } from "@/lib/constants";
 import { Loader2, FileText, Link2, Type, AlertCircle } from "lucide-react";
 
@@ -17,6 +18,7 @@ const FIELDS: { key: string; label: string; type: "text" | "number" | "select"; 
   { key: "address", label: "Address", type: "text" },
   { key: "city", label: "City", type: "text" },
   { key: "state", label: "State", type: "text" },
+  { key: "quadrant", label: "Quadrant", type: "select", options: QUADRANTS },
   { key: "assetType", label: "Asset Type", type: "select", options: ASSET_TYPES },
   { key: "tenantName", label: "Tenant", type: "text" },
   { key: "operatorName", label: "Operator", type: "text" },
