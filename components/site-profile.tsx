@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, Lightbulb, Pencil, Trash2 } from "lucide-react";
+import { Loader2, Lightbulb, Pencil, Trash2, FileDown } from "lucide-react";
 import clsx from "clsx";
 import { GradeBadge, StatusPill } from "@/components/ui";
 import { labelFor, SITE_TYPES, TENANT_LEASE_TYPES } from "@/lib/constants";
@@ -319,6 +319,9 @@ export function SiteProfile({
             </div>
           </div>
           <div className="flex gap-2 shrink-0">
+            <Link href={`/sites/${site.id}/export`} className="btn-secondary">
+              <FileDown className="h-4 w-4" /> Export
+            </Link>
             <Link href={`/sites/${site.id}/edit`} className="btn-secondary">
               <Pencil className="h-4 w-4" /> Edit
             </Link>
