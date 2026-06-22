@@ -68,7 +68,7 @@ export function Sidebar() {
           <LogOut className="h-5 w-5" />
           Sign out
         </button>
-        <p className="px-3 pt-1 text-[10px] text-gray-400">v0.2.0</p>
+        <p className="px-3 pt-1 text-[10px] text-gray-400">v{process.env.NEXT_PUBLIC_APP_VERSION ?? "0.2.0"}</p>
       </div>
     </aside>
   );
