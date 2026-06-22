@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { SITE_TYPES, TENANT_LEASE_TYPES } from "@/lib/constants";
+import { SITE_TYPE_CATEGORIES, TENANT_LEASE_TYPES } from "@/lib/constants";
 import { Loader2, Sparkles, ClipboardList, AlertCircle, Upload, X, MapPin } from "lucide-react";
 
 // ---- Stable helper components (MUST be outside the parent to avoid remount on every render) ----
@@ -494,20 +494,27 @@ export function TenantOnboarding() {
 
         <div className="mt-4">
           <label className="label">Site Type Preferences</label>
-          <div className="flex flex-wrap gap-2">
-            {SITE_TYPES.map((s) => (
-              <button
-                key={s.value}
-                type="button"
-                onClick={() => toggleSiteType(s.value)}
-                className={`rounded-full border px-3 py-1.5 text-sm ${
-                  siteTypePrefs.includes(s.value)
-                    ? "border-brand bg-brand text-white"
-                    : "border-gray-300 bg-white text-gray-700"
-                }`}
-              >
-                {s.label}
-              </button>
+          <div className="space-y-2">
+            {SITE_TYPE_CATEGORIES.map((cat) => (
+              <div key={cat.category}>
+                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">{cat.category}</p>
+                <div className="flex flex-wrap gap-2">
+                  {cat.types.map((s) => (
+                    <button
+                      key={s.value}
+                      type="button"
+                      onClick={() => toggleSiteType(s.value)}
+                      className={`rounded-full border px-3 py-1.5 text-sm ${
+                        siteTypePrefs.includes(s.value)
+                          ? "border-brand bg-brand text-white"
+                          : "border-gray-300 bg-white text-gray-700"
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         </div>

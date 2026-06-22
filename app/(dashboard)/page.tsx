@@ -5,7 +5,7 @@ import { labelFor, ASSET_TYPES } from "@/lib/constants";
 import { PageHeader, Stat, GradeBadge, EmptyState } from "@/components/ui";
 import { AssetClassChart } from "@/components/charts";
 import { InvestorSwitcher } from "@/components/investor-switcher";
-import { Plus, FileText, Newspaper } from "lucide-react";
+import { Plus, FileText, Newspaper, Store, MapPin } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -102,11 +102,25 @@ export default async function DashboardPage({
 
   // News flags: primary deals + assigned deal IDs
   const allDealIds = allDeals.map((d) => d.id);
-  const recentFlags = await prisma.dealNewsFlag.findMany({
-    where: { dealId: { in: allDealIds } },
-    orderBy: { createdAt: "desc" },
-    take: 3,
-    include: { newsItem: true, deal: true },
+  const [recentFlags, tenantStats, recentSiteAssignments] = await Promise.all([
+    prisma.dealNewsFlag.findMany({
+      where: { dealId: { in: allDealIds } },
+      orderBy: { createdAt: "desc" },
+      take: 3,
+      include: { newsItem: true, deal: true },
+    }),
+    prisma.tenant.aggregate({ _count: { id: true } }),
+    prisma.siteAssignment.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      include: {
+        site: { select: { id: true, name: true, city: true, state: true } },
+        tenant: { select: { id: true, name: true } },
+      },
+    }),
+  ]);
+  const activeSiteCount = await prisma.prospectiveSite.count({
+    where: { status: "active" },
   });
 
   return (
@@ -177,6 +191,63 @@ export default async function DashboardPage({
               </li>
             ))}
           </ul>
+        )}
+      </div>
+
+      {/* Tenant rep activity */}
+      <div className="card">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-semibold text-gray-900">Tenant Rep Activity</h2>
+          <Link href="/tenants" className="text-sm text-brand">View all</Link>
+        </div>
+        <div className="mb-4 grid grid-cols-2 gap-3">
+          <Link
+            href="/tenants"
+            className="flex items-center gap-3 rounded-lg bg-gray-50 px-4 py-3 hover:bg-gray-100"
+          >
+            <Store className="h-5 w-5 text-brand shrink-0" />
+            <div>
+              <p className="text-lg font-bold text-gray-900">{tenantStats._count.id}</p>
+              <p className="text-xs text-gray-500">Tenant Clients</p>
+            </div>
+          </Link>
+          <Link
+            href="/sites"
+            className="flex items-center gap-3 rounded-lg bg-gray-50 px-4 py-3 hover:bg-gray-100"
+          >
+            <MapPin className="h-5 w-5 text-brand shrink-0" />
+            <div>
+              <p className="text-lg font-bold text-gray-900">{activeSiteCount}</p>
+              <p className="text-xs text-gray-500">Active Sites</p>
+            </div>
+          </Link>
+        </div>
+        {recentSiteAssignments.length > 0 && (
+          <>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Recent Site Evaluations</p>
+            <ul className="divide-y divide-gray-100">
+              {recentSiteAssignments.map((a) => (
+                <li key={a.id} className="py-2">
+                  <Link href={`/sites/${a.siteId}`} className="flex items-center justify-between hover:opacity-80">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        {a.site.name || "Unnamed site"}
+                        {a.site.city ? ` · ${a.site.city}` : ""}
+                        {a.site.state ? `, ${a.site.state}` : ""}
+                      </p>
+                      <p className="text-xs text-gray-500">{a.tenant.name}</p>
+                    </div>
+                    {a.grade && (
+                      <GradeBadge grade={a.grade} size="sm" />
+                    )}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+        {recentSiteAssignments.length === 0 && (
+          <p className="py-2 text-center text-sm text-gray-400">No site evaluations yet.</p>
         )}
       </div>
     </div>

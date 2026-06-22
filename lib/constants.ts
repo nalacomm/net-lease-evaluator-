@@ -54,15 +54,34 @@ export const NEWS_CATEGORIES: { value: string; label: string }[] = [
   { value: "market", label: "Market" },
 ];
 
-export const SITE_TYPES: { value: string; label: string }[] = [
-  { value: "freestanding", label: "Freestanding" },
-  { value: "endcap", label: "End Cap" },
-  { value: "inline", label: "Inline" },
-  { value: "pad", label: "Pad Site" },
-  { value: "strip_center", label: "Strip Center" },
-  { value: "power_center", label: "Power Center" },
-  { value: "other", label: "Other" },
+export const SITE_TYPE_CATEGORIES: {
+  category: string;
+  types: { value: string; label: string }[];
+}[] = [
+  {
+    category: "Standalone",
+    types: [
+      { value: "freestanding", label: "Freestanding" },
+      { value: "pad", label: "Pad Site" },
+    ],
+  },
+  {
+    category: "Shopping Center",
+    types: [
+      { value: "strip_center", label: "Strip Center" },
+      { value: "power_center", label: "Power Center" },
+      { value: "endcap", label: "End Cap" },
+      { value: "inline", label: "Inline" },
+    ],
+  },
+  {
+    category: "Other",
+    types: [{ value: "other", label: "Other" }],
+  },
 ];
+
+export const SITE_TYPES: { value: string; label: string }[] =
+  SITE_TYPE_CATEGORIES.flatMap((c) => c.types);
 
 export const SITE_STATUSES: { value: string; label: string }[] = [
   { value: "active", label: "Active" },

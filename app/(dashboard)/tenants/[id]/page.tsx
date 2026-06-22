@@ -11,14 +11,20 @@ export default async function TenantPage({
 }: {
   params: { id: string };
 }) {
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: params.id },
-    include: {
-      requirements: true,
-      siteAssignments: { include: { site: true } },
-      campaigns: true,
-    },
-  });
+  const [tenant, allSites] = await Promise.all([
+    prisma.tenant.findUnique({
+      where: { id: params.id },
+      include: {
+        requirements: true,
+        siteAssignments: { include: { site: true } },
+        campaigns: true,
+      },
+    }),
+    prisma.prospectiveSite.findMany({
+      select: { id: true, name: true, city: true, state: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
   if (!tenant) notFound();
 
   return (
@@ -34,7 +40,7 @@ export default async function TenantPage({
           </div>
         }
       />
-      <TenantProfile tenant={tenant as never} />
+      <TenantProfile tenant={tenant as never} availableSites={allSites} />
     </div>
   );
 }

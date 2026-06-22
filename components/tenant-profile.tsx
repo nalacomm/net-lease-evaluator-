@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { fmtMoney, GRADE_COLORS } from "@/lib/format";
 import clsx from "clsx";
-import { Loader2, Pencil, Trash2, Copy, Check, ChevronDown, ChevronRight, Eye, Code } from "lucide-react";
+import { Loader2, Pencil, Trash2, Copy, Check, ChevronDown, ChevronRight, Eye, Code, Plus } from "lucide-react";
 
 type TenantRequirements = {
   id: string;
@@ -44,6 +44,13 @@ type SiteAssignment = {
     state: string | null;
     askingRentPsf: number | null;
   };
+};
+
+type AvailableSite = {
+  id: string;
+  name: string | null;
+  city: string | null;
+  state: string | null;
 };
 
 type Campaign = {
@@ -90,7 +97,13 @@ function GradeBadge({ grade }: { grade: string | null }) {
   );
 }
 
-export function TenantProfile({ tenant }: { tenant: Tenant }) {
+export function TenantProfile({
+  tenant,
+  availableSites = [],
+}: {
+  tenant: Tenant;
+  availableSites?: AvailableSite[];
+}) {
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
   const [campaignLoading, setCampaignLoading] = useState(false);
@@ -99,6 +112,10 @@ export function TenantProfile({ tenant }: { tenant: Tenant }) {
   const [expandedCampaign, setExpandedCampaign] = useState<string | null>(null);
   const [campaignView, setCampaignView] = useState<"preview" | "html">("preview");
   const [expandedView, setExpandedView] = useState<Record<string, "preview" | "html">>({});
+  const [siteAssignments, setSiteAssignments] = useState(tenant.siteAssignments);
+  const [selectedSiteId, setSelectedSiteId] = useState("");
+  const [assigning, setAssigning] = useState(false);
+  const [showAssignForm, setShowAssignForm] = useState(false);
 
   async function deleteTenant() {
     if (!confirm("Delete this tenant? This cannot be undone.")) return;
@@ -131,7 +148,45 @@ export function TenantProfile({ tenant }: { tenant: Tenant }) {
     setTimeout(() => setCopied(false), 2000);
   }
 
+  async function assignSite() {
+    if (!selectedSiteId) return;
+    setAssigning(true);
+    try {
+      const res = await fetch(`/api/sites/${selectedSiteId}/assign`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenantId: tenant.id }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const site = availableSites.find((s) => s.id === selectedSiteId);
+        setSiteAssignments((prev) => [
+          ...prev.filter((a) => a.site.id !== selectedSiteId),
+          {
+            id: data.id ?? selectedSiteId,
+            score: data.score ?? null,
+            grade: data.grade ?? null,
+            site: {
+              id: selectedSiteId,
+              name: site?.name ?? "",
+              address: null,
+              city: site?.city ?? null,
+              state: site?.state ?? null,
+              askingRentPsf: null,
+            },
+          },
+        ]);
+        setSelectedSiteId("");
+        setShowAssignForm(false);
+      }
+    } finally {
+      setAssigning(false);
+    }
+  }
+
   const req = tenant.requirements;
+  const assignedSiteIds = new Set(siteAssignments.map((a) => a.site.id));
+  const unassignedSites = availableSites.filter((s) => !assignedSiteIds.has(s.id));
 
   return (
     <div className="min-w-0 space-y-4">
@@ -298,23 +353,52 @@ export function TenantProfile({ tenant }: { tenant: Tenant }) {
       <div className="card">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-semibold text-gray-900">
-            Assigned Sites ({tenant.siteAssignments.length})
+            Assigned Sites ({siteAssignments.length})
           </h2>
-          <Link href="/sites" className="btn-secondary text-sm">
-            Assign Sites
-          </Link>
+          <button
+            onClick={() => setShowAssignForm((v) => !v)}
+            className="btn-secondary text-sm"
+          >
+            <Plus className="h-3.5 w-3.5" /> Assign Site
+          </button>
         </div>
 
-        {tenant.siteAssignments.length === 0 ? (
+        {showAssignForm && (
+          <div className="mb-4 flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
+            <select
+              className="input flex-1 text-sm"
+              value={selectedSiteId}
+              onChange={(e) => setSelectedSiteId(e.target.value)}
+            >
+              <option value="">— Select a site —</option>
+              {unassignedSites.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name || s.id}
+                  {s.city ? ` · ${s.city}` : ""}
+                  {s.state ? `, ${s.state}` : ""}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={assignSite}
+              disabled={assigning || !selectedSiteId}
+              className="btn-primary text-sm shrink-0"
+            >
+              {assigning ? <Loader2 className="h-4 w-4 animate-spin" /> : "Score & Assign"}
+            </button>
+          </div>
+        )}
+
+        {siteAssignments.length === 0 ? (
           <p className="py-4 text-center text-sm text-gray-400">
             No sites assigned yet.
           </p>
         ) : (
           <ul className="divide-y divide-gray-100">
-            {tenant.siteAssignments.map((sa) => (
+            {siteAssignments.map((sa) => (
               <li key={sa.id} className="py-3">
                 <Link
-                  href={`/sites/${sa.site.id}?tenantId=${tenant.id}`}
+                  href={`/sites/${sa.site.id}`}
                   className="flex items-center justify-between gap-3 hover:bg-gray-50 -mx-2 px-2 rounded"
                 >
                   <div className="min-w-0">

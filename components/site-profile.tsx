@@ -481,15 +481,16 @@ export function SiteProfile({
               <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
                 <Metric label="Name" value={site.brokerName} />
                 <Metric
-                  label="Email"
+                  label={site.brokerEmail?.includes(",") ? "Emails" : "Email"}
                   value={
                     site.brokerEmail ? (
-                      <a
-                        href={`mailto:${site.brokerEmail}`}
-                        className="text-brand underline"
-                      >
-                        {site.brokerEmail}
-                      </a>
+                      <span className="flex flex-col gap-0.5">
+                        {site.brokerEmail.split(",").map((e) => e.trim()).filter(Boolean).map((email) => (
+                          <a key={email} href={`mailto:${email}`} className="text-brand underline break-all">
+                            {email}
+                          </a>
+                        ))}
+                      </span>
                     ) : null
                   }
                 />

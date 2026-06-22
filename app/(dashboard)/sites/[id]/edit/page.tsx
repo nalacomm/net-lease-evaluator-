@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Loader2, MapPin } from "lucide-react";
+import { ArrowLeft, Loader2, MapPin, X } from "lucide-react";
 import { PageHeader } from "@/components/ui";
-import { SITE_TYPES, TENANT_LEASE_TYPES } from "@/lib/constants";
+import { SITE_TYPE_CATEGORIES, TENANT_LEASE_TYPES } from "@/lib/constants";
 
 type FormState = {
   name: string; address: string; city: string; state: string; zip: string;
@@ -39,6 +39,7 @@ export default function EditSitePage() {
   const [locationQuery, setLocationQuery] = useState("");
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationNote, setLocationNote] = useState("");
+  const [brokerEmails, setBrokerEmails] = useState<string[]>([""]);
 
   useEffect(() => {
     fetch(`/api/sites/${params.id}`)
@@ -72,6 +73,10 @@ export default function EditSitePage() {
           brokerPhone: s.brokerPhone ?? "",
           notes: s.notes ?? "",
         });
+        const emails = s.brokerEmail
+          ? s.brokerEmail.split(",").map((e: string) => e.trim()).filter(Boolean)
+          : [];
+        setBrokerEmails(emails.length ? emails : [""]);
         setLoading(false);
       })
       .catch(() => {
@@ -82,6 +87,24 @@ export default function EditSitePage() {
 
   function set(field: keyof FormState, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
+  }
+
+  function setEmail(i: number, val: string) {
+    const next = [...brokerEmails];
+    next[i] = val;
+    setBrokerEmails(next);
+    setForm((prev) => ({ ...prev, brokerEmail: next.filter(Boolean).join(", ") }));
+  }
+
+  function addEmail() {
+    setBrokerEmails((prev) => [...prev, ""]);
+  }
+
+  function removeEmail(i: number) {
+    const next = brokerEmails.filter((_, j) => j !== i);
+    const safe = next.length ? next : [""];
+    setBrokerEmails(safe);
+    setForm((prev) => ({ ...prev, brokerEmail: safe.filter(Boolean).join(", ") }));
   }
 
   async function lookupLocation() {
@@ -208,7 +231,11 @@ export default function EditSitePage() {
               <label className="label">Site Type</label>
               <select className="input" value={form.siteType} onChange={(e) => set("siteType", e.target.value)}>
                 <option value="">— Select —</option>
-                {SITE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                {SITE_TYPE_CATEGORIES.map((cat) => (
+                    <optgroup key={cat.category} label={cat.category}>
+                      {cat.types.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    </optgroup>
+                  ))}
               </select>
             </div>
           </div>
@@ -329,9 +356,29 @@ export default function EditSitePage() {
               <label className="label">Broker Name</label>
               <input className="input" value={form.brokerName} onChange={(e) => set("brokerName", e.target.value)} />
             </div>
-            <div>
-              <label className="label">Broker Email</label>
-              <input className="input" type="email" value={form.brokerEmail} onChange={(e) => set("brokerEmail", e.target.value)} />
+            <div className="sm:col-span-2">
+              <label className="label">Broker Email(s)</label>
+              <div className="space-y-1">
+                {brokerEmails.map((email, i) => (
+                  <div key={i} className="flex items-center gap-1">
+                    <input
+                      className="input flex-1"
+                      type="email"
+                      placeholder="broker@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(i, e.target.value)}
+                    />
+                    {brokerEmails.length > 1 && (
+                      <button type="button" onClick={() => removeEmail(i)} className="shrink-0 text-gray-400 hover:text-red-500">
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button type="button" onClick={addEmail} className="text-xs text-brand hover:underline">
+                  + Add another email
+                </button>
+              </div>
             </div>
             <div>
               <label className="label">Broker Phone</label>
