@@ -12,10 +12,12 @@ export const dynamic = "force-dynamic";
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: { investor?: string };
+  searchParams: { investor?: string; tenant?: string };
 }) {
   const allInvestors = await getAllInvestors();
   const investor = await getActiveInvestor(searchParams.investor);
+  const allTenants = await prisma.tenant.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } });
+  const activeTenant = searchParams.tenant ? allTenants.find((t) => t.id === searchParams.tenant) ?? null : null;
 
   if (allInvestors.length === 0) {
     return (
@@ -52,9 +54,16 @@ export default async function DashboardPage({
       orderBy: { score: "desc" },
     }),
     prisma.tenant.aggregate({ _count: { id: true } }),
-    prisma.prospectiveSite.count({ where: { status: "active" } }),
-    prisma.siteAssignment.count(),
+    activeTenant
+      ? prisma.prospectiveSite.count({
+          where: { status: "active", assignments: { some: { tenantId: activeTenant.id } } },
+        })
+      : prisma.prospectiveSite.count({ where: { status: "active" } }),
+    activeTenant
+      ? prisma.siteAssignment.count({ where: { tenantId: activeTenant.id } })
+      : prisma.siteAssignment.count(),
     prisma.siteAssignment.findMany({
+      where: activeTenant ? { tenantId: activeTenant.id } : undefined,
       orderBy: { createdAt: "desc" },
       take: 5,
       include: {
@@ -205,10 +214,39 @@ export default async function DashboardPage({
           <hr className="mt-1 border-gray-200" />
         </div>
 
+        {/* Tenant switcher */}
+        {allTenants.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <a
+              href="/"
+              className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+                !activeTenant
+                  ? "border-brand bg-brand text-white"
+                  : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              All Tenants
+            </a>
+            {allTenants.map((t) => (
+              <a
+                key={t.id}
+                href={`/?tenant=${t.id}${investor ? `&investor=${investor.id}` : ""}`}
+                className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+                  activeTenant?.id === t.id
+                    ? "border-brand bg-brand text-white"
+                    : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                {t.name}
+              </a>
+            ))}
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
           <Stat label="Tenant Clients" value={tenantCount._count.id} hint="All tenants" />
-          <Stat label="Active Sites" value={activeSiteCount} hint="Status: active" />
-          <Stat label="Site Evaluations" value={siteEvalCount} hint="Total assignments" />
+          <Stat label="Active Sites" value={activeSiteCount} hint={activeTenant ? `For ${activeTenant.name}` : "Status: active"} />
+          <Stat label="Site Evaluations" value={siteEvalCount} hint={activeTenant ? `For ${activeTenant.name}` : "Total assignments"} />
         </div>
 
         {/* Quick links */}
@@ -224,7 +262,9 @@ export default async function DashboardPage({
         {/* Recent site evaluations */}
         <div className="card">
           <div className="mb-2 flex items-center justify-between">
-            <h2 className="font-semibold text-gray-900">Recent Site Evaluations</h2>
+            <h2 className="font-semibold text-gray-900">
+              {activeTenant ? `${activeTenant.name} — Site Evaluations` : "Recent Site Evaluations"}
+            </h2>
             <Link href="/sites" className="text-sm text-brand">View all</Link>
           </div>
           {recentSiteAssignments.length === 0 ? (
