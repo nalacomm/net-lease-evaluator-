@@ -39,7 +39,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         population3mi: body.population3mi != null ? parseInt(body.population3mi) : undefined,
         population5mi: body.population5mi != null ? parseInt(body.population5mi) : undefined,
         medianIncome: body.medianIncome != null ? parseFloat(body.medianIncome) : undefined,
-        coTenants: body.coTenants ?? undefined,
+        coTenants: Array.isArray(body.coTenants) ? body.coTenants.join(", ") : (body.coTenants ?? undefined),
         zoning: body.zoning ?? undefined,
         availableDate: body.availableDate ?? undefined,
         source: body.source ?? undefined,

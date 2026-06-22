@@ -53,7 +53,7 @@ export async function POST(req: Request) {
         population3mi: population3mi ? parseInt(population3mi) : null,
         population5mi: population5mi ? parseInt(population5mi) : null,
         medianIncome: medianIncome ? parseFloat(medianIncome) : null,
-        coTenants: coTenants || null,
+        coTenants: Array.isArray(coTenants) ? coTenants.join(", ") : (coTenants || null),
         zoning: zoning || null,
         availableDate: availableDate || null,
         source: source || null,

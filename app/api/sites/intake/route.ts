@@ -83,6 +83,7 @@ Rules:
 - askingRentPsf: annual rent per SF as number (e.g. 28 for $28/SF/yr)
 - nnnEstimate: estimated NNN expenses per SF per year
 - availableDate: ISO date string YYYY-MM-DD or null
+- coTenants: comma-separated string of nearby/co-tenants (e.g. "Whole Foods, Starbucks") — NOT an array, always a string or null
 - inferredFields: list every field you estimated rather than read directly
 - confidenceLevel: "high" | "medium" | "low"
 
