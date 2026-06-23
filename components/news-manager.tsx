@@ -180,12 +180,16 @@ export function NewsManager({ initialNews }: { initialNews: NewsItem[] }) {
       const data: PdfAnalysisResult = await res.json();
       if (!res.ok) throw new Error((data as unknown as { error: string }).error ?? "Failed");
 
+      // Only use publishedAt if it's a valid YYYY-MM-DD string — the browser date input is strict
+      const rawDate = data.publishedAt ?? "";
+      const validDate = /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : "";
+
       setForm({
         headline: data.headline ?? "",
         summary: data.summary ?? "",
         source: data.source ?? "",
         url: "",
-        publishedAt: data.publishedAt ?? "",
+        publishedAt: validDate,
         category: data.category ?? "",
         rawContent: data.rawContent ?? "",
       });

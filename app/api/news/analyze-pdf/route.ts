@@ -50,8 +50,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Could not extract text from this PDF. It may be a scanned image." }, { status: 422 });
     }
 
-    // Truncate to ~12k chars so we stay within token limits
-    const truncated = rawText.length > 12000 ? rawText.slice(0, 12000) + "\n\n[... truncated ...]" : rawText;
+    // Truncate to ~18k chars — enough for most reports while staying within token limits
+    const truncated = rawText.length > 18000 ? rawText.slice(0, 18000) + "\n\n[... truncated ...]" : rawText;
 
     const result = await askJson<PdfAnalysisResult>(
       `You are a commercial real estate analyst extracting structured intelligence from a market report or news document.
@@ -68,7 +68,7 @@ Return JSON only, no preamble:
   "headline": "Concise title for this report/article (under 120 chars)",
   "summary": "2-3 sentence summary of the key findings",
   "source": "Publisher or author name, or null if unknown",
-  "publishedAt": "YYYY-MM-DD if a date is mentioned, otherwise null",
+  "publishedAt": "YYYY-MM-DD format only (e.g. 2025-01-15), or null — do NOT return a year alone or a partial date",
   "category": "One of: interest_rates | cap_rates | tenant_credit | sector_news | market | other",
   "insights": [
     {
