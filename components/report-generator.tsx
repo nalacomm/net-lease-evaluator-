@@ -661,6 +661,9 @@ function SiteReportOutput({ report }: { report: SiteReportData }) {
                   {s.gapAnalysis.isExceptional ? "Exceptional Flag" : "Gap Analysis"}
                 </p>
                 <p className="text-sm text-gray-700 mb-1">{s.gapAnalysis.verdict}</p>
+                {s.gapAnalysis.exceptionalReason && (
+                  <p className="text-sm text-amber-800 font-medium mb-1">{s.gapAnalysis.exceptionalReason}</p>
+                )}
                 {adjustments.length > 0 && (
                   <ul className="space-y-1 mt-2">
                     {adjustments.map((adj, i) => (

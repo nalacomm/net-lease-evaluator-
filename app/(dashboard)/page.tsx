@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { labelFor, ASSET_TYPES } from "@/lib/constants";
 import { PageHeader, Stat, GradeBadge, EmptyState } from "@/components/ui";
 import { AssetClassChart } from "@/components/charts";
-import { InvestorSwitcher } from "@/components/investor-switcher";
+import { InvestorSwitcher, TenantSwitcher } from "@/components/investor-switcher";
 import { Plus, FileText, Newspaper, Store, MapPin } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -14,9 +14,11 @@ export default async function DashboardPage({
 }: {
   searchParams: { investor?: string; tenant?: string };
 }) {
-  const allInvestors = await getAllInvestors();
+  const [allInvestors, allTenants] = await Promise.all([
+    getAllInvestors(),
+    prisma.tenant.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+  ]);
   const investor = await getActiveInvestor(searchParams.investor);
-  const allTenants = await prisma.tenant.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } });
   const activeTenant = searchParams.tenant ? allTenants.find((t) => t.id === searchParams.tenant) ?? null : null;
 
   if (allInvestors.length === 0) {
@@ -33,6 +35,9 @@ export default async function DashboardPage({
     );
   }
 
+  // Redirect stale ?investor= param back to default so we never query with undefined
+  const activeInvestorId = investor?.id ?? allInvestors[0]?.id;
+
   // Pull primary deals AND assigned deals, then merge
   const [
     primaryDeals,
@@ -45,11 +50,11 @@ export default async function DashboardPage({
     recentSiteFlags,
   ] = await Promise.all([
     prisma.deal.findMany({
-      where: { investorId: investor?.id },
+      where: { investorId: activeInvestorId },
       orderBy: { score: "desc" },
     }),
     prisma.dealAssignment.findMany({
-      where: { investorId: investor?.id },
+      where: { investorId: activeInvestorId },
       include: { deal: true },
       orderBy: { score: "desc" },
     }),
@@ -150,10 +155,10 @@ export default async function DashboardPage({
         }
       />
 
-      {allInvestors.length > 1 && investor && (
+      {allInvestors.length > 1 && (
         <InvestorSwitcher
           investors={allInvestors.map((i) => ({ id: i.id, name: i.name }))}
-          activeId={investor.id}
+          activeId={activeInvestorId}
         />
       )}
 
@@ -215,32 +220,12 @@ export default async function DashboardPage({
         </div>
 
         {/* Tenant switcher */}
-        {allTenants.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2">
-            <a
-              href="/"
-              className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
-                !activeTenant
-                  ? "border-brand bg-brand text-white"
-                  : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              All Tenants
-            </a>
-            {allTenants.map((t) => (
-              <a
-                key={t.id}
-                href={`/?tenant=${t.id}${investor ? `&investor=${investor.id}` : ""}`}
-                className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
-                  activeTenant?.id === t.id
-                    ? "border-brand bg-brand text-white"
-                    : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                }`}
-              >
-                {t.name}
-              </a>
-            ))}
-          </div>
+        {allTenants.length > 1 && (
+          <TenantSwitcher
+            tenants={allTenants}
+            activeId={activeTenant?.id ?? null}
+            extraParam={investor ? `investor=${investor.id}` : undefined}
+          />
         )}
 
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">

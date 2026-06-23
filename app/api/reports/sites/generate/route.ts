@@ -11,6 +11,9 @@ export async function POST(req: Request) {
     if (!tenantId || !siteIds?.length) {
       return NextResponse.json({ error: "tenantId + siteIds required" }, { status: 400 });
     }
+    if (siteIds.length > 8) {
+      return NextResponse.json({ error: "Select up to 8 sites per report to avoid timeouts" }, { status: 400 });
+    }
 
     const [tenant, sites] = await Promise.all([
       prisma.tenant.findUnique({
@@ -30,6 +33,7 @@ export async function POST(req: Request) {
     ]);
 
     if (!tenant) return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
+    const tenantName = tenant.name;
 
     const req_ = tenant.requirements;
 
@@ -63,7 +67,7 @@ export async function POST(req: Request) {
 
     const [execSummary, recommendation] = await Promise.all([
       askText(
-        `You are Ed Henderson, tenant rep broker at Blake-Dickson Commercial Real Estate, writing a site report for your client ${tenant.name}${tenant.company ? ` (${tenant.company})` : ""}.
+        `You are Ed Henderson, tenant rep broker at Blake-Dickson Commercial Real Estate, writing a site report for your client ${tenantName}${tenant.company ? ` (${tenant.company})` : ""}.
 
 Write directly TO the tenant using "you" and "your".
 Tenant requirements: ${reqContext}
@@ -75,7 +79,7 @@ Write a 2–3 sentence executive summary covering how these sites collectively m
         { maxTokens: 300 }
       ),
       askText(
-        `You are Ed Henderson, tenant rep broker, advising ${tenant.name} on which site best fits their needs.
+        `You are Ed Henderson, tenant rep broker, advising ${tenantName} on which site best fits their needs.
 
 Use "you" and "your" — never third person.
 Tenant requirements: ${reqContext}
@@ -88,20 +92,20 @@ Write a 2–3 sentence recommendation naming the top site and exactly why it bes
       ),
     ]);
 
-    const siteDetails = await Promise.all(
-      sites.map(async (s) => {
-        const a = s.assignments[0];
-        const breakdown = a?.scoreBreakdown as { category: string; points: number; max: number; status: string; detail: string }[] | null;
-        const gapAnalysis = a?.gapAnalysis as {
-          isExceptional: boolean;
-          exceptionalReason: string | null;
-          buyBoxAdjustments?: { field: string; currentValue: string; requiredValue: string; impact: string }[];
-          requirementAdjustments?: { field: string; currentValue: string; requiredValue: string; impact: string }[];
-          verdict: string;
-        } | null;
+    // Process in batches of 4 to stay within rate limits
+    async function scoreSite(s: (typeof sites)[0]) {
+      const a = s.assignments[0];
+      const breakdown = a?.scoreBreakdown as { category: string; points: number; max: number; status: string; detail: string }[] | null;
+      const gapAnalysis = a?.gapAnalysis as {
+        isExceptional: boolean;
+        exceptionalReason: string | null;
+        buyBoxAdjustments?: { field: string; currentValue: string; requiredValue: string; impact: string }[];
+        requirementAdjustments?: { field: string; currentValue: string; requiredValue: string; impact: string }[];
+        verdict: string;
+      } | null;
 
-        const risksStrengths = await askText(
-          `You are advising ${tenant.name} on this prospective site. Write strengths and risks speaking directly using "you/your".
+      const risksStrengths = await askText(
+        `You are advising ${tenantName} on this prospective site. Write strengths and risks speaking directly using "you/your".
 
 ${siteSummary(s)}
 Tenant requirements: ${reqContext}
@@ -115,55 +119,60 @@ RISKS:
 - [bullet 1]
 - [bullet 2]
 - [bullet 3]`,
-          { maxTokens: 300 }
-        );
+        { maxTokens: 300 }
+      );
 
-        const strengths: string[] = [];
-        const risks: string[] = [];
-        let section = "";
-        for (const line of risksStrengths.split("\n")) {
-          if (line.startsWith("STRENGTHS")) section = "s";
-          else if (line.startsWith("RISKS")) section = "r";
-          else if (line.startsWith("- ")) {
-            if (section === "s") strengths.push(line.slice(2));
-            else if (section === "r") risks.push(line.slice(2));
-          }
+      const strengths: string[] = [];
+      const risks: string[] = [];
+      let section = "";
+      for (const line of risksStrengths.split("\n")) {
+        if (line.startsWith("STRENGTHS")) section = "s";
+        else if (line.startsWith("RISKS")) section = "r";
+        else if (line.startsWith("- ")) {
+          if (section === "s") strengths.push(line.slice(2));
+          else if (section === "r") risks.push(line.slice(2));
         }
+      }
 
-        return {
-          id: s.id,
-          name: s.name,
-          address: s.address,
-          city: s.city,
-          state: s.state,
-          quadrant: s.quadrant,
-          siteType: labelFor(SITE_TYPES, s.siteType),
-          squareFeet: s.squareFeet,
-          askingRentPsf: s.askingRentPsf,
-          nnnEstimate: s.nnnEstimate,
-          leaseType: labelFor(TENANT_LEASE_TYPES, s.leaseType),
-          leaseTermOffered: s.leaseTermOffered,
-          dailyTraffic: s.dailyTraffic,
-          population3mi: s.population3mi,
-          medianIncome: s.medianIncome,
-          coTenants: s.coTenants,
-          zoning: s.zoning,
-          brokerName: s.brokerName,
-          brokerPhone: s.brokerPhone,
-          score: a?.score ?? null,
-          grade: a?.grade ?? null,
-          scoreBreakdown: breakdown,
-          gapAnalysis,
-          newsFlags: s.newsFlags.map((f) => ({
-            headline: f.newsItem.headline,
-            relevance: f.relevance,
-            impact: f.impact,
-          })),
-          strengths,
-          risks,
-        };
-      })
-    );
+      return {
+        id: s.id,
+        name: s.name,
+        address: s.address,
+        city: s.city,
+        state: s.state,
+        quadrant: s.quadrant,
+        siteType: labelFor(SITE_TYPES, s.siteType),
+        squareFeet: s.squareFeet,
+        askingRentPsf: s.askingRentPsf,
+        nnnEstimate: s.nnnEstimate,
+        leaseType: labelFor(TENANT_LEASE_TYPES, s.leaseType),
+        leaseTermOffered: s.leaseTermOffered,
+        dailyTraffic: s.dailyTraffic,
+        population3mi: s.population3mi,
+        medianIncome: s.medianIncome,
+        coTenants: s.coTenants,
+        zoning: s.zoning,
+        brokerName: s.brokerName,
+        brokerPhone: s.brokerPhone,
+        score: a?.score ?? null,
+        grade: a?.grade ?? null,
+        scoreBreakdown: breakdown,
+        gapAnalysis,
+        newsFlags: s.newsFlags.map((f) => ({
+          headline: f.newsItem.headline,
+          relevance: f.relevance,
+          impact: f.impact,
+        })),
+        strengths,
+        risks,
+      };
+    }
+
+    const siteDetails: Awaited<ReturnType<typeof scoreSite>>[] = [];
+    for (let i = 0; i < sites.length; i += 4) {
+      const batch = await Promise.all(sites.slice(i, i + 4).map(scoreSite));
+      siteDetails.push(...batch);
+    }
 
     return NextResponse.json({
       tenant: { name: tenant.name, company: tenant.company },

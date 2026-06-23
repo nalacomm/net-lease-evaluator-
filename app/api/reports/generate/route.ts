@@ -13,6 +13,9 @@ export async function POST(req: Request) {
     if (!investorId || !dealIds?.length) {
       return NextResponse.json({ error: "investorId + dealIds required" }, { status: 400 });
     }
+    if (dealIds.length > 8) {
+      return NextResponse.json({ error: "Select up to 8 deals per report to avoid timeouts" }, { status: 400 });
+    }
 
     const investor = await prisma.investor.findUnique({
       where: { id: investorId },
@@ -164,8 +167,8 @@ RISKS:
         leaseType: d.deal.leaseType,
         termRemainingYears: d.deal.termRemainingYears,
         guarantyType: d.deal.guarantyType,
-        grade: d.score,  // investor-specific
-        score: d.score,  // investor-specific
+        grade: d.grade,
+        score: d.score,
         scoreBreakdown: d.deal.scoreBreakdown,
         selfCheckerNotes: d.deal.selfCheckerNotes,
         finance: {
