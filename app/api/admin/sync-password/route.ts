@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/admin/sync-password
  * Re-hashes ADMIN_PASSWORD env var and updates the admin user in the DB.
