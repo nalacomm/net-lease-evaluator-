@@ -80,7 +80,7 @@ Return JSON only, no preamble:
       "type": "cap_rate | tenant_expansion | market_data | demographics | interest_rates | regulatory | credit_rating | other",
       "title": "Short title (under 60 chars)",
       "detail": "What was found — be specific, include numbers if present",
-      "relevantTo": ["investors" and/or "tenants" and/or "sites" and/or "deals"],
+      "relevantTo": ["investors", "tenants", "sites", "deals"],
       "dataPoints": "Key numbers, ranges, or metrics mentioned (optional)"
     }
   ]
@@ -96,7 +96,7 @@ Guidelines for insights:
 - regulatory: zoning changes, tax law, 1031 exchange rules, opportunity zones
 - credit_rating: tenant or REIT credit rating changes, bankruptcy risk signals
 - other: any other relevant finding
-- relevantTo must match which user types would act on this: investors update buy boxes, tenants update requirements, sites get flagged, deals get re-evaluated`,
+- relevantTo: include only the entries that apply — valid values are "investors", "tenants", "sites", "deals". Must be a proper JSON array`,
       { maxTokens: 1500 }
     );
 
