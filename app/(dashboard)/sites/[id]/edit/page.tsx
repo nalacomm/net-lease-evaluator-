@@ -90,11 +90,10 @@ export default function EditSitePage() {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
-  // Annual PSF stored directly — monthly = annual / 12
-  const baseRentYr = parseFloat(form.askingRentPsf) || 0;
-  const nnnYr = parseFloat(form.nnnEstimate) || 0;
-  const totalYr = baseRentYr + nnnYr;
-  const totalMo = totalYr / 12;
+  // Monthly PSF stored directly — annual = monthly × 12
+  const baseMo = parseFloat(form.askingRentPsf) || 0;
+  const nnnMo = parseFloat(form.nnnEstimate) || 0;
+  const totalMo = baseMo + nnnMo;
 
   function setEmail(i: number, val: string) {
     const next = [...brokerEmails];
@@ -277,38 +276,38 @@ export default function EditSitePage() {
         <section className="card space-y-3">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Lease & Rent</h2>
 
-          {/* Annual PSF inputs — monthly derived below */}
+          {/* Monthly PSF inputs — annual shown as derived below */}
           <div className="grid gap-3 sm:grid-cols-3">
             <div>
-              <label className="label">Base Rent PSF/yr ($)</label>
-              <input className="input" type="number" step="0.01" placeholder="e.g. 30.00" value={form.askingRentPsf} onChange={(e) => set("askingRentPsf", e.target.value)} />
+              <label className="label">Base Rent PSF/mo ($)</label>
+              <input className="input" type="number" step="0.01" placeholder="e.g. 5.00" value={form.askingRentPsf} onChange={(e) => set("askingRentPsf", e.target.value)} />
             </div>
             <div>
-              <label className="label">NNN PSF/yr ($)</label>
-              <input className="input" type="number" step="0.01" placeholder="e.g. 9.00" value={form.nnnEstimate} onChange={(e) => set("nnnEstimate", e.target.value)} />
+              <label className="label">NNN PSF/mo ($)</label>
+              <input className="input" type="number" step="0.01" placeholder="e.g. 0.75" value={form.nnnEstimate} onChange={(e) => set("nnnEstimate", e.target.value)} />
             </div>
             <div>
-              <label className="label">Total PSF/yr ($)</label>
+              <label className="label">Total PSF/mo ($)</label>
               <div className="input bg-gray-50 text-gray-700 flex items-center">
-                {totalYr > 0 ? `$${totalYr.toFixed(2)}` : "—"}
+                {totalMo > 0 ? `$${totalMo.toFixed(2)}` : "—"}
               </div>
             </div>
           </div>
 
-          {/* Monthly derived display */}
-          {(baseRentYr > 0 || nnnYr > 0) && (
+          {/* Annual derived display */}
+          {(baseMo > 0 || nnnMo > 0) && (
             <div className="grid grid-cols-3 gap-3 rounded-lg bg-gray-50 px-3 py-2 text-sm">
               <div>
-                <p className="text-xs text-gray-400">Base/mo</p>
-                <p className="font-medium text-gray-800">${(baseRentYr / 12).toFixed(2)}/SF</p>
+                <p className="text-xs text-gray-400">Base/yr</p>
+                <p className="font-medium text-gray-800">${(baseMo * 12).toFixed(2)}/SF</p>
               </div>
               <div>
-                <p className="text-xs text-gray-400">NNN/mo</p>
-                <p className="font-medium text-gray-800">${(nnnYr / 12).toFixed(2)}/SF</p>
+                <p className="text-xs text-gray-400">NNN/yr</p>
+                <p className="font-medium text-gray-800">${(nnnMo * 12).toFixed(2)}/SF</p>
               </div>
               <div>
-                <p className="text-xs text-gray-400">Total/mo</p>
-                <p className="font-medium text-brand">${totalMo.toFixed(2)}/SF</p>
+                <p className="text-xs text-gray-400">Total/yr</p>
+                <p className="font-medium text-brand">${(totalMo * 12).toFixed(2)}/SF</p>
               </div>
             </div>
           )}

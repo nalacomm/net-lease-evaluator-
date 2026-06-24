@@ -414,36 +414,36 @@ export function SiteProfile({
           <div className="card">
             <h3 className="mb-3 font-semibold text-gray-900">Financial</h3>
             <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
-              {/* PSF rates */}
-              <Metric label="Base Rent PSF/mo" value={site.askingRentPerSF != null ? `$${(site.askingRentPerSF / 12).toFixed(2)}` : null} />
-              <Metric label="NNN PSF/mo" value={site.nnnEstimate != null ? `$${(site.nnnEstimate / 12).toFixed(2)}` : null} />
+              {/* Monthly PSF (stored) */}
+              <Metric label="Base Rent PSF/mo" value={site.askingRentPerSF != null ? `$${site.askingRentPerSF.toFixed(2)}` : null} />
+              <Metric label="NNN PSF/mo" value={site.nnnEstimate != null ? `$${site.nnnEstimate.toFixed(2)}` : null} />
               <Metric
                 label="Total PSF/mo"
                 value={site.askingRentPerSF != null || site.nnnEstimate != null
-                  ? `$${((site.askingRentPerSF ?? 0) / 12 + (site.nnnEstimate ?? 0) / 12).toFixed(2)}`
+                  ? `$${((site.askingRentPerSF ?? 0) + (site.nnnEstimate ?? 0)).toFixed(2)}`
                   : null}
               />
 
-              {/* Monthly payments: Annual PSF × SF / 12 */}
+              {/* Monthly rent: PSF/mo × SF / 12 */}
               {site.squareFeet != null && site.askingRentPerSF != null && (
                 <Metric
                   label="Monthly Base Rent"
                   value={`$${(site.askingRentPerSF * site.squareFeet / 12).toLocaleString("en-US", { maximumFractionDigits: 0 })}`}
-                  hint={`$${site.askingRentPerSF.toFixed(2)}/SF/yr × ${site.squareFeet.toLocaleString()} SF ÷ 12`}
+                  hint={`$${site.askingRentPerSF.toFixed(2)}/mo × ${site.squareFeet.toLocaleString()} SF ÷ 12`}
                 />
               )}
               {site.squareFeet != null && (site.askingRentPerSF != null || site.nnnEstimate != null) && (
                 <Metric
                   label="Monthly Total Rent"
                   value={`$${(((site.askingRentPerSF ?? 0) + (site.nnnEstimate ?? 0)) * site.squareFeet / 12).toLocaleString("en-US", { maximumFractionDigits: 0 })}`}
-                  hint={`$${((site.askingRentPerSF ?? 0) + (site.nnnEstimate ?? 0)).toFixed(2)}/SF/yr × ${site.squareFeet.toLocaleString()} SF ÷ 12`}
+                  hint={`$${((site.askingRentPerSF ?? 0) + (site.nnnEstimate ?? 0)).toFixed(2)}/mo × ${site.squareFeet.toLocaleString()} SF ÷ 12`}
                   highlight
                 />
               )}
 
-              {/* Annual reference */}
-              <Metric label="Base Rent PSF/yr" value={site.askingRentPerSF != null ? `$${site.askingRentPerSF.toFixed(2)}` : null} />
-              <Metric label="NNN PSF/yr" value={site.nnnEstimate != null ? `$${site.nnnEstimate.toFixed(2)}` : null} />
+              {/* Annual reference (derived) */}
+              <Metric label="Base Rent PSF/yr" value={site.askingRentPerSF != null ? `$${(site.askingRentPerSF * 12).toFixed(2)}` : null} />
+              <Metric label="NNN PSF/yr" value={site.nnnEstimate != null ? `$${(site.nnnEstimate * 12).toFixed(2)}` : null} />
               <Metric label="Lease Type" value={labelFor(TENANT_LEASE_TYPES, site.leaseType)} />
               <Metric label="Lease Term Offered" value={site.leaseTermOffered != null ? `${site.leaseTermOffered} yrs` : null} />
             </div>
