@@ -1,36 +1,34 @@
 import type { PdfAnalysisResult, PdfInsight } from "@/app/api/news/analyze-pdf/route";
 
+export const ANALYSIS_SYSTEM =
+  "You are a JSON API. You MUST return only a valid JSON object — no explanation, no preamble, no markdown, no code fences. Even if the content has no relevant data, return the JSON object with empty or null fields.";
+
 export function buildAnalysisPrompt(content: string): string {
-  return `You are a commercial real estate analyst. Extract structured intelligence from the content below and return ONLY a valid JSON object — no explanation, no markdown, no code fences.
+  return `Extract commercial real estate intelligence from the content below and return it as a JSON object matching this exact schema. If the content has no CRE relevance, still return the JSON with an empty insights array and a brief summary of what the content is.
 
 Content:
 ---
 ${content}
 ---
 
-JSON schema (follow exactly — every string value must use double quotes and be properly escaped):
+Required schema — return ONLY this JSON, nothing else:
 {
-  "headline": "string — concise title under 120 chars",
-  "summary": "string — 2-3 sentence summary of key findings",
-  "source": "string or null — publisher or author name",
-  "publishedAt": "string or null — YYYY-MM-DD only, e.g. 2025-01-15. Return null if unknown or if the date is not a full calendar date",
-  "category": "string — one of: interest_rates, cap_rates, tenant_credit, sector_news, market, other",
-  "insights": [
-    {
-      "type": "string — one of: cap_rate, tenant_expansion, market_data, demographics, interest_rates, regulatory, credit_rating, other",
-      "title": "string — under 60 chars",
-      "detail": "string — specific finding, include numbers if present",
-      "relevantTo": "string — comma-separated subset of: investors, tenants, sites, deals",
-      "dataPoints": "string or null — key metrics or numbers"
-    }
-  ]
+  "headline": "concise title under 120 chars",
+  "summary": "2-3 sentences describing the content and any CRE relevance",
+  "source": null,
+  "publishedAt": null,
+  "category": "other",
+  "insights": []
 }
 
-Rules:
-- Return at most 8 insights. Only include genuinely notable or actionable findings.
-- If there are no CRE-relevant insights, return an empty insights array.
-- All string values must be properly JSON-escaped. No unquoted text inside strings.
-- relevantTo must be a plain string like "investors, tenants" — NOT an array.`;
+If CRE insights exist, populate insights as objects with these fields:
+- type: one of cap_rate, tenant_expansion, market_data, demographics, interest_rates, regulatory, credit_rating, other
+- title: string under 60 chars
+- detail: specific finding with numbers if present
+- relevantTo: comma-separated string using only these words: investors, tenants, sites, deals
+- dataPoints: string with key metrics, or null
+
+Return at most 8 insights. relevantTo must be a plain comma-separated string, not an array. All strings must be properly JSON-escaped.`;
 }
 
 const VALID_RELEVANT = new Set(["investors", "tenants", "sites", "deals"]);
@@ -45,7 +43,6 @@ function toRelevantTo(val: unknown): PdfInsight["relevantTo"] {
   return [];
 }
 
-// Attempt to repair and parse a potentially malformed JSON string from the AI.
 function repairAndParse(raw: string): Record<string, unknown> {
   let text = raw.trim();
 
@@ -65,15 +62,20 @@ function repairAndParse(raw: string): Record<string, unknown> {
   try {
     return JSON.parse(text);
   } catch {
-    // Last resort: truncate at the last complete top-level field before the error
-    const lastBrace = text.lastIndexOf('"}');
-    if (lastBrace > 0) {
-      const trimmed = text.slice(0, lastBrace + 2) + "]}";
-      try {
-        return JSON.parse(trimmed);
-      } catch { /* fall through */ }
+    // Try truncating at the last complete insight object
+    const lastClose = text.lastIndexOf("}");
+    if (lastClose > 0) {
+      const trimmed = text.slice(0, lastClose + 1);
+      // Try wrapping as complete object if insights array was cut off
+      const insightsIdx = trimmed.indexOf('"insights"');
+      if (insightsIdx > 0) {
+        const attempt = trimmed + "]}";
+        try { return JSON.parse(attempt); } catch { /* fall through */ }
+      }
+      try { return JSON.parse(trimmed); } catch { /* fall through */ }
     }
-    throw new Error("Could not parse AI response as JSON");
+    // If all else fails, return a minimal shell so the user still sees the form
+    return { headline: "", summary: "AI returned an unreadable response. Fill in details manually.", source: null, publishedAt: null, category: "other", insights: [] };
   }
 }
 

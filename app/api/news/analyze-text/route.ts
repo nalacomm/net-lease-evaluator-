@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { askText } from "@/lib/anthropic";
-import { buildAnalysisPrompt, parseAndNormalizeAnalysis } from "@/lib/parse-analysis";
+import { ANALYSIS_SYSTEM, buildAnalysisPrompt, parseAndNormalizeAnalysis } from "@/lib/parse-analysis";
 
 export const maxDuration = 60;
 
@@ -12,7 +12,7 @@ export async function POST(req: Request) {
     }
 
     const truncated = text.length > 18000 ? text.slice(0, 18000) + "\n\n[... truncated ...]" : text;
-    const raw = await askText(buildAnalysisPrompt(truncated), { maxTokens: 1500 });
+    const raw = await askText(buildAnalysisPrompt(truncated), { system: ANALYSIS_SYSTEM, maxTokens: 1500 });
     const result = parseAndNormalizeAnalysis(raw);
 
     return NextResponse.json({ ...result, rawContent: text.slice(0, 50000) });
