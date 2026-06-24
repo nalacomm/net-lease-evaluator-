@@ -182,6 +182,11 @@ function GapAnalysisBlock({
           </button>
         )}
       </div>
+      {analysis.context && (
+        <p className="mb-2 rounded bg-blue-50 px-2 py-1 text-xs text-blue-700">
+          Context used: {analysis.context}
+        </p>
+      )}
       <p className="text-sm text-gray-700 mb-2">{analysis.verdict}</p>
       {analysis.exceptionalReason && (
         <p className="text-sm text-amber-800 mb-2 font-medium">{analysis.exceptionalReason}</p>
@@ -658,49 +663,39 @@ export function SiteProfile({
                     </div>
                   </div>
 
-                  {a.scoreBreakdown && a.scoreBreakdown.length > 0 && (
-                    <div className="overflow-hidden rounded border border-gray-200">
-                      <table className="w-full text-xs">
-                        <tbody>
-                          {a.scoreBreakdown.map((row, i) => {
-                            const pillClass =
-                              row.status === "pass"
-                                ? "bg-green-100 text-green-800"
-                                : row.status === "warn"
-                                ? "bg-yellow-100 text-yellow-800"
-                                : row.status === "fail"
-                                ? "bg-red-100 text-red-800"
-                                : row.status === "skip"
-                                ? "bg-gray-50 text-gray-400 italic"
-                                : "bg-gray-100 text-gray-600";
-                            return (
-                              <tr
-                                key={i}
-                                className="border-b border-gray-100 last:border-0"
-                              >
-                                <td className="px-2 py-1 whitespace-nowrap">
-                                  <span
-                                    className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-none ${pillClass}`}
-                                  >
-                                    {row.status}
-                                  </span>
-                                </td>
-                                <td className="px-2 py-1 font-medium text-gray-800 whitespace-nowrap">
-                                  {row.category}
-                                </td>
-                                <td className="px-2 py-1 text-gray-500 whitespace-nowrap">
-                                  {row.points}/{row.max}
-                                </td>
-                                <td className="px-2 py-1 text-gray-500">
-                                  {row.detail}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
+                  {a.scoreBreakdown && a.scoreBreakdown.length > 0 && (() => {
+                    const scored = a.scoreBreakdown.filter((row) => row.status !== "skip");
+                    return scored.length > 0 ? (
+                      <div className="overflow-hidden rounded border border-gray-200">
+                        <table className="w-full text-xs">
+                          <tbody>
+                            {scored.map((row, i) => {
+                              const pillClass =
+                                row.status === "pass"
+                                  ? "bg-green-100 text-green-800"
+                                  : row.status === "warn"
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : row.status === "fail"
+                                  ? "bg-red-100 text-red-800"
+                                  : "bg-gray-100 text-gray-600";
+                              return (
+                                <tr key={i} className="border-b border-gray-100 last:border-0">
+                                  <td className="px-2 py-1 whitespace-nowrap">
+                                    <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-none ${pillClass}`}>
+                                      {row.status}
+                                    </span>
+                                  </td>
+                                  <td className="px-2 py-1 font-medium text-gray-800 whitespace-nowrap">{row.category}</td>
+                                  <td className="px-2 py-1 text-gray-500 whitespace-nowrap">{row.points}/{row.max}</td>
+                                  <td className="px-2 py-1 text-gray-500">{row.detail}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : null;
+                  })()}
 
                   {/* Context textarea — always visible */}
                   <div className="space-y-1">
