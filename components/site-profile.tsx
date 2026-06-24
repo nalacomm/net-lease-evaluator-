@@ -424,19 +424,19 @@ export function SiteProfile({
                   : null}
               />
 
-              {/* Monthly payments (PSF × SF / 12) — only when SF is known */}
+              {/* Monthly payments: Annual PSF × SF / 12 */}
               {site.squareFeet != null && site.askingRentPerSF != null && (
                 <Metric
                   label="Monthly Base Rent"
-                  value={`$${((site.askingRentPerSF / 12) * site.squareFeet).toLocaleString("en-US", { maximumFractionDigits: 0 })}`}
-                  hint={`${(site.askingRentPerSF / 12).toFixed(2)} PSF/mo × ${site.squareFeet.toLocaleString()} SF`}
+                  value={`$${(site.askingRentPerSF * site.squareFeet / 12).toLocaleString("en-US", { maximumFractionDigits: 0 })}`}
+                  hint={`$${site.askingRentPerSF.toFixed(2)}/SF/yr × ${site.squareFeet.toLocaleString()} SF ÷ 12`}
                 />
               )}
               {site.squareFeet != null && (site.askingRentPerSF != null || site.nnnEstimate != null) && (
                 <Metric
                   label="Monthly Total Rent"
-                  value={`$${(((site.askingRentPerSF ?? 0) + (site.nnnEstimate ?? 0)) / 12 * site.squareFeet).toLocaleString("en-US", { maximumFractionDigits: 0 })}`}
-                  hint={`${((site.askingRentPerSF ?? 0) / 12 + (site.nnnEstimate ?? 0) / 12).toFixed(2)} PSF/mo × ${site.squareFeet.toLocaleString()} SF`}
+                  value={`$${(((site.askingRentPerSF ?? 0) + (site.nnnEstimate ?? 0)) * site.squareFeet / 12).toLocaleString("en-US", { maximumFractionDigits: 0 })}`}
+                  hint={`$${((site.askingRentPerSF ?? 0) + (site.nnnEstimate ?? 0)).toFixed(2)}/SF/yr × ${site.squareFeet.toLocaleString()} SF ÷ 12`}
                   highlight
                 />
               )}

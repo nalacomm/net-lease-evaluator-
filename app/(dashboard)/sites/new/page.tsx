@@ -38,35 +38,15 @@ function SiteIntakeForm({ initial, onSaved }: { initial?: Partial<FormState>; on
   const [brokerEmails, setBrokerEmails] = useState<string[]>(
     initial?.brokerEmail ? initial.brokerEmail.split(",").map((e) => e.trim()) : [""]
   );
-  const [rentMonthly, setRentMonthly] = useState(() => {
-    const yr = parseFloat(initial?.askingRentPsf ?? "");
-    return isNaN(yr) ? "" : (yr / 12).toFixed(2);
-  });
-  const [nnnMonthly, setNnnMonthly] = useState(() => {
-    const yr = parseFloat(initial?.nnnEstimate ?? "");
-    return isNaN(yr) ? "" : (yr / 12).toFixed(2);
-  });
-
   function set(field: keyof FormState, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
-  function setRentMo(val: string) {
-    setRentMonthly(val);
-    const mo = parseFloat(val);
-    set("askingRentPsf", isNaN(mo) ? "" : (mo * 12).toFixed(2));
-  }
-
-  function setNnnMo(val: string) {
-    setNnnMonthly(val);
-    const mo = parseFloat(val);
-    set("nnnEstimate", isNaN(mo) ? "" : (mo * 12).toFixed(2));
-  }
-
-  const baseRentMo = parseFloat(rentMonthly) || 0;
-  const nnnMo = parseFloat(nnnMonthly) || 0;
-  const totalMo = baseRentMo + nnnMo;
-  const totalYr = totalMo * 12;
+  // Annual PSF stored directly — monthly = annual / 12
+  const baseRentYr = parseFloat(form.askingRentPsf) || 0;
+  const nnnYr = parseFloat(form.nnnEstimate) || 0;
+  const totalYr = baseRentYr + nnnYr;
+  const totalMo = totalYr / 12;
 
   function setEmail(i: number, val: string) {
     const next = [...brokerEmails];
@@ -225,38 +205,38 @@ function SiteIntakeForm({ initial, onSaved }: { initial?: Partial<FormState>; on
       <section className="card space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Lease & Rent</h2>
 
-        {/* Monthly inputs + derived totals */}
+        {/* Annual PSF inputs — monthly derived below */}
         <div className="grid gap-3 sm:grid-cols-3">
           <div>
-            <label className="label">Base Rent PSF/mo ($)</label>
-            <input className="input" type="number" step="0.01" placeholder="e.g. 2.50" value={rentMonthly} onChange={(e) => setRentMo(e.target.value)} />
+            <label className="label">Base Rent PSF/yr ($)</label>
+            <input className="input" type="number" step="0.01" placeholder="e.g. 30.00" value={form.askingRentPsf} onChange={(e) => set("askingRentPsf", e.target.value)} />
           </div>
           <div>
-            <label className="label">NNN PSF/mo ($)</label>
-            <input className="input" type="number" step="0.01" placeholder="e.g. 0.75" value={nnnMonthly} onChange={(e) => setNnnMo(e.target.value)} />
+            <label className="label">NNN PSF/yr ($)</label>
+            <input className="input" type="number" step="0.01" placeholder="e.g. 9.00" value={form.nnnEstimate} onChange={(e) => set("nnnEstimate", e.target.value)} />
           </div>
           <div>
-            <label className="label">Total PSF/mo ($)</label>
+            <label className="label">Total PSF/yr ($)</label>
             <div className="input bg-gray-50 text-gray-700 flex items-center">
-              {totalMo > 0 ? `$${totalMo.toFixed(2)}` : "—"}
+              {totalYr > 0 ? `$${totalYr.toFixed(2)}` : "—"}
             </div>
           </div>
         </div>
 
-        {/* Annual derived display */}
-        {(baseRentMo > 0 || nnnMo > 0) && (
+        {/* Monthly derived display */}
+        {(baseRentYr > 0 || nnnYr > 0) && (
           <div className="grid grid-cols-3 gap-3 rounded-lg bg-gray-50 px-3 py-2 text-sm">
             <div>
-              <p className="text-xs text-gray-400">Base/yr</p>
-              <p className="font-medium text-gray-800">${(baseRentMo * 12).toFixed(2)}/SF</p>
+              <p className="text-xs text-gray-400">Base/mo</p>
+              <p className="font-medium text-gray-800">${(baseRentYr / 12).toFixed(2)}/SF</p>
             </div>
             <div>
-              <p className="text-xs text-gray-400">NNN/yr</p>
-              <p className="font-medium text-gray-800">${(nnnMo * 12).toFixed(2)}/SF</p>
+              <p className="text-xs text-gray-400">NNN/mo</p>
+              <p className="font-medium text-gray-800">${(nnnYr / 12).toFixed(2)}/SF</p>
             </div>
             <div>
-              <p className="text-xs text-gray-400">Total/yr</p>
-              <p className="font-medium text-brand">${totalYr.toFixed(2)}/SF</p>
+              <p className="text-xs text-gray-400">Total/mo</p>
+              <p className="font-medium text-brand">${totalMo.toFixed(2)}/SF</p>
             </div>
           </div>
         )}
