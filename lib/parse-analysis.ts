@@ -1,5 +1,38 @@
 import type { PdfAnalysisResult, PdfInsight } from "@/app/api/news/analyze-pdf/route";
 
+export function buildAnalysisPrompt(content: string): string {
+  return `You are a commercial real estate analyst. Extract structured intelligence from the content below and return ONLY a valid JSON object — no explanation, no markdown, no code fences.
+
+Content:
+---
+${content}
+---
+
+JSON schema (follow exactly — every string value must use double quotes and be properly escaped):
+{
+  "headline": "string — concise title under 120 chars",
+  "summary": "string — 2-3 sentence summary of key findings",
+  "source": "string or null — publisher or author name",
+  "publishedAt": "string or null — YYYY-MM-DD only, e.g. 2025-01-15. Return null if unknown or if the date is not a full calendar date",
+  "category": "string — one of: interest_rates, cap_rates, tenant_credit, sector_news, market, other",
+  "insights": [
+    {
+      "type": "string — one of: cap_rate, tenant_expansion, market_data, demographics, interest_rates, regulatory, credit_rating, other",
+      "title": "string — under 60 chars",
+      "detail": "string — specific finding, include numbers if present",
+      "relevantTo": "string — comma-separated subset of: investors, tenants, sites, deals",
+      "dataPoints": "string or null — key metrics or numbers"
+    }
+  ]
+}
+
+Rules:
+- Return at most 8 insights. Only include genuinely notable or actionable findings.
+- If there are no CRE-relevant insights, return an empty insights array.
+- All string values must be properly JSON-escaped. No unquoted text inside strings.
+- relevantTo must be a plain string like "investors, tenants" — NOT an array.`;
+}
+
 const VALID_RELEVANT = new Set(["investors", "tenants", "sites", "deals"]);
 
 function toRelevantTo(val: unknown): PdfInsight["relevantTo"] {
