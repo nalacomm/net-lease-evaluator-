@@ -137,7 +137,7 @@ function ImpactStatus(impact: string | null): "pass" | "fail" | "warn" | "info" 
 }
 
 function PreviousRuns({ history }: { history: GapAnalysisData[] }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   return (
     <div>
       <button
@@ -153,7 +153,7 @@ function PreviousRuns({ history }: { history: GapAnalysisData[] }) {
               key={i}
               analysis={entry}
               label={entry.runAt
-                ? `Run ${new Date(entry.runAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`
+                ? `Run — ${new Date(entry.runAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`
                 : `Run ${history.length - i}`}
             />
           ))}
@@ -253,7 +253,7 @@ export function SiteProfile({
   const [selectedTenantId, setSelectedTenantId] = useState("");
   const [assigning, setAssigning] = useState(false);
   const [gapLoadingId, setGapLoadingId] = useState<string | null>(null);
-  const [gapErrorId, setGapErrorId] = useState<string | null>(null);
+  const [gapErrors, setGapErrors] = useState<Record<string, string>>({});
   const [rescoreLoadingId, setRescoreLoadingId] = useState<string | null>(null);
   const [metricConfig, setMetricConfig] = useState<Record<string, Set<string>>>(() => {
     const init: Record<string, Set<string>> = {};
@@ -360,7 +360,7 @@ export function SiteProfile({
 
   async function runGap(tenantId: string) {
     setGapLoadingId(tenantId);
-    setGapErrorId(null);
+    setGapErrors((prev) => { const next = { ...prev }; delete next[tenantId]; return next; });
     const context = gapContexts[tenantId] ?? "";
     try {
       const res = await fetch(`/api/sites/${site.id}/gap`, {
@@ -385,10 +385,11 @@ export function SiteProfile({
           );
         }
       } else {
-        setGapErrorId(tenantId);
+        const msg = data?.error ?? "Unknown error";
+        setGapErrors((prev) => ({ ...prev, [tenantId]: msg }));
       }
-    } catch {
-      setGapErrorId(tenantId);
+    } catch (e) {
+      setGapErrors((prev) => ({ ...prev, [tenantId]: e instanceof Error ? e.message : "Network error" }));
     } finally {
       setGapLoadingId(null);
     }
@@ -808,9 +809,9 @@ export function SiteProfile({
                     {isGapLoading ? "Running…" : gap ? "Re-run Gap Analysis" : "Run Gap Analysis"}
                   </button>
 
-                  {gapErrorId === a.tenantId && (
+                  {gapErrors[a.tenantId] && (
                     <p className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">
-                      Gap analysis failed. Check that tenant requirements are set and try again.
+                      Gap analysis failed: {gapErrors[a.tenantId]}
                     </p>
                   )}
 
