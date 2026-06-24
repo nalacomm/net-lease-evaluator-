@@ -110,13 +110,22 @@ function GapAnalysisBlock({
   loading,
 }: {
   analysis: GapAnalysisData;
-  onRefresh: () => void;
+  onRefresh: (context?: string) => void;
   loading: boolean;
 }) {
+  const [showContext, setShowContext] = useState(false);
+  const [context, setContext] = useState("");
+
   const adjustments: GapAnalysisData["buyBoxAdjustments"] =
     analysis.buyBoxAdjustments ??
     ((analysis as Record<string, unknown>)["requirementAdjustments"] as GapAnalysisData["buyBoxAdjustments"]) ??
     [];
+
+  function handleReanalyze() {
+    onRefresh(context.trim() || undefined);
+    setShowContext(false);
+  }
+
   return (
     <div
       className={clsx(
@@ -141,14 +150,43 @@ function GapAnalysisBlock({
             Worth a look
           </span>
         )}
-        <button
-          onClick={onRefresh}
-          disabled={loading}
-          className="ml-auto text-xs text-gray-400 hover:text-brand"
-        >
-          {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : "↺ Refresh"}
-        </button>
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={() => setShowContext((v) => !v)}
+            disabled={loading}
+            className="text-xs text-gray-400 hover:text-brand"
+          >
+            + Add context
+          </button>
+          <button
+            onClick={() => onRefresh()}
+            disabled={loading}
+            className="text-xs text-gray-400 hover:text-brand"
+          >
+            {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : "↺ Refresh"}
+          </button>
+        </div>
       </div>
+
+      {showContext && (
+        <div className="mb-3 space-y-2">
+          <textarea
+            className="input w-full text-sm"
+            rows={3}
+            placeholder="Add updated info, corrections, or context for the AI to consider when re-analyzing…"
+            value={context}
+            onChange={(e) => setContext(e.target.value)}
+          />
+          <button
+            onClick={handleReanalyze}
+            disabled={loading}
+            className="btn-primary text-sm"
+          >
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Re-analyze with context"}
+          </button>
+        </div>
+      )}
+
       <p className="text-sm text-gray-700 mb-2">{analysis.verdict}</p>
       {analysis.exceptionalReason && (
         <p className="text-sm text-amber-800 mb-2 font-medium">
@@ -248,17 +286,27 @@ export function SiteProfile({
     }
   }
 
-  async function runGap(tenantId: string) {
+  async function runGap(tenantId: string, context?: string) {
     setGapLoadingId(tenantId);
     try {
       const res = await fetch(`/api/sites/${site.id}/gap`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tenantId }),
+        body: JSON.stringify({ tenantId, context }),
       });
       const data = await res.json();
       if (res.ok) {
         setGapResults((prev) => ({ ...prev, [tenantId]: data }));
+        // If exceptional, update the displayed score/grade for this assignment
+        if (data.score != null && data.grade) {
+          setAssignments((prev) =>
+            prev.map((a) =>
+              a.tenantId === tenantId
+                ? { ...a, score: data.score, grade: data.grade }
+                : a
+            )
+          );
+        }
       }
     } finally {
       setGapLoadingId(null);
@@ -559,6 +607,8 @@ export function SiteProfile({
                                 ? "bg-yellow-100 text-yellow-800"
                                 : row.status === "fail"
                                 ? "bg-red-100 text-red-800"
+                                : row.status === "skip"
+                                ? "bg-gray-50 text-gray-400 italic"
                                 : "bg-gray-100 text-gray-600";
                             return (
                               <tr
@@ -607,7 +657,7 @@ export function SiteProfile({
                   {gap && (
                     <GapAnalysisBlock
                       analysis={gap}
-                      onRefresh={() => runGap(a.tenantId)}
+                      onRefresh={(ctx) => runGap(a.tenantId, ctx)}
                       loading={isGapLoading}
                     />
                   )}

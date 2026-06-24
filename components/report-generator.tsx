@@ -206,6 +206,7 @@ export function ReportGenerator({
   const [error, setError] = useState("");
   const [dealReport, setDealReport] = useState<DealReportData | null>(null);
   const [siteReport, setSiteReport] = useState<SiteReportData | null>(null);
+  const [showScore, setShowScore] = useState(true);
 
   const activeTenant = tenants.find((t) => t.id === selectedTenantId) ?? null;
 
@@ -365,6 +366,11 @@ export function ReportGenerator({
 
               {error && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
+              <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+                <input type="checkbox" checked={showScore} onChange={(e) => setShowScore(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-brand" />
+                Show score in report
+              </label>
+
               <button
                 onClick={generateDealReport}
                 disabled={generating || selectedDeals.length === 0}
@@ -377,7 +383,7 @@ export function ReportGenerator({
                 )}
               </button>
 
-              {dealReport && <DealReportOutput report={dealReport} />}
+              {dealReport && <DealReportOutput report={dealReport} showScore={showScore} />}
 
               {pastReports.length > 0 && (
                 <div className="card">
@@ -483,6 +489,11 @@ export function ReportGenerator({
 
               {error && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
+              <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+                <input type="checkbox" checked={showScore} onChange={(e) => setShowScore(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-brand" />
+                Show score in report
+              </label>
+
               {activeTenant && (
                 <button
                   onClick={generateSiteReport}
@@ -497,7 +508,7 @@ export function ReportGenerator({
                 </button>
               )}
 
-              {siteReport && <SiteReportOutput report={siteReport} />}
+              {siteReport && <SiteReportOutput report={siteReport} showScore={showScore} />}
             </>
           )}
         </div>
@@ -552,7 +563,7 @@ function EmailDraft({ subject, body }: { subject: string; body: string }) {
 
 // ── Deal report output ─────────────────────────────────────────────────────
 
-function DealReportOutput({ report }: { report: DealReportData }) {
+function DealReportOutput({ report, showScore = true }: { report: DealReportData; showScore?: boolean }) {
   return (
     <div className="space-y-4 print:block" id="report-output">
       <div className="card print:shadow-none">
@@ -573,7 +584,7 @@ function DealReportOutput({ report }: { report: DealReportData }) {
       {report.deals.map((d) => (
         <div key={d.id} className="card print:shadow-none print:break-inside-avoid">
           <div className="mb-3 flex items-center gap-3">
-            <GradeBadge grade={d.grade} size="lg" />
+            {showScore && <GradeBadge grade={d.grade} size="lg" />}
             <div>
               <h3 className="font-bold text-gray-900">{d.address ?? "—"}</h3>
               <p className="text-sm text-gray-500">{d.tenantName} · {labelFor(ASSET_TYPES, d.assetType)}</p>
@@ -643,7 +654,7 @@ function DealReportOutput({ report }: { report: DealReportData }) {
 
 // ── Site report output ─────────────────────────────────────────────────────
 
-function SiteReportOutput({ report }: { report: SiteReportData }) {
+function SiteReportOutput({ report, showScore = true }: { report: SiteReportData; showScore?: boolean }) {
   return (
     <div className="space-y-4 print:block" id="report-output">
       <div className="card print:shadow-none">
@@ -673,7 +684,7 @@ function SiteReportOutput({ report }: { report: SiteReportData }) {
         return (
           <div key={s.id} className="card print:shadow-none print:break-inside-avoid space-y-4">
             <div className="flex items-start gap-3">
-              <GradeBadge grade={s.grade} size="lg" />
+              {showScore && <GradeBadge grade={s.grade} size="lg" />}
               <div className="flex-1 min-w-0">
                 <h3 className="font-bold text-gray-900">{s.name ?? "Unnamed site"}</h3>
                 <p className="text-sm text-gray-500">
@@ -683,7 +694,7 @@ function SiteReportOutput({ report }: { report: SiteReportData }) {
                   <span className="text-xs text-gray-400">{s.siteType}</span>
                 )}
               </div>
-              {s.score != null && (
+              {showScore && s.score != null && (
                 <span className="text-lg font-bold text-gray-700 shrink-0">{s.score.toFixed(0)}</span>
               )}
             </div>
@@ -703,7 +714,7 @@ function SiteReportOutput({ report }: { report: SiteReportData }) {
               {s.brokerPhone && <><span className="text-gray-500">Phone</span><span className="font-medium">{s.brokerPhone}</span></>}
             </div>
 
-            {s.scoreBreakdown && s.scoreBreakdown.length > 0 && (
+            {showScore && s.scoreBreakdown && s.scoreBreakdown.length > 0 && (
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Score Breakdown</p>
                 <div className="space-y-1">

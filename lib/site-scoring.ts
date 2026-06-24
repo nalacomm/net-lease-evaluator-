@@ -1,4 +1,4 @@
-export type CheckStatus = "pass" | "warn" | "fail" | "info";
+export type CheckStatus = "pass" | "warn" | "fail" | "info" | "skip";
 
 export interface SiteCategoryScore {
   category: string;
@@ -60,12 +60,12 @@ const num = (v: number | null | undefined): number | null =>
 export function scoreSite(site: SiteLike, req: RequirementsLike): SiteScoreResult {
   const breakdown: SiteCategoryScore[] = [];
 
-  // Size Fit (20)
+  // Size Fit (20) — skip if site SF not provided
   {
     const sf = num(site.squareFeet);
     const minSf = num(req.minSF);
     const maxSf = num(req.maxSF);
-    let pts = 0, status: CheckStatus = "info", detail = "Size unknown";
+    let pts = 0, max = 20, status: CheckStatus = "skip", detail = "Size not provided — not scored";
     if (sf !== null && (minSf !== null || maxSf !== null)) {
       const tooSmall = minSf !== null && sf < minSf * 0.9;
       const tooLarge = maxSf !== null && sf > maxSf * 1.1;
@@ -80,16 +80,18 @@ export function scoreSite(site: SiteLike, req: RequirementsLike): SiteScoreResul
       }
     } else if (sf !== null) {
       pts = 10; status = "info"; detail = `${sf.toLocaleString()} SF (no size req set)`;
+    } else {
+      max = 0; // not scored
     }
-    breakdown.push({ category: "Size Fit", points: pts, max: 20, status, detail });
+    breakdown.push({ category: "Size Fit", points: pts, max, status, detail });
   }
 
-  // Rent Fit (20)
+  // Rent Fit (20) — skip if site rent not provided
   {
     const rent = num(site.askingRentPsf);
     const maxRent = num(req.maxRentPsf);
     const minRent = num(req.minRentPsf);
-    let pts = 0, status: CheckStatus = "info", detail = "Rent unknown";
+    let pts = 0, max = 20, status: CheckStatus = "skip", detail = "Rent not provided — not scored";
     if (rent !== null && maxRent !== null) {
       if (rent <= maxRent) {
         pts = 20; status = "pass"; detail = `$${rent.toFixed(2)}/SF ≤ max $${maxRent.toFixed(2)}/SF`;
@@ -106,15 +108,17 @@ export function scoreSite(site: SiteLike, req: RequirementsLike): SiteScoreResul
       }
     } else if (rent !== null) {
       pts = 10; status = "info"; detail = `$${rent.toFixed(2)}/SF (no rent req)`;
+    } else {
+      max = 0; // not scored
     }
-    breakdown.push({ category: "Rent Fit", points: pts, max: 20, status, detail });
+    breakdown.push({ category: "Rent Fit", points: pts, max, status, detail });
   }
 
-  // Traffic (15)
+  // Traffic (15) — skip if site traffic not provided
   {
     const traffic = num(site.dailyTraffic);
     const minTraffic = num(req.minTraffic);
-    let pts = 0, status: CheckStatus = "info", detail = "Traffic unknown";
+    let pts = 0, max = 15, status: CheckStatus = "skip", detail = "Traffic not provided — not scored";
     if (traffic !== null && minTraffic !== null) {
       if (traffic >= minTraffic * 1.5) {
         pts = 15; status = "pass"; detail = `${traffic.toLocaleString()} VPD ≥ 1.5× min`;
@@ -127,15 +131,17 @@ export function scoreSite(site: SiteLike, req: RequirementsLike): SiteScoreResul
       }
     } else if (traffic !== null) {
       pts = 8; status = "info"; detail = `${traffic.toLocaleString()} VPD (no min set)`;
+    } else {
+      max = 0; // not scored
     }
-    breakdown.push({ category: "Traffic", points: pts, max: 15, status, detail });
+    breakdown.push({ category: "Traffic", points: pts, max, status, detail });
   }
 
-  // Income / Demographics (15)
+  // Income / Demographics (15) — skip if site income not provided
   {
     const income = num(site.medianIncome);
     const minIncome = num(req.minIncome);
-    let pts = 0, status: CheckStatus = "info", detail = "Income unknown";
+    let pts = 0, max = 15, status: CheckStatus = "skip", detail = "Income not provided — not scored";
     if (income !== null && minIncome !== null) {
       if (income >= minIncome * 1.2) {
         pts = 15; status = "pass"; detail = `$${Math.round(income / 1000)}K median income — exceeds req`;
@@ -148,15 +154,17 @@ export function scoreSite(site: SiteLike, req: RequirementsLike): SiteScoreResul
       }
     } else if (income !== null) {
       pts = 8; status = "info"; detail = `$${Math.round(income / 1000)}K median income (no req set)`;
+    } else {
+      max = 0; // not scored
     }
-    breakdown.push({ category: "Demographics / Income", points: pts, max: 15, status, detail });
+    breakdown.push({ category: "Demographics / Income", points: pts, max, status, detail });
   }
 
-  // Population (10)
+  // Population (10) — skip if site population not provided
   {
     const pop = num(site.population3mi) ?? num(site.population1mi) ?? num(site.population5mi);
     const minPop = num(req.minPopulation);
-    let pts = 0, status: CheckStatus = "info", detail = "Population unknown";
+    let pts = 0, max = 10, status: CheckStatus = "skip", detail = "Population not provided — not scored";
     if (pop !== null && minPop !== null) {
       if (pop >= minPop) {
         pts = 10; status = "pass"; detail = `${pop.toLocaleString()} pop meets req`;
@@ -167,15 +175,17 @@ export function scoreSite(site: SiteLike, req: RequirementsLike): SiteScoreResul
       }
     } else if (pop !== null) {
       pts = 5; status = "info"; detail = `${pop.toLocaleString()} (3-mi pop, no req set)`;
+    } else {
+      max = 0; // not scored
     }
-    breakdown.push({ category: "Population", points: pts, max: 10, status, detail });
+    breakdown.push({ category: "Population", points: pts, max, status, detail });
   }
 
-  // Parking (10)
+  // Parking (10) — skip if site parking not provided
   {
     const parking = num(site.parkingRatio);
     const minParking = num(req.minParking);
-    let pts = 0, status: CheckStatus = "info", detail = "Parking ratio unknown";
+    let pts = 0, max = 10, status: CheckStatus = "skip", detail = "Parking not provided — not scored";
     if (parking !== null && minParking !== null) {
       if (parking >= minParking) {
         pts = 10; status = "pass"; detail = `${parking.toFixed(1)}/1000 SF meets req`;
@@ -186,14 +196,18 @@ export function scoreSite(site: SiteLike, req: RequirementsLike): SiteScoreResul
       }
     } else if (parking !== null) {
       pts = 5; status = "info"; detail = `${parking.toFixed(1)}/1000 SF (no req set)`;
+    } else {
+      max = 0; // not scored
     }
-    breakdown.push({ category: "Parking", points: pts, max: 10, status, detail });
+    breakdown.push({ category: "Parking", points: pts, max, status, detail });
   }
 
-  // Base score
-  let score = breakdown.reduce((s, c) => s + c.points, 0);
+  // Proportional score: only categories with data count toward the denominator
+  const totalMax = breakdown.reduce((s, c) => s + c.max, 0);
+  const totalPts = breakdown.reduce((s, c) => s + c.points, 0);
+  let score = totalMax > 0 ? Math.round((totalPts / totalMax) * 100) : 0;
 
-  // Market Match (bonus +5, capped to 100)
+  // Market Match (bonus up to +5 after proportional base, capped at 100)
   {
     const city = (site.city ?? "").toLowerCase().trim();
     const state = (site.state ?? "").toLowerCase().trim();
@@ -213,7 +227,7 @@ export function scoreSite(site: SiteLike, req: RequirementsLike): SiteScoreResul
     score += bonus;
   }
 
-  score = Math.max(0, Math.min(100, Math.round(score)));
+  score = Math.max(0, Math.min(100, score));
 
   return { score, grade: gradeFor(score), breakdown };
 }

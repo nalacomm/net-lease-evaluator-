@@ -16,7 +16,8 @@ export interface SiteGapResult {
 export async function runSiteGapAnalysis(
   site: SiteLike & { name?: string | null; address?: string | null; city?: string | null; state?: string | null },
   req: RequirementsLike & { minSF?: number | null; maxSF?: number | null; maxRentPsf?: number | null; minTraffic?: number | null; minIncome?: number | null; targetMarkets?: string[] },
-  tenantName: string
+  tenantName: string,
+  context?: string
 ): Promise<SiteGapResult> {
   const scoreResult = scoreSite(site, req);
 
@@ -26,7 +27,7 @@ export async function runSiteGapAnalysis(
   const siteDesc = [
     `Site: ${site.name ?? "?"} — ${site.address ?? "?"}, ${site.city ?? "?"}, ${site.state ?? "?"}`,
     `Size: ${fmt(site.squareFeet, "", " SF")}`,
-    `Asking rent: ${fmt(site.askingRentPsf, "$", "/SF/yr")}`,
+    `Asking rent: ${fmt(site.askingRentPsf, "$", "/SF/mo")}`,
     `Traffic: ${fmt(site.dailyTraffic, "", " VPD")}`,
     `3-mi population: ${fmt(site.population3mi)}`,
     `Median income: ${fmt(site.medianIncome, "$")}`,
@@ -38,16 +39,20 @@ export async function runSiteGapAnalysis(
   const reqDesc = [
     `Tenant: ${tenantName}`,
     `Size range: ${fmt(req.minSF, "", " SF")} – ${fmt(req.maxSF, "", " SF")}`,
-    `Max rent: ${fmt(req.maxRentPsf, "$", "/SF/yr")}`,
+    `Max rent: ${fmt(req.maxRentPsf, "$", "/SF/mo")}`,
     `Min traffic: ${fmt(req.minTraffic, "", " VPD")}`,
     `Min income: ${fmt(req.minIncome, "$")}`,
     `Target markets: ${(req.targetMarkets ?? []).join(", ") || "?"}`,
   ].join("\n");
 
   const gaps = scoreResult.breakdown
-    .filter((b) => b.status !== "pass" && b.status !== "info")
+    .filter((b) => b.status !== "pass" && b.status !== "info" && b.status !== "skip")
     .map((b) => `${b.category}: ${b.points}/${b.max} — ${b.detail}`)
     .join("\n");
+
+  const contextSection = context?.trim()
+    ? `\nADDITIONAL CONTEXT FROM AGENT:\n${context.trim()}\n`
+    : "";
 
   return askJson<SiteGapResult>(
     `You are a commercial real estate tenant rep advisor.
@@ -60,7 +65,7 @@ ${reqDesc}
 
 SCORE GAPS (categories that failed or warned):
 ${gaps || "None — site meets all thresholds."}
-
+${contextSection}
 Analyze this site:
 1. Despite any low score, are there exceptional qualities — visibility, co-tenancy, market position, traffic patterns, demographics — that make it worth pursuing?
 2. What specific requirements would need to be relaxed to make this site work?
