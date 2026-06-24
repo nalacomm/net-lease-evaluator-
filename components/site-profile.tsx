@@ -223,6 +223,7 @@ export function SiteProfile({
   const [selectedTenantId, setSelectedTenantId] = useState("");
   const [assigning, setAssigning] = useState(false);
   const [gapLoadingId, setGapLoadingId] = useState<string | null>(null);
+  const [rescoreLoadingId, setRescoreLoadingId] = useState<string | null>(null);
   const [gapResults, setGapResults] = useState<Record<string, GapAnalysisData>>(
     () => {
       const initial: Record<string, GapAnalysisData> = {};
@@ -289,6 +290,29 @@ export function SiteProfile({
       }
     } finally {
       setAssigning(false);
+    }
+  }
+
+  async function rescore(tenantId: string) {
+    setRescoreLoadingId(tenantId);
+    try {
+      const res = await fetch(`/api/sites/${site.id}/rescore`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenantId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setAssignments((prev) =>
+          prev.map((a) =>
+            a.tenantId === tenantId
+              ? { ...a, score: data.score, grade: data.grade, scoreBreakdown: data.breakdown }
+              : a
+          )
+        );
+      }
+    } finally {
+      setRescoreLoadingId(null);
     }
   }
 
@@ -609,6 +633,7 @@ export function SiteProfile({
             assignments.map((a) => {
               const gap = gapResults[a.tenantId] ?? null;
               const isGapLoading = gapLoadingId === a.tenantId;
+              const isRescoring = rescoreLoadingId === a.tenantId;
               return (
                 <div key={a.tenantId} className="card space-y-2">
                   <div className="flex items-center justify-between gap-3">
@@ -622,6 +647,14 @@ export function SiteProfile({
                           {a.score.toFixed(0)}
                         </span>
                       )}
+                      <button
+                        onClick={() => rescore(a.tenantId)}
+                        disabled={isRescoring || isGapLoading}
+                        className="text-xs text-gray-400 hover:text-brand"
+                        title="Recalculate score without re-running gap analysis"
+                      >
+                        {isRescoring ? <Loader2 className="h-3 w-3 animate-spin" /> : "↺ Rescore"}
+                      </button>
                     </div>
                   </div>
 
