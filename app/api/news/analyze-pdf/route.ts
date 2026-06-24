@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { askJson } from "@/lib/anthropic";
+import { askText } from "@/lib/anthropic";
+import { parseAndNormalizeAnalysis } from "@/lib/parse-analysis";
+import { buildPrompt } from "@/app/api/news/analyze-text/route";
 
 export const maxDuration = 120;
 
@@ -58,47 +60,8 @@ export async function POST(req: Request) {
       truncated = rawText;
     }
 
-    const result = await askJson<PdfAnalysisResult>(
-      `You are a commercial real estate analyst extracting structured intelligence from a market report or news document.
-
-Extract all relevant information and return it as JSON matching this exact schema. Every field is required unless marked optional.
-
-Document text:
----
-${truncated}
----
-
-Return JSON only, no preamble:
-{
-  "headline": "Concise title for this report/article (under 120 chars)",
-  "summary": "2-3 sentence summary of the key findings",
-  "source": "Publisher or author name, or null if unknown",
-  "publishedAt": "YYYY-MM-DD format only (e.g. 2025-01-15), or null — do NOT return a year alone or a partial date",
-  "category": "One of: interest_rates | cap_rates | tenant_credit | sector_news | market | other",
-  "insights": [
-    {
-      "type": "cap_rate | tenant_expansion | market_data | demographics | interest_rates | regulatory | credit_rating | other",
-      "title": "Short title (under 60 chars)",
-      "detail": "What was found — be specific, include numbers if present",
-      "relevantTo": ["investors", "tenants", "sites", "deals"],
-      "dataPoints": "Key numbers, ranges, or metrics mentioned (optional)"
-    }
-  ]
-}
-
-Guidelines for insights:
-- Extract up to 8 insights. Only include genuinely actionable or notable findings.
-- cap_rate: any cap rate ranges, trends, compression/expansion signals
-- tenant_expansion: specific tenant brands expanding, contracting, or changing formats
-- market_data: market-wide trends, transaction volume, vacancy rates, rents
-- demographics: population, income, traffic, or consumer spending data
-- interest_rates: Fed policy, SOFR, DSCR impacts, financing trends
-- regulatory: zoning changes, tax law, 1031 exchange rules, opportunity zones
-- credit_rating: tenant or REIT credit rating changes, bankruptcy risk signals
-- other: any other relevant finding
-- relevantTo: include only the entries that apply — valid values are "investors", "tenants", "sites", "deals". Must be a proper JSON array`,
-      { maxTokens: 1500 }
-    );
+    const raw = await askText(buildPrompt(truncated), { maxTokens: 1500 });
+    const result = parseAndNormalizeAnalysis(raw);
 
     return NextResponse.json({
       ...result,
