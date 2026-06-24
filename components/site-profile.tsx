@@ -32,6 +32,10 @@ type GapAnalysisData = {
     impact: string;
   }[];
   verdict: string;
+  runAt?: string;
+  score?: number;
+  grade?: string;
+  context?: string | null;
 };
 
 type SiteAssignment = {
@@ -40,6 +44,8 @@ type SiteAssignment = {
   score: number | null;
   grade: string | null;
   gapAnalysis: GapAnalysisData | null;
+  gapHistory: GapAnalysisData[] | null;
+  gapContext: string | null;
   scoreBreakdown: { category: string; points: number; max: number; status: string; detail: string }[] | null;
   tenant: Tenant;
   requirements: Requirements | null;
@@ -83,6 +89,7 @@ type Site = {
   brokerName: string | null;
   brokerEmail: string | null;
   brokerPhone: string | null;
+  notes: string | null;
   assignments: SiteAssignment[];
   newsFlags: SiteNewsFlag[];
 };
@@ -104,109 +111,88 @@ function ImpactStatus(impact: string | null): "pass" | "fail" | "warn" | "info" 
   return "info";
 }
 
+function PreviousRuns({ history }: { history: GapAnalysisData[] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="text-xs text-gray-400 hover:text-brand"
+      >
+        {open ? "▲ Hide" : "▼ Show"} {history.length} previous run{history.length !== 1 ? "s" : ""}
+      </button>
+      {open && (
+        <div className="mt-2 space-y-2">
+          {history.map((entry, i) => (
+            <GapAnalysisBlock
+              key={i}
+              analysis={entry}
+              label={entry.runAt
+                ? `Run ${new Date(entry.runAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`
+                : `Run ${history.length - i}`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function GapAnalysisBlock({
   analysis,
   onRefresh,
   loading,
+  label,
 }: {
   analysis: GapAnalysisData;
-  onRefresh: (context?: string) => void;
-  loading: boolean;
+  onRefresh?: () => void;
+  loading?: boolean;
+  label?: string;
 }) {
-  const [showContext, setShowContext] = useState(false);
-  const [context, setContext] = useState("");
-
   const adjustments: GapAnalysisData["buyBoxAdjustments"] =
     analysis.buyBoxAdjustments ??
     ((analysis as Record<string, unknown>)["requirementAdjustments"] as GapAnalysisData["buyBoxAdjustments"]) ??
     [];
 
-  function handleReanalyze() {
-    onRefresh(context.trim() || undefined);
-    setShowContext(false);
-  }
-
   return (
     <div
       className={clsx(
-        "mt-3 rounded-lg border-2 p-3",
+        "rounded-lg border-2 p-3",
         analysis.isExceptional
           ? "border-amber-400 bg-amber-50"
           : "border-gray-200 bg-white"
       )}
     >
       <div className="flex flex-wrap items-center gap-2 mb-2">
-        <Lightbulb
-          className={clsx(
-            "h-4 w-4",
-            analysis.isExceptional ? "text-amber-600" : "text-gray-400"
-          )}
-        />
+        <Lightbulb className={clsx("h-4 w-4", analysis.isExceptional ? "text-amber-600" : "text-gray-400")} />
         <span className="font-semibold text-sm text-gray-900">
-          {analysis.isExceptional ? "Exceptional Flag" : "Gap Analysis"}
+          {label ?? (analysis.isExceptional ? "Exceptional Flag" : "Gap Analysis")}
         </span>
         {analysis.isExceptional && (
-          <span className="rounded-full bg-amber-500 px-2 py-0.5 text-xs font-bold text-white">
-            Worth a look
+          <span className="rounded-full bg-amber-500 px-2 py-0.5 text-xs font-bold text-white">Worth a look</span>
+        )}
+        {analysis.runAt && (
+          <span className="ml-auto text-[10px] text-gray-400">
+            {new Date(analysis.runAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
           </span>
         )}
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            onClick={() => setShowContext((v) => !v)}
-            disabled={loading}
-            className="text-xs text-gray-400 hover:text-brand"
-          >
-            + Add context
+        {onRefresh && (
+          <button onClick={onRefresh} disabled={loading} className="text-xs text-gray-400 hover:text-brand ml-auto">
+            {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : "↺ Re-run"}
           </button>
-          <button
-            onClick={() => onRefresh()}
-            disabled={loading}
-            className="text-xs text-gray-400 hover:text-brand"
-          >
-            {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : "↺ Refresh"}
-          </button>
-        </div>
+        )}
       </div>
-
-      {showContext && (
-        <div className="mb-3 space-y-2">
-          <textarea
-            className="input w-full text-sm"
-            rows={3}
-            placeholder="Add updated info, corrections, or context for the AI to consider when re-analyzing…"
-            value={context}
-            onChange={(e) => setContext(e.target.value)}
-          />
-          <button
-            onClick={handleReanalyze}
-            disabled={loading}
-            className="btn-primary text-sm"
-          >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Re-analyze with context"}
-          </button>
-        </div>
-      )}
-
       <p className="text-sm text-gray-700 mb-2">{analysis.verdict}</p>
       {analysis.exceptionalReason && (
-        <p className="text-sm text-amber-800 mb-2 font-medium">
-          {analysis.exceptionalReason}
-        </p>
+        <p className="text-sm text-amber-800 mb-2 font-medium">{analysis.exceptionalReason}</p>
       )}
       {adjustments.length > 0 && (
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">
-            Adjustments needed
-          </p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">Adjustments needed</p>
           <ul className="space-y-1">
             {adjustments.map((a, i) => (
-              <li
-                key={i}
-                className="flex flex-wrap items-start gap-2 text-sm"
-              >
-                <span className="font-medium text-gray-800 w-36 shrink-0">
-                  {a.field}
-                </span>
+              <li key={i} className="flex flex-wrap items-start gap-2 text-sm">
+                <span className="font-medium text-gray-800 w-36 shrink-0">{a.field}</span>
                 <span className="text-red-600 line-through">{a.currentValue}</span>
                 <span className="text-gray-400">→</span>
                 <span className="text-green-700 font-medium">{a.requiredValue}</span>
@@ -246,6 +232,24 @@ export function SiteProfile({
       return initial;
     }
   );
+  const [gapHistories, setGapHistories] = useState<Record<string, GapAnalysisData[]>>(
+    () => {
+      const initial: Record<string, GapAnalysisData[]> = {};
+      for (const a of site.assignments ?? []) {
+        if (a.gapHistory?.length) initial[a.tenantId] = a.gapHistory;
+      }
+      return initial;
+    }
+  );
+  const [gapContexts, setGapContexts] = useState<Record<string, string>>(
+    () => {
+      const initial: Record<string, string> = {};
+      for (const a of site.assignments ?? []) {
+        if (a.gapContext) initial[a.tenantId] = a.gapContext;
+      }
+      return initial;
+    }
+  );
 
   const tabs = [
     { id: "overview", label: "Overview" },
@@ -273,6 +277,8 @@ export function SiteProfile({
             score: data.score ?? null,
             grade: data.grade ?? null,
             gapAnalysis: null,
+            gapHistory: null,
+            gapContext: null,
             scoreBreakdown: null,
             tenant: tenant ?? { id: selectedTenantId, name: "Tenant" },
             requirements: data.requirements ?? null,
@@ -286,18 +292,22 @@ export function SiteProfile({
     }
   }
 
-  async function runGap(tenantId: string, context?: string) {
+  async function runGap(tenantId: string) {
     setGapLoadingId(tenantId);
+    const context = gapContexts[tenantId] ?? "";
     try {
       const res = await fetch(`/api/sites/${site.id}/gap`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tenantId, context }),
+        body: JSON.stringify({ tenantId, context: context || undefined }),
       });
       const data = await res.json();
       if (res.ok) {
         setGapResults((prev) => ({ ...prev, [tenantId]: data }));
-        // If exceptional, update the displayed score/grade for this assignment
+        setGapHistories((prev) => ({
+          ...prev,
+          [tenantId]: [data, ...(prev[tenantId] ?? [])],
+        }));
         if (data.score != null && data.grade) {
           setAssignments((prev) =>
             prev.map((a) =>
@@ -639,27 +649,45 @@ export function SiteProfile({
                     </div>
                   )}
 
-                  {!gap && (
-                    <button
-                      onClick={() => runGap(a.tenantId)}
-                      disabled={isGapLoading}
-                      className="btn-secondary text-sm"
-                    >
-                      {isGapLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Lightbulb className="h-4 w-4" />
-                      )}
-                      {isGapLoading ? "Running…" : "Run Gap Analysis"}
-                    </button>
-                  )}
+                  {/* Context textarea — always visible */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Context for Gap Analysis
+                    </label>
+                    <textarea
+                      className="input w-full text-sm"
+                      rows={2}
+                      placeholder="Add notes, updated info, or corrections the AI should consider (e.g. confirmed traffic count, co-tenancy details, landlord flexibility on rent)…"
+                      value={gapContexts[a.tenantId] ?? ""}
+                      onChange={(e) =>
+                        setGapContexts((prev) => ({ ...prev, [a.tenantId]: e.target.value }))
+                      }
+                    />
+                    {site.notes && (
+                      <p className="text-[10px] text-gray-400">Site notes will also be included automatically.</p>
+                    )}
+                  </div>
 
+                  <button
+                    onClick={() => runGap(a.tenantId)}
+                    disabled={isGapLoading}
+                    className="btn-secondary text-sm"
+                  >
+                    {isGapLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lightbulb className="h-4 w-4" />}
+                    {isGapLoading ? "Running…" : gap ? "Re-run Gap Analysis" : "Run Gap Analysis"}
+                  </button>
+
+                  {/* Most recent result */}
                   {gap && (
                     <GapAnalysisBlock
                       analysis={gap}
-                      onRefresh={(ctx) => runGap(a.tenantId, ctx)}
                       loading={isGapLoading}
                     />
+                  )}
+
+                  {/* Previous runs */}
+                  {(gapHistories[a.tenantId]?.length ?? 0) > 1 && (
+                    <PreviousRuns history={gapHistories[a.tenantId]!.slice(1)} />
                   )}
                 </div>
               );

@@ -361,6 +361,8 @@ model SiteAssignment {
   grade          String?
   scoreBreakdown Json?
   gapAnalysis    Json?
+  gapHistory     Json?
+  gapContext     String?
 
   createdAt DateTime @default(now())
 

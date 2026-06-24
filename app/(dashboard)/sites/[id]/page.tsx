@@ -74,6 +74,17 @@ export default async function SitePage({ params }: { params: { id: string } }) {
         buyBoxAdjustments: { field: string; currentValue: string; requiredValue: string; impact: string }[];
         verdict: string;
       } | null,
+      gapHistory: (a.gapHistory as {
+        runAt: string;
+        score: number;
+        grade: string;
+        context: string | null;
+        isExceptional: boolean;
+        exceptionalReason: string | null;
+        buyBoxAdjustments: { field: string; currentValue: string; requiredValue: string; impact: string }[];
+        verdict: string;
+      }[] | null) ?? null,
+      gapContext: a.gapContext ?? null,
       scoreBreakdown: a.scoreBreakdown as { category: string; points: number; max: number; status: string; detail: string }[] | null,
       tenant: { id: a.tenant.id, name: a.tenant.name },
       requirements: a.tenant.requirements
