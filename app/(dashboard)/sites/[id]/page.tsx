@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { SiteProfile } from "@/components/site-profile";
-import { scoreSite } from "@/lib/site-scoring";
+import { scoreSite, applyMetricConfig, computeScore, SCORE_CATEGORIES, SiteCategoryScore, CheckStatus } from "@/lib/site-scoring";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +25,10 @@ export default async function SitePage({ params }: { params: { id: string } }) {
   ]);
 
   if (!site) notFound();
+
+  function castEntry(r: { category: string; points: number; max: number; status: string; detail: string }): SiteCategoryScore {
+    return { ...r, status: r.status as CheckStatus };
+  }
 
   const serialized = {
     id: site.id,
@@ -69,28 +73,25 @@ export default async function SitePage({ params }: { params: { id: string } }) {
       tenantId: a.tenantId,
       score: (() => {
         if (!a.tenant.requirements) return a.score;
+        const config = a.scoringConfig as { enabledCategories?: string[] } | null;
+        const enabled = config?.enabledCategories ?? [...SCORE_CATEGORIES];
         const fresh = scoreSite(site, a.tenant.requirements);
         const stored = a.scoreBreakdown as { category: string; points: number; max: number; status: string; detail: string }[] | null;
         const exceptional = stored?.find((r) => r.category === "Exceptional Flag (bonus)") ?? null;
-        if (!exceptional) return fresh.score;
-        const bd = [...fresh.breakdown, exceptional];
-        const totalMax = bd.reduce((s, c) => s + c.max, 0);
-        const totalPts = bd.reduce((s, c) => s + c.points, 0);
-        return Math.max(0, Math.min(100, totalMax > 0 ? Math.round((totalPts / totalMax) * 100) : 0));
+        let bd = applyMetricConfig(fresh.breakdown, enabled);
+        if (exceptional) bd = [...bd, castEntry(exceptional)];
+        return computeScore(bd).score;
       })(),
       grade: (() => {
         if (!a.tenant.requirements) return a.grade;
+        const config = a.scoringConfig as { enabledCategories?: string[] } | null;
+        const enabled = config?.enabledCategories ?? [...SCORE_CATEGORIES];
         const fresh = scoreSite(site, a.tenant.requirements);
         const stored = a.scoreBreakdown as { category: string; points: number; max: number; status: string; detail: string }[] | null;
         const exceptional = stored?.find((r) => r.category === "Exceptional Flag (bonus)") ?? null;
-        let s = fresh.score;
-        if (exceptional) {
-          const bd = [...fresh.breakdown, exceptional];
-          const totalMax = bd.reduce((sum, c) => sum + c.max, 0);
-          const totalPts = bd.reduce((sum, c) => sum + c.points, 0);
-          s = Math.max(0, Math.min(100, totalMax > 0 ? Math.round((totalPts / totalMax) * 100) : 0));
-        }
-        return s >= 85 ? "A" : s >= 70 ? "B" : s >= 55 ? "C" : s >= 40 ? "D" : "F";
+        let bd = applyMetricConfig(fresh.breakdown, enabled);
+        if (exceptional) bd = [...bd, castEntry(exceptional)];
+        return computeScore(bd).grade;
       })(),
       gapAnalysis: a.gapAnalysis as {
         isExceptional: boolean;
@@ -110,13 +111,17 @@ export default async function SitePage({ params }: { params: { id: string } }) {
       }[] | null) ?? null,
       gapContext: a.gapContext ?? null,
       scoreBreakdown: (() => {
-        // Always compute fresh so display is never stale
         if (!a.tenant.requirements) return null;
+        const config = a.scoringConfig as { enabledCategories?: string[] } | null;
+        const enabled = config?.enabledCategories ?? [...SCORE_CATEGORIES];
         const fresh = scoreSite(site, a.tenant.requirements);
         const stored = a.scoreBreakdown as { category: string; points: number; max: number; status: string; detail: string }[] | null;
         const exceptional = stored?.find((r) => r.category === "Exceptional Flag (bonus)") ?? null;
-        return exceptional ? [...fresh.breakdown, exceptional] : fresh.breakdown;
+        let bd = applyMetricConfig(fresh.breakdown, enabled);
+        if (exceptional) bd = [...bd, castEntry(exceptional)];
+        return bd;
       })(),
+      scoringConfig: (a.scoringConfig as { enabledCategories?: string[] } | null) ?? null,
       tenant: { id: a.tenant.id, name: a.tenant.name },
       requirements: a.tenant.requirements
         ? {

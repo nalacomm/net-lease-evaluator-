@@ -363,6 +363,7 @@ model SiteAssignment {
   gapAnalysis    Json?
   gapHistory     Json?
   gapContext     String?
+  scoringConfig  Json?   // { enabledCategories: string[] }
 
   createdAt DateTime @default(now())
 

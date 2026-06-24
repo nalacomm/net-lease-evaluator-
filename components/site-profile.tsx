@@ -7,6 +7,7 @@ import { Loader2, Lightbulb, Pencil, Trash2, FileDown } from "lucide-react";
 import clsx from "clsx";
 import { GradeBadge, StatusPill } from "@/components/ui";
 import { labelFor, SITE_TYPES, TENANT_LEASE_TYPES } from "@/lib/constants";
+import { SCORE_CATEGORIES } from "@/lib/site-scoring";
 
 type Tenant = {
   id: string;
@@ -47,6 +48,7 @@ type SiteAssignment = {
   gapHistory: GapAnalysisData[] | null;
   gapContext: string | null;
   scoreBreakdown: { category: string; points: number; max: number; status: string; detail: string }[] | null;
+  scoringConfig: { enabledCategories?: string[] } | null;
   tenant: Tenant;
   requirements: Requirements | null;
 };
@@ -230,6 +232,14 @@ export function SiteProfile({
   const [gapLoadingId, setGapLoadingId] = useState<string | null>(null);
   const [gapErrorId, setGapErrorId] = useState<string | null>(null);
   const [rescoreLoadingId, setRescoreLoadingId] = useState<string | null>(null);
+  const [metricConfig, setMetricConfig] = useState<Record<string, Set<string>>>(() => {
+    const init: Record<string, Set<string>> = {};
+    for (const a of site.assignments ?? []) {
+      const enabled = a.scoringConfig?.enabledCategories ?? [...SCORE_CATEGORIES];
+      init[a.tenantId] = new Set(enabled);
+    }
+    return init;
+  });
   const [gapResults, setGapResults] = useState<Record<string, GapAnalysisData>>(
     () => {
       const initial: Record<string, GapAnalysisData> = {};
@@ -287,6 +297,7 @@ export function SiteProfile({
             gapHistory: null,
             gapContext: null,
             scoreBreakdown: null,
+            scoringConfig: null,
             tenant: tenant ?? { id: selectedTenantId, name: "Tenant" },
             requirements: data.requirements ?? null,
           },
@@ -301,18 +312,19 @@ export function SiteProfile({
 
   async function rescore(tenantId: string) {
     setRescoreLoadingId(tenantId);
+    const enabledCategories = [...(metricConfig[tenantId] ?? new Set(SCORE_CATEGORIES))];
     try {
       const res = await fetch(`/api/sites/${site.id}/rescore`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tenantId }),
+        body: JSON.stringify({ tenantId, enabledCategories }),
       });
       const data = await res.json();
       if (res.ok) {
         setAssignments((prev) =>
           prev.map((a) =>
             a.tenantId === tenantId
-              ? { ...a, score: data.score, grade: data.grade, scoreBreakdown: data.breakdown }
+              ? { ...a, score: data.score, grade: data.grade, scoreBreakdown: data.breakdown, scoringConfig: data.scoringConfig }
               : a
           )
         );
@@ -658,24 +670,55 @@ export function SiteProfile({
                           {a.score.toFixed(0)}
                         </span>
                       )}
-                      <button
-                        onClick={() => rescore(a.tenantId)}
-                        disabled={isRescoring || isGapLoading}
-                        className="text-xs text-gray-400 hover:text-brand"
-                        title="Recalculate score without re-running gap analysis"
-                      >
-                        {isRescoring ? <Loader2 className="h-3 w-3 animate-spin" /> : "↺ Rescore"}
-                      </button>
                     </div>
                   </div>
 
+                  {/* Metric selection */}
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+                      Metrics to include in score
+                    </p>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-3">
+                      {SCORE_CATEGORIES.map((cat) => {
+                        const enabled = metricConfig[a.tenantId]?.has(cat) ?? true;
+                        return (
+                          <label key={cat} className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 rounded border-gray-300 text-brand"
+                              checked={enabled}
+                              onChange={(e) => {
+                                setMetricConfig((prev) => {
+                                  const next = new Set(prev[a.tenantId] ?? new Set(SCORE_CATEGORIES));
+                                  e.target.checked ? next.add(cat) : next.delete(cat);
+                                  return { ...prev, [a.tenantId]: next };
+                                });
+                              }}
+                            />
+                            <span className={enabled ? "text-gray-700" : "text-gray-400"}>{cat}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => rescore(a.tenantId)}
+                    disabled={isRescoring || isGapLoading}
+                    className="btn-primary text-sm"
+                  >
+                    {isRescoring ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    {isRescoring ? "Scoring…" : "Score"}
+                  </button>
+
+                  {/* Breakdown table */}
                   {a.scoreBreakdown && a.scoreBreakdown.length > 0 && (() => {
-                    const scored = a.scoreBreakdown.filter((row) => row.status !== "skip");
-                    return scored.length > 0 ? (
+                    const rows = a.scoreBreakdown.filter((row) => row.status !== "skip");
+                    return rows.length > 0 ? (
                       <div className="overflow-hidden rounded border border-gray-200">
                         <table className="w-full text-xs">
                           <tbody>
-                            {scored.map((row, i) => {
+                            {rows.map((row, i) => {
                               const pillClass =
                                 row.status === "pass"
                                   ? "bg-green-100 text-green-800"
