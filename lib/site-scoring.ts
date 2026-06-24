@@ -79,7 +79,7 @@ export function scoreSite(site: SiteLike, req: RequirementsLike): SiteScoreResul
         pts = 0; status = "fail"; detail = `${sf.toLocaleString()} SF — outside range (${minSf?.toLocaleString() ?? "?"}–${maxSf?.toLocaleString() ?? "?"})`;
       }
     } else if (sf !== null) {
-      pts = 10; status = "info"; detail = `${sf.toLocaleString()} SF (no size req set)`;
+      max = 0; status = "skip"; detail = `${sf.toLocaleString()} SF (no size requirement set)`;
     } else {
       max = 0; // not scored
     }
@@ -107,7 +107,7 @@ export function scoreSite(site: SiteLike, req: RequirementsLike): SiteScoreResul
         pts = 10; status = "warn"; detail = `$${rent.toFixed(2)}/SF — no max set`;
       }
     } else if (rent !== null) {
-      pts = 10; status = "info"; detail = `$${rent.toFixed(2)}/SF (no rent req)`;
+      max = 0; status = "skip"; detail = `$${rent.toFixed(2)}/SF/mo (no rent requirement set)`;
     } else {
       max = 0; // not scored
     }
@@ -130,7 +130,7 @@ export function scoreSite(site: SiteLike, req: RequirementsLike): SiteScoreResul
         pts = 0; status = "fail"; detail = `${traffic.toLocaleString()} VPD below min ${minTraffic.toLocaleString()}`;
       }
     } else if (traffic !== null) {
-      pts = 8; status = "info"; detail = `${traffic.toLocaleString()} VPD (no min set)`;
+      max = 0; status = "skip"; detail = `${traffic.toLocaleString()} VPD (no traffic requirement set)`;
     } else {
       max = 0; // not scored
     }
@@ -153,7 +153,7 @@ export function scoreSite(site: SiteLike, req: RequirementsLike): SiteScoreResul
         pts = 0; status = "fail"; detail = `$${Math.round(income / 1000)}K below req $${Math.round(minIncome / 1000)}K`;
       }
     } else if (income !== null) {
-      pts = 8; status = "info"; detail = `$${Math.round(income / 1000)}K median income (no req set)`;
+      max = 0; status = "skip"; detail = `$${Math.round(income / 1000)}K median income (no income requirement set)`;
     } else {
       max = 0; // not scored
     }
@@ -174,7 +174,7 @@ export function scoreSite(site: SiteLike, req: RequirementsLike): SiteScoreResul
         pts = 0; status = "fail"; detail = `${pop.toLocaleString()} below req ${minPop.toLocaleString()}`;
       }
     } else if (pop !== null) {
-      pts = 5; status = "info"; detail = `${pop.toLocaleString()} (3-mi pop, no req set)`;
+      max = 0; status = "skip"; detail = `${pop.toLocaleString()} pop (no population requirement set)`;
     } else {
       max = 0; // not scored
     }
@@ -195,7 +195,7 @@ export function scoreSite(site: SiteLike, req: RequirementsLike): SiteScoreResul
         pts = 0; status = "fail"; detail = `${parking.toFixed(1)}/1000 SF — significantly below req`;
       }
     } else if (parking !== null) {
-      pts = 5; status = "info"; detail = `${parking.toFixed(1)}/1000 SF (no req set)`;
+      max = 0; status = "skip"; detail = `${parking.toFixed(1)}/1,000 SF (no parking requirement set)`;
     } else {
       max = 0; // not scored
     }
@@ -212,7 +212,7 @@ export function scoreSite(site: SiteLike, req: RequirementsLike): SiteScoreResul
     const city = (site.city ?? "").toLowerCase().trim();
     const state = (site.state ?? "").toLowerCase().trim();
     const markets = (req.targetMarkets ?? []).map((m) => m.toLowerCase().trim());
-    let bonus = 0, status: CheckStatus = "info", detail = "No target markets set";
+    let bonus = 0, status: CheckStatus = "skip", detail = "No target markets set — not scored";
     if (markets.length > 0) {
       const match = markets.some((m) => city.includes(m) || m.includes(city) || state.includes(m));
       if (match) {
@@ -220,11 +220,10 @@ export function scoreSite(site: SiteLike, req: RequirementsLike): SiteScoreResul
       } else {
         bonus = 0; status = "warn"; detail = `${site.city ?? "?"}, ${site.state ?? "?"} — not in target markets`;
       }
-    } else if (city) {
-      bonus = 3; detail = `${site.city}, ${site.state} (no markets req)`;
+      breakdown.push({ category: "Market Match (bonus)", points: bonus, max: 5, status, detail });
+      score += bonus;
     }
-    breakdown.push({ category: "Market Match (bonus)", points: bonus, max: 5, status, detail });
-    score += bonus;
+    // If no target markets set: don't add to breakdown at all (fully neutral)
   }
 
   score = Math.max(0, Math.min(100, score));

@@ -581,9 +581,29 @@ export function SiteProfile({
       {/* Scoring tab */}
       {tab === "scoring" && (
         <div className="space-y-3">
+          {/* Multi-tenant summary strip */}
+          {assignments.length > 1 && (
+            <div className="card">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+                {assignments.length} tenants assigned — scores below
+              </p>
+              <div className="flex flex-wrap gap-3">
+                {assignments.map((a) => (
+                  <div key={a.tenantId} className="flex items-center gap-1.5">
+                    <span className="text-sm font-medium text-gray-700">{a.tenant.name}</span>
+                    {a.grade && <GradeBadge grade={a.grade} size="sm" />}
+                    {a.score != null && (
+                      <span className="text-xs text-gray-500">{a.score.toFixed(0)}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {assignments.length === 0 ? (
             <p className="py-4 text-center text-sm text-gray-400">
-              No tenant assignments yet.
+              No tenant assignments yet. Use the button below to assign a tenant.
             </p>
           ) : (
             assignments.map((a) => {
@@ -695,52 +715,37 @@ export function SiteProfile({
           )}
 
           {/* Assign form */}
-          {showAssignForm ? (
-            <div className="card space-y-3">
-              <h3 className="font-semibold text-gray-900">Assign to Tenant</h3>
-              <select
-                className="input"
-                value={selectedTenantId}
-                onChange={(e) => setSelectedTenantId(e.target.value)}
-              >
-                <option value="">Select a tenant…</option>
-                {unassignedTenants.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-              <div className="flex gap-2">
-                <button
-                  onClick={assignTenant}
-                  disabled={assigning || !selectedTenantId}
-                  className="btn-primary"
-                >
-                  {assigning ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : null}
-                  Assign
+          {unassignedTenants.length > 0 && (
+            <div className="card">
+              {showAssignForm ? (
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-gray-900">Assign to Another Tenant</h3>
+                  <select
+                    className="input"
+                    value={selectedTenantId}
+                    onChange={(e) => setSelectedTenantId(e.target.value)}
+                  >
+                    <option value="">Select a tenant…</option>
+                    {unassignedTenants.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                  <div className="flex gap-2">
+                    <button onClick={assignTenant} disabled={assigning || !selectedTenantId} className="btn-primary">
+                      {assigning ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                      Assign
+                    </button>
+                    <button onClick={() => { setShowAssignForm(false); setSelectedTenantId(""); }} className="btn-secondary">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={() => setShowAssignForm(true)} className="btn-secondary w-full">
+                  + Assign to {assignments.length > 0 ? "Another" : "a"} Tenant
                 </button>
-                <button
-                  onClick={() => {
-                    setShowAssignForm(false);
-                    setSelectedTenantId("");
-                  }}
-                  className="btn-secondary"
-                >
-                  Cancel
-                </button>
-              </div>
+              )}
             </div>
-          ) : (
-            unassignedTenants.length > 0 && (
-              <button
-                onClick={() => setShowAssignForm(true)}
-                className="btn-secondary w-full"
-              >
-                + Assign to Tenant
-              </button>
-            )
           )}
         </div>
       )}
