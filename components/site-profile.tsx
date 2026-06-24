@@ -9,6 +9,28 @@ import { GradeBadge, StatusPill } from "@/components/ui";
 import { labelFor, SITE_TYPES, TENANT_LEASE_TYPES } from "@/lib/constants";
 import { SCORE_CATEGORIES } from "@/lib/site-scoring";
 
+type BreakdownRow = { category: string; points: number; max: number; status: string; detail: string };
+
+function previewScore(
+  fullBreakdown: BreakdownRow[],
+  enabled: Set<string>,
+  exceptional: BreakdownRow | null
+): { score: number; grade: string } {
+  const bd = fullBreakdown.map((r) =>
+    enabled.has(r.category) ? r : { ...r, points: 0, max: 0 }
+  );
+  if (exceptional) bd.push(exceptional);
+  const base = bd.filter((r) => r.category !== "Market Match (bonus)");
+  const mm = bd.find((r) => r.category === "Market Match (bonus)");
+  const totalMax = base.reduce((s, r) => s + r.max, 0);
+  const totalPts = base.reduce((s, r) => s + r.points, 0);
+  let score = totalMax > 0 ? Math.round((totalPts / totalMax) * 100) : 0;
+  if (mm && mm.max > 0) score += mm.points;
+  score = Math.max(0, Math.min(100, score));
+  const grade = score >= 85 ? "A" : score >= 70 ? "B" : score >= 55 ? "C" : score >= 40 ? "D" : "F";
+  return { score, grade };
+}
+
 type Tenant = {
   id: string;
   name: string;
@@ -713,7 +735,20 @@ export function SiteProfile({
                                           setMetricConfig((prev) => {
                                             const next = new Set(prev[a.tenantId] ?? new Set(SCORE_CATEGORIES));
                                             e.target.checked ? next.add(row.category) : next.delete(row.category);
-                                            return { ...prev, [a.tenantId]: next };
+                                            const newConfig = { ...prev, [a.tenantId]: next };
+                                            // Live-update score as checkboxes change
+                                            if (a.fullBreakdown) {
+                                              const exceptional = (a.scoreBreakdown ?? []).find(
+                                                (r) => r.category === "Exceptional Flag (bonus)"
+                                              ) ?? null;
+                                              const { score, grade } = previewScore(a.fullBreakdown, next, exceptional);
+                                              setAssignments((asgn) =>
+                                                asgn.map((x) =>
+                                                  x.tenantId === a.tenantId ? { ...x, score, grade } : x
+                                                )
+                                              );
+                                            }
+                                            return newConfig;
                                           });
                                         }}
                                       />
