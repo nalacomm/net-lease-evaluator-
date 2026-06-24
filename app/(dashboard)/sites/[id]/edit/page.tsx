@@ -40,11 +40,15 @@ export default function EditSitePage() {
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationNote, setLocationNote] = useState("");
   const [brokerEmails, setBrokerEmails] = useState<string[]>([""]);
+  const [rentMonthly, setRentMonthly] = useState("");
 
   useEffect(() => {
     fetch(`/api/sites/${params.id}`)
       .then((r) => r.json())
       .then((s) => {
+        const annualStr = n(s.askingRentPsf);
+        const yr = parseFloat(annualStr);
+        setRentMonthly(isNaN(yr) ? "" : (yr / 12).toFixed(2));
         setForm({
           name: s.name ?? "",
           address: s.address ?? "",
@@ -56,7 +60,7 @@ export default function EditSitePage() {
           squareFeet: n(s.squareFeet),
           parkingSpaces: n(s.parkingSpaces),
           parkingRatio: n(s.parkingRatio),
-          askingRentPsf: n(s.askingRentPsf),
+          askingRentPsf: annualStr,
           nnnEstimate: n(s.nnnEstimate),
           leaseType: s.leaseType ?? "",
           leaseTermOffered: n(s.leaseTermOffered),
@@ -88,6 +92,18 @@ export default function EditSitePage() {
 
   function set(field: keyof FormState, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
+  }
+
+  function setRentAnnual(val: string) {
+    set("askingRentPsf", val);
+    const yr = parseFloat(val);
+    setRentMonthly(isNaN(yr) ? "" : (yr / 12).toFixed(2));
+  }
+
+  function setRentMo(val: string) {
+    setRentMonthly(val);
+    const mo = parseFloat(val);
+    set("askingRentPsf", isNaN(mo) ? "" : (mo * 12).toFixed(2));
   }
 
   function setEmail(i: number, val: string) {
@@ -278,16 +294,13 @@ export default function EditSitePage() {
                 type="number"
                 step="0.01"
                 placeholder="e.g. 2.50"
-                value={form.askingRentPsf ? (parseFloat(form.askingRentPsf) / 12).toFixed(2) : ""}
-                onChange={(e) => {
-                  const mo = parseFloat(e.target.value);
-                  set("askingRentPsf", isNaN(mo) ? "" : (mo * 12).toFixed(2));
-                }}
+                value={rentMonthly}
+                onChange={(e) => setRentMo(e.target.value)}
               />
             </div>
             <div>
               <label className="label">Asking Rent PSF/yr ($)</label>
-              <input className="input" type="number" step="0.01" placeholder="e.g. 30.00" value={form.askingRentPsf} onChange={(e) => set("askingRentPsf", e.target.value)} />
+              <input className="input" type="number" step="0.01" placeholder="e.g. 30.00" value={form.askingRentPsf} onChange={(e) => setRentAnnual(e.target.value)} />
             </div>
             <div>
               <label className="label">NNN Est. ($/SF/yr)</label>
