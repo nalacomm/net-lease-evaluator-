@@ -121,6 +121,7 @@ export default async function SitePage({ params }: { params: { id: string } }) {
         if (exceptional) bd = [...bd, castEntry(exceptional)];
         return bd;
       })(),
+      fullBreakdown: a.tenant.requirements ? scoreSite(site, a.tenant.requirements).breakdown : null,
       scoringConfig: (a.scoringConfig as { enabledCategories?: string[] } | null) ?? null,
       tenant: { id: a.tenant.id, name: a.tenant.name },
       requirements: a.tenant.requirements

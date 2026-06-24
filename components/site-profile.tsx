@@ -48,6 +48,7 @@ type SiteAssignment = {
   gapHistory: GapAnalysisData[] | null;
   gapContext: string | null;
   scoreBreakdown: { category: string; points: number; max: number; status: string; detail: string }[] | null;
+  fullBreakdown: { category: string; points: number; max: number; status: string; detail: string }[] | null;
   scoringConfig: { enabledCategories?: string[] } | null;
   tenant: Tenant;
   requirements: Requirements | null;
@@ -297,6 +298,7 @@ export function SiteProfile({
             gapHistory: null,
             gapContext: null,
             scoreBreakdown: null,
+            fullBreakdown: null,
             scoringConfig: null,
             tenant: tenant ?? { id: selectedTenantId, name: "Tenant" },
             requirements: data.requirements ?? null,
@@ -673,34 +675,66 @@ export function SiteProfile({
                     </div>
                   </div>
 
-                  {/* Metric selection */}
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
-                      Metrics to include in score
-                    </p>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-3">
-                      {SCORE_CATEGORIES.map((cat) => {
-                        const enabled = metricConfig[a.tenantId]?.has(cat) ?? true;
-                        return (
-                          <label key={cat} className="flex items-center gap-2 text-sm cursor-pointer select-none">
-                            <input
-                              type="checkbox"
-                              className="h-4 w-4 rounded border-gray-300 text-brand"
-                              checked={enabled}
-                              onChange={(e) => {
-                                setMetricConfig((prev) => {
-                                  const next = new Set(prev[a.tenantId] ?? new Set(SCORE_CATEGORIES));
-                                  e.target.checked ? next.add(cat) : next.delete(cat);
-                                  return { ...prev, [a.tenantId]: next };
-                                });
-                              }}
-                            />
-                            <span className={enabled ? "text-gray-700" : "text-gray-400"}>{cat}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
+                  {/* Combined metric selection + score table */}
+                  {(() => {
+                    const rows = a.fullBreakdown ?? a.scoreBreakdown ?? [];
+                    if (rows.length === 0) return null;
+                    return (
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">
+                          Metrics — check to include in score
+                        </p>
+                        <div className="overflow-hidden rounded border border-gray-200">
+                          <table className="w-full text-xs">
+                            <tbody>
+                              {rows.map((row, i) => {
+                                const enabled = metricConfig[a.tenantId]?.has(row.category) ?? true;
+                                const pillClass =
+                                  !enabled
+                                    ? "bg-gray-100 text-gray-400"
+                                    : row.status === "pass"
+                                    ? "bg-green-100 text-green-800"
+                                    : row.status === "warn"
+                                    ? "bg-yellow-100 text-yellow-800"
+                                    : row.status === "fail"
+                                    ? "bg-red-100 text-red-800"
+                                    : "bg-gray-100 text-gray-400";
+                                return (
+                                  <tr
+                                    key={i}
+                                    className={`border-b border-gray-100 last:border-0 ${!enabled ? "opacity-50" : ""}`}
+                                  >
+                                    <td className="pl-2 pr-1 py-1">
+                                      <input
+                                        type="checkbox"
+                                        className="h-3.5 w-3.5 rounded border-gray-300 text-brand"
+                                        checked={enabled}
+                                        onChange={(e) => {
+                                          setMetricConfig((prev) => {
+                                            const next = new Set(prev[a.tenantId] ?? new Set(SCORE_CATEGORIES));
+                                            e.target.checked ? next.add(row.category) : next.delete(row.category);
+                                            return { ...prev, [a.tenantId]: next };
+                                          });
+                                        }}
+                                      />
+                                    </td>
+                                    <td className="px-1 py-1 whitespace-nowrap">
+                                      <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-none ${pillClass}`}>
+                                        {enabled ? row.status : "off"}
+                                      </span>
+                                    </td>
+                                    <td className="px-2 py-1 font-medium text-gray-800 whitespace-nowrap">{row.category}</td>
+                                    <td className="px-2 py-1 text-gray-500 whitespace-nowrap">{row.points}/{row.max}</td>
+                                    <td className="px-2 py-1 text-gray-500">{row.detail}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   <button
                     onClick={() => rescore(a.tenantId)}
@@ -710,41 +744,6 @@ export function SiteProfile({
                     {isRescoring ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                     {isRescoring ? "Scoring…" : "Score"}
                   </button>
-
-                  {/* Breakdown table */}
-                  {a.scoreBreakdown && a.scoreBreakdown.length > 0 && (() => {
-                    const rows = a.scoreBreakdown.filter((row) => row.status !== "skip");
-                    return rows.length > 0 ? (
-                      <div className="overflow-hidden rounded border border-gray-200">
-                        <table className="w-full text-xs">
-                          <tbody>
-                            {rows.map((row, i) => {
-                              const pillClass =
-                                row.status === "pass"
-                                  ? "bg-green-100 text-green-800"
-                                  : row.status === "warn"
-                                  ? "bg-yellow-100 text-yellow-800"
-                                  : row.status === "fail"
-                                  ? "bg-red-100 text-red-800"
-                                  : "bg-gray-100 text-gray-600";
-                              return (
-                                <tr key={i} className="border-b border-gray-100 last:border-0">
-                                  <td className="px-2 py-1 whitespace-nowrap">
-                                    <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-none ${pillClass}`}>
-                                      {row.status}
-                                    </span>
-                                  </td>
-                                  <td className="px-2 py-1 font-medium text-gray-800 whitespace-nowrap">{row.category}</td>
-                                  <td className="px-2 py-1 text-gray-500 whitespace-nowrap">{row.points}/{row.max}</td>
-                                  <td className="px-2 py-1 text-gray-500">{row.detail}</td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : null;
-                  })()}
 
                   {/* Context textarea — always visible */}
                   <div className="space-y-1">
