@@ -155,7 +155,7 @@ export default async function DashboardPage({
         }
       />
 
-      {allInvestors.length > 1 && (
+      {allInvestors.length > 0 && (
         <InvestorSwitcher
           investors={allInvestors.map((i) => ({ id: i.id, name: i.name }))}
           activeId={activeInvestorId}
@@ -220,7 +220,7 @@ export default async function DashboardPage({
         </div>
 
         {/* Tenant switcher */}
-        {allTenants.length > 1 && (
+        {allTenants.length > 0 && (
           <TenantSwitcher
             tenants={allTenants}
             activeId={activeTenant?.id ?? null}
