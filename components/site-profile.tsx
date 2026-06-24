@@ -87,13 +87,11 @@ type Site = {
   newsFlags: SiteNewsFlag[];
 };
 
-function Metric({ label, value }: { label: string; value: React.ReactNode }) {
+function Metric({ label, value, highlight }: { label: string; value: React.ReactNode; highlight?: boolean }) {
   return (
     <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-        {label}
-      </p>
-      <p className="mt-0.5 font-semibold text-gray-900">{value ?? "—"}</p>
+      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{label}</p>
+      <p className={`mt-0.5 font-semibold ${highlight ? "text-brand" : "text-gray-900"}`}>{value ?? "—"}</p>
     </div>
   );
 }
@@ -416,20 +414,36 @@ export function SiteProfile({
             <h3 className="mb-3 font-semibold text-gray-900">Financial</h3>
             <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
               <Metric
-                label="Asking Rent/SF"
-                value={
-                  site.askingRentPerSF != null
-                    ? `$${site.askingRentPerSF.toFixed(2)}`
-                    : null
-                }
+                label="Base Rent PSF/mo"
+                value={site.askingRentPerSF != null ? `$${(site.askingRentPerSF / 12).toFixed(2)}` : null}
               />
               <Metric
-                label="NNN Estimate"
+                label="NNN PSF/mo"
+                value={site.nnnEstimate != null ? `$${(site.nnnEstimate / 12).toFixed(2)}` : null}
+              />
+              <Metric
+                label="Total PSF/mo"
                 value={
-                  site.nnnEstimate != null
-                    ? `$${site.nnnEstimate.toFixed(2)}/SF`
+                  site.askingRentPerSF != null || site.nnnEstimate != null
+                    ? `$${((site.askingRentPerSF ?? 0) / 12 + (site.nnnEstimate ?? 0) / 12).toFixed(2)}`
                     : null
                 }
+                highlight
+              />
+              {site.squareFeet != null && (site.askingRentPerSF != null || site.nnnEstimate != null) && (
+                <Metric
+                  label="Est. Monthly Payment"
+                  value={`$${(((site.askingRentPerSF ?? 0) + (site.nnnEstimate ?? 0)) / 12 * site.squareFeet).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
+                  highlight
+                />
+              )}
+              <Metric
+                label="Base Rent PSF/yr"
+                value={site.askingRentPerSF != null ? `$${site.askingRentPerSF.toFixed(2)}` : null}
+              />
+              <Metric
+                label="NNN PSF/yr"
+                value={site.nnnEstimate != null ? `$${site.nnnEstimate.toFixed(2)}` : null}
               />
               <Metric
                 label="Lease Type"
@@ -437,11 +451,7 @@ export function SiteProfile({
               />
               <Metric
                 label="Lease Term Offered"
-                value={
-                  site.leaseTermOffered != null
-                    ? `${site.leaseTermOffered} yrs`
-                    : null
-                }
+                value={site.leaseTermOffered != null ? `${site.leaseTermOffered} yrs` : null}
               />
             </div>
           </div>
