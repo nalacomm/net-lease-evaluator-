@@ -166,6 +166,10 @@ export function NewsManager({ initialNews }: { initialNews: NewsItem[] }) {
     }
     setPdfFile(file);
     setError("");
+    // Warn on very large files — text extraction + AI analysis can time out
+    if (file.size > 6 * 1024 * 1024) {
+      setError("This PDF is large (>6 MB). Analysis may take up to 60 seconds or time out. Consider uploading a shorter report if this fails.");
+    }
   }
 
   async function analyzePdf() {
@@ -177,8 +181,23 @@ export function NewsManager({ initialNews }: { initialNews: NewsItem[] }) {
       const fd = new FormData();
       fd.append("file", pdfFile);
       const res = await fetch("/api/news/analyze-pdf", { method: "POST", body: fd });
-      const data: PdfAnalysisResult = await res.json();
-      if (!res.ok) throw new Error((data as unknown as { error: string }).error ?? "Failed");
+
+      // Parse JSON carefully — Safari throws "The string did not match the expected pattern"
+      // when the server returns HTML (timeout/gateway error) instead of JSON
+      let data: PdfAnalysisResult & { error?: string };
+      try {
+        data = await res.json();
+      } catch {
+        if (res.status === 413) {
+          throw new Error("File too large for upload. Try a PDF under 5 MB.");
+        }
+        if (res.status === 504 || res.status === 502) {
+          throw new Error("Analysis timed out. The PDF may be too long. Try a shorter report.");
+        }
+        throw new Error(`Server error (${res.status}). The PDF may be too large or took too long to process.`);
+      }
+
+      if (!res.ok) throw new Error(data.error ?? "Analysis failed");
 
       // Only use publishedAt if it's a valid YYYY-MM-DD string — the browser date input is strict
       const rawDate = data.publishedAt ?? "";

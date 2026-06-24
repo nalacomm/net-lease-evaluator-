@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { askJson } from "@/lib/anthropic";
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
@@ -50,8 +50,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Could not extract text from this PDF. It may be a scanned image." }, { status: 422 });
     }
 
-    // Truncate to ~18k chars — enough for most reports while staying within token limits
-    const truncated = rawText.length > 18000 ? rawText.slice(0, 18000) + "\n\n[... truncated ...]" : rawText;
+    // For large documents, take the first 12k + last 4k chars — captures intro/exec summary and conclusion
+    let truncated: string;
+    if (rawText.length > 16000) {
+      truncated = rawText.slice(0, 12000) + "\n\n[... middle sections omitted ...]\n\n" + rawText.slice(-4000);
+    } else {
+      truncated = rawText;
+    }
 
     const result = await askJson<PdfAnalysisResult>(
       `You are a commercial real estate analyst extracting structured intelligence from a market report or news document.
