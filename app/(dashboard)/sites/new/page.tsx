@@ -201,8 +201,29 @@ function SiteIntakeForm({ initial, onSaved }: { initial?: Partial<FormState>; on
         <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Lease & Rent</h2>
         <div className="grid gap-3 sm:grid-cols-3">
           <div>
-            <label className="label">Asking Rent/SF/yr ($)</label>
-            <input className="input" type="number" step="0.01" value={form.askingRentPsf} onChange={(e) => set("askingRentPsf", e.target.value)} />
+            <label className="label">Asking Rent PSF/mo ($)</label>
+            <input
+              className="input"
+              type="number"
+              step="0.01"
+              placeholder="e.g. 2.50"
+              value={form.askingRentPsf ? (parseFloat(form.askingRentPsf) / 12).toFixed(2) : ""}
+              onChange={(e) => {
+                const mo = parseFloat(e.target.value);
+                set("askingRentPsf", isNaN(mo) ? "" : (mo * 12).toFixed(2));
+              }}
+            />
+          </div>
+          <div>
+            <label className="label">Asking Rent PSF/yr ($)</label>
+            <input
+              className="input"
+              type="number"
+              step="0.01"
+              placeholder="e.g. 30.00"
+              value={form.askingRentPsf}
+              onChange={(e) => set("askingRentPsf", e.target.value)}
+            />
           </div>
           <div>
             <label className="label">NNN Est. ($/SF/yr)</label>
