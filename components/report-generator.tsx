@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { GradeBadge } from "@/components/ui";
 import { labelFor, ASSET_TYPES, LEASE_TYPES, GUARANTY_TYPES } from "@/lib/constants";
 import { fmtMoney, fmtPercent, fmtDscr } from "@/lib/format";
-import { Loader2, FileText, CheckSquare, Square, Building2, Store, Mail, Copy, Check, Clock } from "lucide-react";
+import { Loader2, FileText, CheckSquare, Square, Building2, Store, Mail, Copy, Check, Clock, Pencil, PencilOff } from "lucide-react";
 import { PrintFooter } from "@/components/print-footer";
 import clsx from "clsx";
 
@@ -653,8 +653,24 @@ function EmailDraft({ subject, body }: { subject: string; body: string }) {
 // ── Deal report output ─────────────────────────────────────────────────────
 
 function DealReportOutput({ report, showScore = true }: { report: DealReportData; showScore?: boolean }) {
+  const [editing, setEditing] = useState(false);
+  const reportRef = useRef<HTMLDivElement>(null);
+
+  function toggleEdit() {
+    const next = !editing;
+    setEditing(next);
+    if (reportRef.current) {
+      reportRef.current.contentEditable = next ? "true" : "false";
+      if (next) reportRef.current.focus();
+    }
+  }
+
   return (
     <div className="space-y-4 print:block" id="report-output">
+      <div
+        ref={reportRef}
+        className={clsx("space-y-4 rounded-xl outline-none", editing && "ring-2 ring-amber-300 ring-offset-2")}
+      >
       <div className="card print:shadow-none">
         <div className="mb-4 border-b border-gray-200 pb-4">
           <p className="text-xs font-semibold uppercase tracking-widest text-gray-400">Blake-Dickson Commercial Real Estate</p>
@@ -713,10 +729,24 @@ function DealReportOutput({ report, showScore = true }: { report: DealReportData
         <h3 className="mb-1 font-semibold">Recommendation</h3>
         <p className="text-sm text-gray-700">{report.recommendation}</p>
       </div>
+      </div>
 
-      <button onClick={() => window.print()} className="btn-secondary w-full print:hidden">
-        <FileText className="h-4 w-4" /> Print / Save as PDF
-      </button>
+      <div className="flex gap-2 print:hidden">
+        <button
+          onClick={toggleEdit}
+          className={clsx("btn-secondary flex-1", editing && "ring-2 ring-amber-400")}
+        >
+          {editing ? <><PencilOff className="h-4 w-4" /> Done editing</> : <><Pencil className="h-4 w-4" /> Edit report</>}
+        </button>
+        <button onClick={() => window.print()} className="btn-secondary flex-1">
+          <FileText className="h-4 w-4" /> Print / Save as PDF
+        </button>
+      </div>
+      {editing && (
+        <p className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800 print:hidden">
+          Click any text to edit or delete it. Changes only affect this session.
+        </p>
+      )}
 
       <EmailDraft
         subject={`Net Lease Deal Analysis — ${report.investor.name} — ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`}
@@ -744,8 +774,24 @@ function DealReportOutput({ report, showScore = true }: { report: DealReportData
 // ── Site report output ─────────────────────────────────────────────────────
 
 function SiteReportOutput({ report, showScore = true }: { report: SiteReportData; showScore?: boolean }) {
+  const [editing, setEditing] = useState(false);
+  const reportRef = useRef<HTMLDivElement>(null);
+
+  function toggleEdit() {
+    const next = !editing;
+    setEditing(next);
+    if (reportRef.current) {
+      reportRef.current.contentEditable = next ? "true" : "false";
+      if (next) reportRef.current.focus();
+    }
+  }
+
   return (
     <div className="space-y-4 print:block" id="report-output">
+      <div
+        ref={reportRef}
+        className={clsx("space-y-4 rounded-xl outline-none", editing && "ring-2 ring-amber-300 ring-offset-2")}
+      >
       <div className="card print:shadow-none">
         <div className="mb-4 border-b border-gray-200 pb-4">
           <p className="text-xs font-semibold uppercase tracking-widest text-gray-400">
@@ -888,10 +934,24 @@ function SiteReportOutput({ report, showScore = true }: { report: SiteReportData
         <h3 className="mb-1 font-semibold">Recommendation</h3>
         <p className="text-sm text-gray-700">{report.recommendation}</p>
       </div>
+      </div>
 
-      <button onClick={() => window.print()} className="btn-secondary w-full print:hidden">
-        <FileText className="h-4 w-4" /> Print / Save as PDF
-      </button>
+      <div className="flex gap-2 print:hidden">
+        <button
+          onClick={toggleEdit}
+          className={clsx("btn-secondary flex-1", editing && "ring-2 ring-amber-400")}
+        >
+          {editing ? <><PencilOff className="h-4 w-4" /> Done editing</> : <><Pencil className="h-4 w-4" /> Edit report</>}
+        </button>
+        <button onClick={() => window.print()} className="btn-secondary flex-1">
+          <FileText className="h-4 w-4" /> Print / Save as PDF
+        </button>
+      </div>
+      {editing && (
+        <p className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800 print:hidden">
+          Click any text to edit or delete it. Changes only affect this session.
+        </p>
+      )}
 
       <EmailDraft
         subject={`Site Comparison Report — ${report.tenant.name} — ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`}
