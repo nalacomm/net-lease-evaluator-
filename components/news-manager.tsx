@@ -129,13 +129,14 @@ export function NewsManager({ initialNews }: { initialNews: NewsItem[] }) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [news, setNews] = useState(initialNews);
-  const [mode, setMode] = useState<"manual" | "pdf">("manual");
+  const [mode, setMode] = useState<"manual" | "pdf" | "text">("manual");
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [pastedText, setPastedText] = useState("");
   const [insights, setInsights] = useState<PdfInsight[]>([]);
   const [dragging, setDragging] = useState(false);
 
@@ -157,6 +158,7 @@ export function NewsManager({ initialNews }: { initialNews: NewsItem[] }) {
     setForm({ headline: "", summary: "", source: "", url: "", publishedAt: "", category: "", rawContent: "" });
     setInsights([]);
     setPdfFile(null);
+    setPastedText("");
   }
 
   function handleFile(file: File) {
@@ -221,6 +223,41 @@ export function NewsManager({ initialNews }: { initialNews: NewsItem[] }) {
     }
   }
 
+  async function analyzeText() {
+    if (!pastedText.trim()) return;
+    setAnalyzing(true);
+    setError("");
+    setInsights([]);
+    try {
+      const res = await fetch("/api/news/analyze-text", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: pastedText }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Analysis failed");
+
+      const rawDate = data.publishedAt ?? "";
+      const validDate = /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : "";
+
+      setForm({
+        headline: data.headline ?? "",
+        summary: data.summary ?? "",
+        source: data.source ?? "",
+        url: "",
+        publishedAt: validDate,
+        category: data.category ?? "",
+        rawContent: data.rawContent ?? "",
+      });
+      setInsights(data.insights ?? []);
+      setShowForm(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to analyze text");
+    } finally {
+      setAnalyzing(false);
+    }
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.headline.trim()) return;
@@ -267,6 +304,15 @@ export function NewsManager({ initialNews }: { initialNews: NewsItem[] }) {
             )}
           >
             <FileUp className="h-3.5 w-3.5" /> Upload PDF
+          </button>
+          <button
+            onClick={() => { setMode("text"); resetForm(); setShowForm(false); setError(""); }}
+            className={clsx(
+              "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
+              mode === "text" ? "bg-white shadow text-brand" : "text-gray-600 hover:text-gray-900"
+            )}
+          >
+            <Sparkles className="h-3.5 w-3.5" /> Paste Text
           </button>
         </div>
 
@@ -364,13 +410,68 @@ export function NewsManager({ initialNews }: { initialNews: NewsItem[] }) {
         </div>
       )}
 
-      {/* ── FORM (manual or post-PDF analysis) ── */}
+      {/* ── TEXT MODE ── */}
+      {mode === "text" && (
+        <div className="card space-y-4">
+          <textarea
+            className="input min-h-[200px] w-full resize-y font-mono text-sm"
+            placeholder="Paste article text, email, market commentary, research notes — anything you want AI to analyze…"
+            value={pastedText}
+            onChange={(e) => { setPastedText(e.target.value); setError(""); }}
+          />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={analyzeText}
+              disabled={analyzing || !pastedText.trim()}
+              className="btn-primary"
+            >
+              {analyzing ? (
+                <><Loader2 className="h-4 w-4 animate-spin" /> Analyzing…</>
+              ) : (
+                <><Sparkles className="h-4 w-4" /> Analyze with AI</>
+              )}
+            </button>
+            {pastedText && (
+              <button onClick={() => { setPastedText(""); setShowForm(false); setInsights([]); setError(""); }} className="btn-secondary">
+                Clear
+              </button>
+            )}
+          </div>
+
+          {error && !showForm && (
+            <div className="flex items-center gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+              <AlertCircle className="h-4 w-4 shrink-0" /> {error}
+            </div>
+          )}
+
+          {insights.length > 0 && showForm && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-brand" />
+                <h2 className="font-semibold text-gray-900">AI Insights ({insights.length})</h2>
+                <p className="text-xs text-gray-500">Extracted from pasted text</p>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {insights.map((ins, i) => <InsightCard key={i} insight={ins} />)}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── FORM (manual or post-analysis) ── */}
       {showForm && (
         <form onSubmit={submit} className="card space-y-3">
           {mode === "pdf" && pdfFile && (
             <div className="flex items-center gap-2 rounded-lg bg-brand/5 px-3 py-2 text-xs text-brand">
               <Sparkles className="h-3.5 w-3.5 shrink-0" />
               Pre-filled from <span className="font-medium">{pdfFile.name}</span> — review and edit before saving.
+            </div>
+          )}
+          {mode === "text" && (
+            <div className="flex items-center gap-2 rounded-lg bg-brand/5 px-3 py-2 text-xs text-brand">
+              <Sparkles className="h-3.5 w-3.5 shrink-0" />
+              Pre-filled from pasted text — review and edit before saving.
             </div>
           )}
           <div>
