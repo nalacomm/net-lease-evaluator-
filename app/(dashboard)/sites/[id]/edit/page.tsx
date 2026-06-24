@@ -41,6 +41,7 @@ export default function EditSitePage() {
   const [locationNote, setLocationNote] = useState("");
   const [brokerEmails, setBrokerEmails] = useState<string[]>([""]);
   const [rentMonthly, setRentMonthly] = useState("");
+  const [nnnMonthly, setNnnMonthly] = useState("");
 
   useEffect(() => {
     fetch(`/api/sites/${params.id}`)
@@ -49,6 +50,9 @@ export default function EditSitePage() {
         const annualStr = n(s.askingRentPsf);
         const yr = parseFloat(annualStr);
         setRentMonthly(isNaN(yr) ? "" : (yr / 12).toFixed(2));
+        const nnnStr = n(s.nnnEstimate);
+        const nnnYr = parseFloat(nnnStr);
+        setNnnMonthly(isNaN(nnnYr) ? "" : (nnnYr / 12).toFixed(2));
         setForm({
           name: s.name ?? "",
           address: s.address ?? "",
@@ -94,17 +98,22 @@ export default function EditSitePage() {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
-  function setRentAnnual(val: string) {
-    set("askingRentPsf", val);
-    const yr = parseFloat(val);
-    setRentMonthly(isNaN(yr) ? "" : (yr / 12).toFixed(2));
-  }
-
   function setRentMo(val: string) {
     setRentMonthly(val);
     const mo = parseFloat(val);
     set("askingRentPsf", isNaN(mo) ? "" : (mo * 12).toFixed(2));
   }
+
+  function setNnnMo(val: string) {
+    setNnnMonthly(val);
+    const mo = parseFloat(val);
+    set("nnnEstimate", isNaN(mo) ? "" : (mo * 12).toFixed(2));
+  }
+
+  const baseRentMo = parseFloat(rentMonthly) || 0;
+  const nnnMo = parseFloat(nnnMonthly) || 0;
+  const totalMo = baseRentMo + nnnMo;
+  const totalYr = totalMo * 12;
 
   function setEmail(i: number, val: string) {
     const next = [...brokerEmails];
@@ -286,26 +295,42 @@ export default function EditSitePage() {
 
         <section className="card space-y-3">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Lease & Rent</h2>
+
           <div className="grid gap-3 sm:grid-cols-3">
             <div>
-              <label className="label">Asking Rent PSF/mo ($)</label>
-              <input
-                className="input"
-                type="number"
-                step="0.01"
-                placeholder="e.g. 2.50"
-                value={rentMonthly}
-                onChange={(e) => setRentMo(e.target.value)}
-              />
+              <label className="label">Base Rent PSF/mo ($)</label>
+              <input className="input" type="number" step="0.01" placeholder="e.g. 2.50" value={rentMonthly} onChange={(e) => setRentMo(e.target.value)} />
             </div>
             <div>
-              <label className="label">Asking Rent PSF/yr ($)</label>
-              <input className="input" type="number" step="0.01" placeholder="e.g. 30.00" value={form.askingRentPsf} onChange={(e) => setRentAnnual(e.target.value)} />
+              <label className="label">NNN PSF/mo ($)</label>
+              <input className="input" type="number" step="0.01" placeholder="e.g. 0.75" value={nnnMonthly} onChange={(e) => setNnnMo(e.target.value)} />
             </div>
             <div>
-              <label className="label">NNN Est. ($/SF/yr)</label>
-              <input className="input" type="number" step="0.01" value={form.nnnEstimate} onChange={(e) => set("nnnEstimate", e.target.value)} />
+              <label className="label">Total PSF/mo ($)</label>
+              <div className="input bg-gray-50 text-gray-700 flex items-center">
+                {totalMo > 0 ? `$${totalMo.toFixed(2)}` : "—"}
+              </div>
             </div>
+          </div>
+
+          {(baseRentMo > 0 || nnnMo > 0) && (
+            <div className="grid grid-cols-3 gap-3 rounded-lg bg-gray-50 px-3 py-2 text-sm">
+              <div>
+                <p className="text-xs text-gray-400">Base/yr</p>
+                <p className="font-medium text-gray-800">${(baseRentMo * 12).toFixed(2)}/SF</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400">NNN/yr</p>
+                <p className="font-medium text-gray-800">${(nnnMo * 12).toFixed(2)}/SF</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400">Total/yr</p>
+                <p className="font-medium text-brand">${totalYr.toFixed(2)}/SF</p>
+              </div>
+            </div>
+          )}
+
+          <div className="grid gap-3 sm:grid-cols-3">
             <div>
               <label className="label">Lease Type</label>
               <select className="input" value={form.leaseType} onChange={(e) => set("leaseType", e.target.value)}>

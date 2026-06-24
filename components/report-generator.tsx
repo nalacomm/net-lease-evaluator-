@@ -4,7 +4,7 @@ import { useState } from "react";
 import { GradeBadge } from "@/components/ui";
 import { labelFor, ASSET_TYPES, LEASE_TYPES, GUARANTY_TYPES } from "@/lib/constants";
 import { fmtMoney, fmtPercent, fmtDscr } from "@/lib/format";
-import { Loader2, FileText, CheckSquare, Square, Building2, Store } from "lucide-react";
+import { Loader2, FileText, CheckSquare, Square, Building2, Store, Mail, Copy, Check } from "lucide-react";
 import { PrintFooter } from "@/components/print-footer";
 import clsx from "clsx";
 
@@ -506,6 +506,50 @@ export function ReportGenerator({
   );
 }
 
+// ── Email draft ────────────────────────────────────────────────────────────
+
+function EmailDraft({ subject, body }: { subject: string; body: string }) {
+  const [copied, setCopied] = useState<"subject" | "all" | null>(null);
+
+  function copy(what: "subject" | "all") {
+    const text = what === "subject" ? subject : `Subject: ${subject}\n\n${body}`;
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(what);
+      setTimeout(() => setCopied(null), 2000);
+    });
+  }
+
+  return (
+    <div className="card space-y-3 print:hidden border-brand/30">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Mail className="h-4 w-4 text-brand" />
+          <h3 className="font-semibold text-gray-900">Email Draft</h3>
+        </div>
+        <button onClick={() => copy("all")} className="btn-secondary text-sm flex items-center gap-1.5">
+          {copied === "all" ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+          {copied === "all" ? "Copied!" : "Copy all"}
+        </button>
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Subject</p>
+          <button onClick={() => copy("subject")} className="text-xs text-brand hover:underline flex items-center gap-1">
+            {copied === "subject" ? <><Check className="h-3 w-3" /> Copied</> : <><Copy className="h-3 w-3" /> Copy</>}
+          </button>
+        </div>
+        <p className="rounded-lg bg-gray-50 px-3 py-2 text-sm font-medium text-gray-900 select-all">{subject}</p>
+      </div>
+
+      <div>
+        <p className="text-xs font-medium uppercase tracking-wide text-gray-400 mb-1">Body</p>
+        <pre className="whitespace-pre-wrap rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700 font-sans select-all leading-relaxed">{body}</pre>
+      </div>
+    </div>
+  );
+}
+
 // ── Deal report output ─────────────────────────────────────────────────────
 
 function DealReportOutput({ report }: { report: DealReportData }) {
@@ -573,6 +617,25 @@ function DealReportOutput({ report }: { report: DealReportData }) {
       <button onClick={() => window.print()} className="btn-secondary w-full print:hidden">
         <FileText className="h-4 w-4" /> Print / Save as PDF
       </button>
+
+      <EmailDraft
+        subject={`Net Lease Deal Analysis — ${report.investor.name} — ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`}
+        body={[
+          `${report.investor.name},`,
+          ``,
+          `Please find attached a net lease investment analysis report comparing ${report.deals.length} deal${report.deals.length !== 1 ? "s" : ""} we${report.investor.entityName ? ` have been tracking for ${report.investor.entityName}` : "'ve been reviewing"}.`,
+          ``,
+          report.execSummary,
+          ``,
+          report.recommendation,
+          ``,
+          `Please review the attached report and let me know if you have any questions or would like to schedule a call to discuss.`,
+          ``,
+          `Best regards,`,
+          `Blake-Dickson Commercial Real Estate`,
+        ].join("\n")}
+      />
+
       <PrintFooter />
     </div>
   );
@@ -720,6 +783,25 @@ function SiteReportOutput({ report }: { report: SiteReportData }) {
       <button onClick={() => window.print()} className="btn-secondary w-full print:hidden">
         <FileText className="h-4 w-4" /> Print / Save as PDF
       </button>
+
+      <EmailDraft
+        subject={`Site Comparison Report — ${report.tenant.name} — ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`}
+        body={[
+          `${report.tenant.name},`,
+          ``,
+          `Please find attached a site comparison report evaluating ${report.sites.length} site${report.sites.length !== 1 ? "s" : ""} for your consideration${report.tenant.company ? ` on behalf of ${report.tenant.company}` : ""}.`,
+          ``,
+          report.execSummary,
+          ``,
+          report.recommendation,
+          ``,
+          `Please review the attached and let me know which sites you'd like to prioritize or if you'd like to schedule time to walk through the findings together.`,
+          ``,
+          `Best regards,`,
+          `Blake-Dickson Commercial Real Estate`,
+        ].join("\n")}
+      />
+
       <PrintFooter />
     </div>
   );
