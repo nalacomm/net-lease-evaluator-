@@ -228,6 +228,7 @@ export function SiteProfile({
   const [selectedTenantId, setSelectedTenantId] = useState("");
   const [assigning, setAssigning] = useState(false);
   const [gapLoadingId, setGapLoadingId] = useState<string | null>(null);
+  const [gapErrorId, setGapErrorId] = useState<string | null>(null);
   const [rescoreLoadingId, setRescoreLoadingId] = useState<string | null>(null);
   const [gapResults, setGapResults] = useState<Record<string, GapAnalysisData>>(
     () => {
@@ -323,6 +324,7 @@ export function SiteProfile({
 
   async function runGap(tenantId: string) {
     setGapLoadingId(tenantId);
+    setGapErrorId(null);
     const context = gapContexts[tenantId] ?? "";
     try {
       const res = await fetch(`/api/sites/${site.id}/gap`, {
@@ -346,7 +348,11 @@ export function SiteProfile({
             )
           );
         }
+      } else {
+        setGapErrorId(tenantId);
       }
+    } catch {
+      setGapErrorId(tenantId);
     } finally {
       setGapLoadingId(null);
     }
@@ -724,6 +730,12 @@ export function SiteProfile({
                     {isGapLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lightbulb className="h-4 w-4" />}
                     {isGapLoading ? "Running…" : gap ? "Re-run Gap Analysis" : "Run Gap Analysis"}
                   </button>
+
+                  {gapErrorId === a.tenantId && (
+                    <p className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">
+                      Gap analysis failed. Check that tenant requirements are set and try again.
+                    </p>
+                  )}
 
                   {/* Most recent result */}
                   {gap && (

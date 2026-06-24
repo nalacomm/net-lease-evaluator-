@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { SiteProfile } from "@/components/site-profile";
+import { scoreSite } from "@/lib/site-scoring";
 
 export const dynamic = "force-dynamic";
 
@@ -66,8 +67,31 @@ export default async function SitePage({ params }: { params: { id: string } }) {
     assignments: site.assignments.map((a) => ({
       id: a.id,
       tenantId: a.tenantId,
-      score: a.score,
-      grade: a.grade,
+      score: (() => {
+        if (!a.tenant.requirements) return a.score;
+        const fresh = scoreSite(site, a.tenant.requirements);
+        const stored = a.scoreBreakdown as { category: string; points: number; max: number; status: string; detail: string }[] | null;
+        const exceptional = stored?.find((r) => r.category === "Exceptional Flag (bonus)") ?? null;
+        if (!exceptional) return fresh.score;
+        const bd = [...fresh.breakdown, exceptional];
+        const totalMax = bd.reduce((s, c) => s + c.max, 0);
+        const totalPts = bd.reduce((s, c) => s + c.points, 0);
+        return Math.max(0, Math.min(100, totalMax > 0 ? Math.round((totalPts / totalMax) * 100) : 0));
+      })(),
+      grade: (() => {
+        if (!a.tenant.requirements) return a.grade;
+        const fresh = scoreSite(site, a.tenant.requirements);
+        const stored = a.scoreBreakdown as { category: string; points: number; max: number; status: string; detail: string }[] | null;
+        const exceptional = stored?.find((r) => r.category === "Exceptional Flag (bonus)") ?? null;
+        let s = fresh.score;
+        if (exceptional) {
+          const bd = [...fresh.breakdown, exceptional];
+          const totalMax = bd.reduce((sum, c) => sum + c.max, 0);
+          const totalPts = bd.reduce((sum, c) => sum + c.points, 0);
+          s = Math.max(0, Math.min(100, totalMax > 0 ? Math.round((totalPts / totalMax) * 100) : 0));
+        }
+        return s >= 85 ? "A" : s >= 70 ? "B" : s >= 55 ? "C" : s >= 40 ? "D" : "F";
+      })(),
       gapAnalysis: a.gapAnalysis as {
         isExceptional: boolean;
         exceptionalReason: string | null;
@@ -85,7 +109,14 @@ export default async function SitePage({ params }: { params: { id: string } }) {
         verdict: string;
       }[] | null) ?? null,
       gapContext: a.gapContext ?? null,
-      scoreBreakdown: a.scoreBreakdown as { category: string; points: number; max: number; status: string; detail: string }[] | null,
+      scoreBreakdown: (() => {
+        // Always compute fresh so display is never stale
+        if (!a.tenant.requirements) return null;
+        const fresh = scoreSite(site, a.tenant.requirements);
+        const stored = a.scoreBreakdown as { category: string; points: number; max: number; status: string; detail: string }[] | null;
+        const exceptional = stored?.find((r) => r.category === "Exceptional Flag (bonus)") ?? null;
+        return exceptional ? [...fresh.breakdown, exceptional] : fresh.breakdown;
+      })(),
       tenant: { id: a.tenant.id, name: a.tenant.name },
       requirements: a.tenant.requirements
         ? {
