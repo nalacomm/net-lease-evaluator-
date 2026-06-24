@@ -53,5 +53,35 @@ export function parseJson<T = unknown>(raw: string): T {
     const obj = text.match(/[{[][\s\S]*[}\]]/);
     if (obj) text = obj[0];
   }
-  return JSON.parse(text) as T;
+  // Try clean parse first
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    // Attempt to repair truncated JSON by closing any open strings/arrays/objects
+    const repaired = repairJson(text);
+    return JSON.parse(repaired) as T;
+  }
+}
+
+function repairJson(text: string): string {
+  // Remove trailing commas before closing braces/brackets
+  let t = text.replace(/,\s*([}\]])/g, "$1");
+  // Count open braces/brackets and close them
+  const stack: string[] = [];
+  let inString = false;
+  let escape = false;
+  for (const ch of t) {
+    if (escape) { escape = false; continue; }
+    if (ch === "\\" && inString) { escape = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === "{") stack.push("}");
+    else if (ch === "[") stack.push("]");
+    else if (ch === "}" || ch === "]") stack.pop();
+  }
+  // If we're mid-string, close it
+  if (inString) t += '"';
+  // Close any open containers in reverse
+  t += stack.reverse().join("");
+  return t;
 }

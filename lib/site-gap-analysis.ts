@@ -80,6 +80,6 @@ Return JSON only:
   ],
   "verdict": "2-3 sentence plain summary"
 }`,
-    { maxTokens: 800 }
+    { maxTokens: 1500 }
   );
 }
