@@ -143,46 +143,50 @@ RISKS:
       })
     );
 
+    const responseDeals = dealDetails.map((d) => ({
+      id: d.deal.id,
+      address: d.deal.address,
+      tenantName: d.deal.tenantName,
+      assetType: d.deal.assetType,
+      askingPrice: d.deal.askingPrice,
+      noi: d.deal.noi,
+      capRateAsking: d.deal.capRateAsking,
+      leaseType: d.deal.leaseType,
+      termRemainingYears: d.deal.termRemainingYears,
+      guarantyType: d.deal.guarantyType,
+      grade: d.grade,
+      score: d.score,
+      scoreBreakdown: d.deal.scoreBreakdown,
+      selfCheckerNotes: d.deal.selfCheckerNotes,
+      finance: {
+        loanAmount: d.finance.loanAmount,
+        equityRequired: d.finance.equityRequired,
+        monthlyDebtService: d.finance.monthlyDebtService,
+        monthlyNetCashFlow: d.finance.monthlyNetCashFlow,
+        dscr: d.finance.dscr,
+        cashOnCash: d.finance.cashOnCash,
+      },
+      strengths: d.strengths,
+      risks: d.risks,
+    }));
+
+    const reportPayload = {
+      investor: { name: investor.name, entityName: investor.entityName },
+      execSummary,
+      recommendation,
+      deals: responseDeals,
+    };
+
     const report = await prisma.report.create({
       data: {
         investorId,
         dealIds,
-        title: `Top ${deals.length} Deals`,
+        title: `${deals.length} Deal${deals.length !== 1 ? "s" : ""} — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`,
+        reportData: reportPayload,
       },
     });
 
-    return NextResponse.json({
-      reportId: report.id,
-      investor: { name: investor.name, entityName: investor.entityName },
-      execSummary,
-      recommendation,
-      deals: dealDetails.map((d) => ({
-        id: d.deal.id,
-        address: d.deal.address,
-        tenantName: d.deal.tenantName,
-        assetType: d.deal.assetType,
-        askingPrice: d.deal.askingPrice,
-        noi: d.deal.noi,
-        capRateAsking: d.deal.capRateAsking,
-        leaseType: d.deal.leaseType,
-        termRemainingYears: d.deal.termRemainingYears,
-        guarantyType: d.deal.guarantyType,
-        grade: d.grade,
-        score: d.score,
-        scoreBreakdown: d.deal.scoreBreakdown,
-        selfCheckerNotes: d.deal.selfCheckerNotes,
-        finance: {
-          loanAmount: d.finance.loanAmount,
-          equityRequired: d.finance.equityRequired,
-          monthlyDebtService: d.finance.monthlyDebtService,
-          monthlyNetCashFlow: d.finance.monthlyNetCashFlow,
-          dscr: d.finance.dscr,
-          cashOnCash: d.finance.cashOnCash,
-        },
-        strengths: d.strengths,
-        risks: d.risks,
-      })),
-    });
+    return NextResponse.json({ reportId: report.id, ...reportPayload });
   } catch (e) {
     console.error("report generate error", e);
     return NextResponse.json(

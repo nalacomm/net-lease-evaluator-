@@ -4,7 +4,7 @@ import { useState } from "react";
 import { GradeBadge } from "@/components/ui";
 import { labelFor, ASSET_TYPES, LEASE_TYPES, GUARANTY_TYPES } from "@/lib/constants";
 import { fmtMoney, fmtPercent, fmtDscr } from "@/lib/format";
-import { Loader2, FileText, CheckSquare, Square, Building2, Store, Mail, Copy, Check } from "lucide-react";
+import { Loader2, FileText, CheckSquare, Square, Building2, Store, Mail, Copy, Check, Clock } from "lucide-react";
 import { PrintFooter } from "@/components/print-footer";
 import clsx from "clsx";
 
@@ -40,6 +40,14 @@ type PastReport = {
   title: string | null;
   generatedAt: string;
   dealCount: number;
+};
+
+type PastSiteReport = {
+  id: string;
+  title: string | null;
+  generatedAt: string;
+  siteCount: number;
+  tenantId: string;
 };
 
 type FinanceSnap = {
@@ -187,6 +195,7 @@ export function ReportGenerator({
   investor,
   deals,
   pastReports,
+  pastSiteReports = [],
   tenants = [],
   defaultMode = "investor",
 }: {
@@ -195,6 +204,7 @@ export function ReportGenerator({
   investor: { id: string; name: string } | null;
   deals: DealOption[];
   pastReports: PastReport[];
+  pastSiteReports?: PastSiteReport[];
   tenants?: TenantOption[];
   defaultMode?: "investor" | "tenant";
 }) {
@@ -207,6 +217,7 @@ export function ReportGenerator({
   const [dealReport, setDealReport] = useState<DealReportData | null>(null);
   const [siteReport, setSiteReport] = useState<SiteReportData | null>(null);
   const [showScore, setShowScore] = useState(true);
+  const [loadingPastId, setLoadingPastId] = useState<string | null>(null);
 
   const activeTenant = tenants.find((t) => t.id === selectedTenantId) ?? null;
 
@@ -225,6 +236,38 @@ export function ReportGenerator({
     setError("");
     setSelectedDeals([]);
     setSelectedSites([]);
+  }
+
+  async function loadPastDealReport(id: string) {
+    setLoadingPastId(id);
+    setDealReport(null);
+    setError("");
+    try {
+      const res = await fetch(`/api/reports/${id}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to load report");
+      setDealReport(data.reportData as DealReportData);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load report");
+    } finally {
+      setLoadingPastId(null);
+    }
+  }
+
+  async function loadPastSiteReport(id: string) {
+    setLoadingPastId(id);
+    setSiteReport(null);
+    setError("");
+    try {
+      const res = await fetch(`/api/reports/sites/${id}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to load report");
+      setSiteReport(data.reportData as SiteReportData);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load report");
+    } finally {
+      setLoadingPastId(null);
+    }
   }
 
   async function generateDealReport() {
@@ -387,14 +430,26 @@ export function ReportGenerator({
 
               {pastReports.length > 0 && (
                 <div className="card">
-                  <h2 className="mb-2 font-semibold text-gray-700">Past Reports</h2>
+                  <div className="mb-2 flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-gray-400" />
+                    <h2 className="font-semibold text-gray-700">Past Reports</h2>
+                  </div>
                   <ul className="divide-y divide-gray-100">
                     {pastReports.map((r) => (
-                      <li key={r.id} className="flex items-center justify-between py-2 text-sm">
-                        <span className="font-medium text-gray-900">{r.title ?? "Report"}</span>
-                        <span className="text-gray-400">
-                          {new Date(r.generatedAt).toLocaleDateString()} · {r.dealCount} deals
-                        </span>
+                      <li key={r.id} className="flex items-center justify-between py-2 text-sm gap-3">
+                        <div className="min-w-0">
+                          <p className="font-medium text-gray-900 truncate">{r.title ?? "Report"}</p>
+                          <p className="text-xs text-gray-400">
+                            {new Date(r.generatedAt).toLocaleDateString()} · {r.dealCount} deal{r.dealCount !== 1 ? "s" : ""}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => loadPastDealReport(r.id)}
+                          disabled={loadingPastId === r.id}
+                          className="btn-secondary text-xs shrink-0"
+                        >
+                          {loadingPastId === r.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "View"}
+                        </button>
                       </li>
                     ))}
                   </ul>
@@ -509,6 +564,40 @@ export function ReportGenerator({
               )}
 
               {siteReport && <SiteReportOutput report={siteReport} showScore={showScore} />}
+
+              {(() => {
+                const tenantPastReports = selectedTenantId
+                  ? pastSiteReports.filter((r) => r.tenantId === selectedTenantId)
+                  : pastSiteReports;
+                if (tenantPastReports.length === 0) return null;
+                return (
+                  <div className="card">
+                    <div className="mb-2 flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-gray-400" />
+                      <h2 className="font-semibold text-gray-700">Past Reports</h2>
+                    </div>
+                    <ul className="divide-y divide-gray-100">
+                      {tenantPastReports.map((r) => (
+                        <li key={r.id} className="flex items-center justify-between py-2 text-sm gap-3">
+                          <div className="min-w-0">
+                            <p className="font-medium text-gray-900 truncate">{r.title ?? "Report"}</p>
+                            <p className="text-xs text-gray-400">
+                              {new Date(r.generatedAt).toLocaleDateString()} · {r.siteCount} site{r.siteCount !== 1 ? "s" : ""}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => loadPastSiteReport(r.id)}
+                            disabled={loadingPastId === r.id}
+                            className="btn-secondary text-xs shrink-0"
+                          >
+                            {loadingPastId === r.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "View"}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })()}
             </>
           )}
         </div>
@@ -703,6 +792,15 @@ function SiteReportOutput({ report, showScore = true }: { report: SiteReportData
               {s.squareFeet != null && <><span className="text-gray-500">Size</span><span className="font-medium">{s.squareFeet.toLocaleString()} SF</span></>}
               {s.askingRentPsf != null && <><span className="text-gray-500">Asking Rent</span><span className="font-medium">${s.askingRentPsf}/SF NNN</span></>}
               {s.nnnEstimate != null && <><span className="text-gray-500">NNN Est.</span><span className="font-medium">${s.nnnEstimate}/SF</span></>}
+              {s.squareFeet != null && s.askingRentPsf != null && (
+                <>
+                  <span className="text-gray-500">Est. Monthly Rent</span>
+                  <span className="font-medium">
+                    {fmtMoney(((s.askingRentPsf ?? 0) + (s.nnnEstimate ?? 0)) * s.squareFeet / 12)}
+                    <span className="text-xs text-gray-400 ml-1">/mo</span>
+                  </span>
+                </>
+              )}
               {s.leaseType && s.leaseType !== "—" && <><span className="text-gray-500">Lease Type</span><span className="font-medium">{s.leaseType}</span></>}
               {s.leaseTermOffered && <><span className="text-gray-500">Term Offered</span><span className="font-medium">{s.leaseTermOffered}</span></>}
               {s.dailyTraffic != null && <><span className="text-gray-500">Traffic</span><span className="font-medium">{s.dailyTraffic.toLocaleString()} VPD</span></>}

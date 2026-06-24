@@ -238,6 +238,17 @@ model Report {
   dealIds     String[]
   generatedAt DateTime @default(now())
   pdfUrl      String?
+  reportData  Json?
+}
+
+model SiteReport {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title       String?
+  siteIds     String[]
+  generatedAt DateTime @default(now())
+  reportData  Json?
 }
 
 model Comp {
@@ -270,6 +281,7 @@ model Tenant {
   requirements    TenantRequirements?
   siteAssignments SiteAssignment[]
   campaigns       Campaign[]
+  siteReports     SiteReport[]
 }
 
 model TenantRequirements {

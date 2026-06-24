@@ -72,13 +72,21 @@ export default async function ReportsPage({
       })),
   ].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
 
-  const pastReports = investor
-    ? await prisma.report.findMany({
-        where: { investorId: investor.id },
-        orderBy: { generatedAt: "desc" },
-        take: 10,
-      })
-    : [];
+  const [pastReports, pastSiteReports] = await Promise.all([
+    investor
+      ? prisma.report.findMany({
+          where: { investorId: investor.id },
+          orderBy: { generatedAt: "desc" },
+          take: 10,
+          select: { id: true, title: true, generatedAt: true, dealIds: true },
+        })
+      : Promise.resolve([]),
+    prisma.siteReport.findMany({
+      orderBy: { generatedAt: "desc" },
+      take: 30,
+      select: { id: true, title: true, generatedAt: true, siteIds: true, tenantId: true },
+    }),
+  ]);
 
   const tenants = allTenants.map((t) => ({
     id: t.id,
@@ -107,6 +115,13 @@ export default async function ReportsPage({
           title: r.title,
           generatedAt: r.generatedAt.toISOString(),
           dealCount: r.dealIds.length,
+        }))}
+        pastSiteReports={pastSiteReports.map((r) => ({
+          id: r.id,
+          title: r.title,
+          generatedAt: r.generatedAt.toISOString(),
+          siteCount: r.siteIds.length,
+          tenantId: r.tenantId,
         }))}
         tenants={tenants}
         defaultMode={(searchParams.mode === "tenant" ? "tenant" : "investor") as "investor" | "tenant"}

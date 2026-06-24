@@ -174,13 +174,24 @@ RISKS:
       siteDetails.push(...batch);
     }
 
-    return NextResponse.json({
+    const payload = {
       tenant: { name: tenant.name, company: tenant.company },
       requirements: reqContext,
       execSummary,
       recommendation,
       sites: siteDetails,
+    };
+
+    const siteReport = await prisma.siteReport.create({
+      data: {
+        tenantId,
+        siteIds,
+        title: `${siteDetails.length} Site${siteDetails.length !== 1 ? "s" : ""} — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`,
+        reportData: payload,
+      },
     });
+
+    return NextResponse.json({ siteReportId: siteReport.id, ...payload });
   } catch (e) {
     console.error("site report generate error", e);
     return NextResponse.json({ error: e instanceof Error ? e.message : "Failed" }, { status: 500 });
