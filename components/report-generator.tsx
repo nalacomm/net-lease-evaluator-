@@ -527,14 +527,12 @@ export function ReportGenerator({
                       onToggle={toggleSite}
                       renderItem={(s) => (
                         <>
-                          <GradeBadge grade={s.grade} size="sm" />
                           <div className="flex-1 min-w-0">
                             <p className="truncate font-medium text-gray-900">{s.name ?? "Unnamed site"}</p>
                             <p className="truncate text-xs text-gray-500">
                               {[s.city, s.state].filter(Boolean).join(", ") || "—"}
                             </p>
                           </div>
-                          <span className="text-sm font-bold text-gray-600">{s.score?.toFixed(0) ?? "—"}</span>
                         </>
                       )}
                     />
@@ -543,11 +541,6 @@ export function ReportGenerator({
               )}
 
               {error && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-
-              <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
-                <input type="checkbox" checked={showScore} onChange={(e) => setShowScore(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-brand" />
-                Show score in report
-              </label>
 
               {activeTenant && (
                 <button
@@ -563,7 +556,7 @@ export function ReportGenerator({
                 </button>
               )}
 
-              {siteReport && <SiteReportOutput report={siteReport} showScore={showScore} />}
+              {siteReport && <SiteReportOutput report={siteReport} showScore={false} />}
 
               {(() => {
                 const tenantPastReports = selectedTenantId

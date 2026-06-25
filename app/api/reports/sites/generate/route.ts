@@ -50,7 +50,6 @@ export async function POST(req: Request) {
       : "No requirements on file";
 
     function siteSummary(s: (typeof sites)[0]) {
-      const a = s.assignments[0];
       return [
         `Site: ${s.name} — ${[s.address, s.city, s.state].filter(Boolean).join(", ")}${s.quadrant ? ` (${s.quadrant})` : ""}`,
         s.squareFeet ? `${s.squareFeet.toLocaleString()} SF` : null,
@@ -59,7 +58,6 @@ export async function POST(req: Request) {
         s.medianIncome ? `$${Math.round(s.medianIncome / 1000)}K HHI` : null,
         s.coTenants ? `Co-tenants: ${s.coTenants}` : null,
         labelFor(SITE_TYPES, s.siteType) !== "—" ? labelFor(SITE_TYPES, s.siteType) : null,
-        a ? `Score: ${a.score?.toFixed(0) ?? "?"}/100 (${a.grade ?? "?"})` : "Not scored",
       ].filter(Boolean).join(" | ");
     }
 
@@ -67,27 +65,29 @@ export async function POST(req: Request) {
 
     const [execSummary, recommendation] = await Promise.all([
       askText(
-        `You are Ed Henderson, tenant rep broker at Blake-Dickson Commercial Real Estate, writing a site report for your client ${tenantName}${tenant.company ? ` (${tenant.company})` : ""}.
+        `You are Ed Henderson at Blake-Dickson Commercial Real Estate writing directly to your client ${tenantName}${tenant.company ? ` (${tenant.company})` : ""}.
 
-Write directly TO the tenant using "you" and "your".
+This is a client-facing report. Write in first person ("I", "we", "I recommend") — never refer to yourself as "tenant rep" or in third person.
+Never mention scores, grades, or scoring systems.
 Tenant requirements: ${reqContext}
 
 Sites being presented:
 ${allSummaries}
 
-Write a 2–3 sentence executive summary covering how these sites collectively match the tenant's requirements. No preamble.`,
+Write a 2–3 sentence executive summary covering how these sites collectively match the client's requirements. No preamble.`,
         { maxTokens: 300 }
       ),
       askText(
-        `You are Ed Henderson, tenant rep broker, advising ${tenantName} on which site best fits their needs.
+        `You are Ed Henderson at Blake-Dickson Commercial Real Estate writing directly to your client ${tenantName}.
 
-Use "you" and "your" — never third person.
+This is a client-facing report. Write in first person ("I recommend", "I believe", "we suggest") — never refer to yourself as "tenant rep" or in third person.
+Never mention scores, grades, or scoring systems.
 Tenant requirements: ${reqContext}
 
 Sites under review:
 ${allSummaries}
 
-Write a 2–3 sentence recommendation naming the top site and exactly why it best fits the tenant's requirements. Be direct and specific. No preamble.`,
+Write a 2–3 sentence recommendation naming the top site and exactly why it best fits the client's requirements. Be direct and specific. No preamble.`,
         { maxTokens: 300 }
       ),
     ]);
@@ -105,10 +105,14 @@ Write a 2–3 sentence recommendation naming the top site and exactly why it bes
       } | null;
 
       const risksStrengths = await askText(
-        `You are advising ${tenantName} on this prospective site. Write strengths and risks speaking directly using "you/your".
+        `You are Ed Henderson at Blake-Dickson Commercial Real Estate writing directly to your client ${tenantName}.
 
+This is a client-facing report. Write in first person ("I", "we") and address the client as "you/your".
+Never refer to yourself as "tenant rep" or in third person. Never mention scores, grades, or scoring systems.
+
+Site details:
 ${siteSummary(s)}
-Tenant requirements: ${reqContext}
+Client requirements: ${reqContext}
 
 Return exactly this format (no extra text):
 STRENGTHS:
