@@ -218,6 +218,7 @@ export function ReportGenerator({
   const [siteReport, setSiteReport] = useState<SiteReportData | null>(null);
   const [showScore, setShowScore] = useState(true);
   const [loadingPastId, setLoadingPastId] = useState<string | null>(null);
+  const [viewingPast, setViewingPast] = useState(false);
 
   const activeTenant = tenants.find((t) => t.id === selectedTenantId) ?? null;
 
@@ -236,6 +237,7 @@ export function ReportGenerator({
     setError("");
     setSelectedDeals([]);
     setSelectedSites([]);
+    setViewingPast(false);
   }
 
   async function loadPastDealReport(id: string) {
@@ -247,6 +249,7 @@ export function ReportGenerator({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to load report");
       setDealReport(data.reportData as DealReportData);
+      setViewingPast(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load report");
     } finally {
@@ -263,6 +266,7 @@ export function ReportGenerator({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to load report");
       setSiteReport(data.reportData as SiteReportData);
+      setViewingPast(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load report");
     } finally {
@@ -315,7 +319,7 @@ export function ReportGenerator({
   return (
     <div className="space-y-5">
       {/* Mode toggle */}
-      <div className="flex gap-1 rounded-xl bg-gray-100 p-1 w-fit">
+      {!viewingPast && <div className="flex gap-1 rounded-xl bg-gray-100 p-1 w-fit">
         <button
           onClick={() => switchMode("investor")}
           className={clsx(
@@ -334,10 +338,19 @@ export function ReportGenerator({
         >
           <Store className="h-4 w-4" /> Tenant / Sites
         </button>
-      </div>
+      </div>}
+
+      {viewingPast && (
+        <button
+          onClick={() => { setViewingPast(false); setDealReport(null); setSiteReport(null); }}
+          className="btn-secondary text-sm print:hidden"
+        >
+          ← Back to reports
+        </button>
+      )}
 
       {/* ── INVESTOR MODE ── */}
-      {mode === "investor" && (
+      {mode === "investor" && !viewingPast && (
         <div className="space-y-5">
           {allInvestors.length > 1 && (
             <div className="card flex flex-wrap items-center gap-3">
@@ -426,7 +439,7 @@ export function ReportGenerator({
                 )}
               </button>
 
-              {dealReport && <DealReportOutput report={dealReport} showScore={showScore} />}
+              {dealReport && !viewingPast && <DealReportOutput report={dealReport} showScore={showScore} />}
 
               {pastReports.length > 0 && (
                 <div className="card">
@@ -460,8 +473,16 @@ export function ReportGenerator({
         </div>
       )}
 
+      {/* ── Past report output (shared, shown when viewingPast) ── */}
+      {viewingPast && mode === "investor" && dealReport && (
+        <DealReportOutput report={dealReport} showScore={showScore} />
+      )}
+      {viewingPast && mode === "tenant" && siteReport && (
+        <SiteReportOutput report={siteReport} showScore={false} />
+      )}
+
       {/* ── TENANT MODE ── */}
-      {mode === "tenant" && (
+      {mode === "tenant" && !viewingPast && (
         <div className="space-y-5">
           {tenants.length === 0 ? (
             <p className="text-sm text-gray-400">No tenant clients yet. Add tenants to generate site reports.</p>
@@ -556,7 +577,7 @@ export function ReportGenerator({
                 </button>
               )}
 
-              {siteReport && <SiteReportOutput report={siteReport} showScore={false} />}
+              {siteReport && !viewingPast && <SiteReportOutput report={siteReport} showScore={false} />}
 
               {(() => {
                 const tenantPastReports = selectedTenantId
