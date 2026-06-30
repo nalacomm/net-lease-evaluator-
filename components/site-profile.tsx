@@ -239,9 +239,17 @@ function GapAnalysisBlock({
 export function SiteProfile({
   site,
   availableTenants = [],
+  prevId = null,
+  nextId = null,
+  totalCount = 0,
+  currentIndex = 0,
 }: {
   site: Site;
   availableTenants?: Tenant[];
+  prevId?: string | null;
+  nextId?: string | null;
+  totalCount?: number;
+  currentIndex?: number;
 }) {
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
@@ -415,6 +423,23 @@ export function SiteProfile({
 
   return (
     <div className="space-y-4">
+      {/* Prev / Next nav */}
+      {(prevId || nextId) && (
+        <div className="flex items-center justify-between text-sm">
+          {prevId ? (
+            <Link href={`/sites/${prevId}`} className="btn-secondary">
+              ← Previous
+            </Link>
+          ) : <span />}
+          <span className="text-gray-400 text-xs">{currentIndex + 1} of {totalCount}</span>
+          {nextId ? (
+            <Link href={`/sites/${nextId}`} className="btn-secondary">
+              Next →
+            </Link>
+          ) : <span />}
+        </div>
+      )}
+
       {/* Header card */}
       <div className="card">
         <div className="flex items-start justify-between gap-3">

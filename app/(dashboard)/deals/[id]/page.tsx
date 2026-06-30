@@ -12,7 +12,7 @@ export default async function DealPage({
   params: { id: string };
   searchParams: { investorId?: string };
 }) {
-  const [deal, allInvestors] = await Promise.all([
+  const [deal, allInvestors, allDealIds] = await Promise.all([
     prisma.deal.findUnique({
       where: { id: params.id },
       include: {
@@ -31,6 +31,7 @@ export default async function DealPage({
       },
     }),
     getAllInvestors(),
+    prisma.deal.findMany({ orderBy: { score: "desc" }, select: { id: true } }),
   ]);
   if (!deal) notFound();
 
@@ -83,11 +84,20 @@ export default async function DealPage({
       })
     : null;
 
+  const ids = allDealIds.map((d) => d.id);
+  const idx = ids.indexOf(params.id);
+  const prevId = idx > 0 ? ids[idx - 1] : null;
+  const nextId = idx < ids.length - 1 ? ids[idx + 1] : null;
+
   return (
     <DealProfile
       deal={serialized as never}
       allInvestors={allInvestors.map((i) => ({ id: i.id, name: i.name }))}
       cachedGapAnalysis={cachedGapAnalysis}
+      prevId={prevId}
+      nextId={nextId}
+      totalCount={ids.length}
+      currentIndex={idx}
       investorContext={
         ctxInvestor && ctxBuyBox
           ? {

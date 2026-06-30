@@ -6,7 +6,7 @@ import { scoreSite, applyMetricConfig, computeScore, SCORE_CATEGORIES, SiteCateg
 export const dynamic = "force-dynamic";
 
 export default async function SitePage({ params }: { params: { id: string } }) {
-  const [site, allTenants] = await Promise.all([
+  const [site, allTenants, allSiteIds] = await Promise.all([
     prisma.prospectiveSite.findUnique({
       where: { id: params.id },
       include: {
@@ -22,6 +22,7 @@ export default async function SitePage({ params }: { params: { id: string } }) {
       },
     }),
     prisma.tenant.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    prisma.prospectiveSite.findMany({ orderBy: { createdAt: "desc" }, select: { id: true } }),
   ]);
 
   if (!site) notFound();
@@ -136,5 +137,10 @@ export default async function SitePage({ params }: { params: { id: string } }) {
     })),
   };
 
-  return <SiteProfile site={serialized} availableTenants={allTenants} />;
+  const ids = allSiteIds.map((s) => s.id);
+  const idx = ids.indexOf(params.id);
+  const prevId = idx > 0 ? ids[idx - 1] : null;
+  const nextId = idx < ids.length - 1 ? ids[idx + 1] : null;
+
+  return <SiteProfile site={serialized} availableTenants={allTenants} prevId={prevId} nextId={nextId} totalCount={ids.length} currentIndex={idx} />;
 }
