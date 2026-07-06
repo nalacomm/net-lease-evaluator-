@@ -478,7 +478,7 @@ export function ReportGenerator({
         <DealReportOutput report={dealReport} showScore={showScore} />
       )}
       {viewingPast && mode === "tenant" && siteReport && (
-        <SiteReportOutput report={siteReport} showScore={false} />
+        <SiteReportOutput report={siteReport} showScore={showScore} />
       )}
 
       {/* ── TENANT MODE ── */}
@@ -563,6 +563,11 @@ export function ReportGenerator({
 
               {error && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
+              <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+                <input type="checkbox" checked={showScore} onChange={(e) => setShowScore(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-brand" />
+                Show score in report
+              </label>
+
               {activeTenant && (
                 <button
                   onClick={generateSiteReport}
@@ -577,7 +582,7 @@ export function ReportGenerator({
                 </button>
               )}
 
-              {siteReport && !viewingPast && <SiteReportOutput report={siteReport} showScore={false} />}
+              {siteReport && !viewingPast && <SiteReportOutput report={siteReport} showScore={showScore} />}
 
               {(() => {
                 const tenantPastReports = selectedTenantId

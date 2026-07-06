@@ -1,10 +1,18 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { PageHeader, EmptyState, StatusPill } from "@/components/ui";
+import { PageHeader, EmptyState, StatusPill, GradeBadge } from "@/components/ui";
 import { Plus } from "lucide-react";
 import { labelFor, SITE_TYPES, SITE_STATUSES } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
+
+const GRADE_ORDER = ["A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D", "F"];
+
+function bestGrade(grades: (string | null)[]): string | null {
+  const valid = grades.filter(Boolean) as string[];
+  if (!valid.length) return null;
+  return valid.sort((a, b) => GRADE_ORDER.indexOf(a) - GRADE_ORDER.indexOf(b))[0];
+}
 
 export default async function SitesPage() {
   const sites = await prisma.prospectiveSite.findMany({
@@ -20,6 +28,7 @@ export default async function SitesPage() {
       siteType: true,
       status: true,
       _count: { select: { assignments: true } },
+      assignments: { select: { grade: true, score: true } },
     },
   });
 
@@ -54,6 +63,7 @@ export default async function SitesPage() {
                 <th className="px-4 py-3">Type</th>
                 <th className="px-4 py-3 text-right">SF</th>
                 <th className="px-4 py-3 text-right">Asking Rent/SF</th>
+                <th className="px-4 py-3 text-center">Grade</th>
                 <th className="px-4 py-3 text-right">Tenants</th>
                 <th className="px-4 py-3">Status</th>
               </tr>
@@ -89,6 +99,9 @@ export default async function SitesPage() {
                     {site.askingRentPsf
                       ? `$${site.askingRentPsf.toFixed(2)}`
                       : "—"}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <GradeBadge grade={bestGrade(site.assignments.map((a) => a.grade))} size="sm" />
                   </td>
                   <td className="px-4 py-3 text-right">
                     {site._count.assignments}
