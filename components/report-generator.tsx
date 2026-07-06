@@ -884,10 +884,10 @@ function SiteReportOutput({ report, showScore = true }: { report: SiteReportData
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Score Breakdown</p>
                 <div className="space-y-1">
                   {s.scoreBreakdown.map((row, i) => (
-                    <div key={i} className="flex items-center gap-3 text-sm">
+                    <div key={i} className="flex items-start gap-3 text-sm">
                       <StatusPill status={row.status}>{row.points}/{row.max}</StatusPill>
                       <span className="font-medium text-gray-800 w-32 shrink-0">{row.category}</span>
-                      <span className="text-gray-500 truncate">{row.detail}</span>
+                      <span className="text-gray-500 break-words min-w-0">{row.detail}</span>
                     </div>
                   ))}
                 </div>
@@ -904,14 +904,16 @@ function SiteReportOutput({ report, showScore = true }: { report: SiteReportData
                   <p className="text-sm text-amber-800 font-medium mb-1">{s.gapAnalysis.exceptionalReason}</p>
                 )}
                 {adjustments.length > 0 && (
-                  <ul className="space-y-1 mt-2">
+                  <ul className="space-y-2 mt-2">
                     {adjustments.map((adj, i) => (
-                      <li key={i} className="flex flex-wrap items-center gap-2 text-sm">
-                        <span className="font-medium text-gray-800 w-28 shrink-0">{adj.field}</span>
-                        <span className="text-red-600 line-through">{adj.currentValue}</span>
-                        <span className="text-gray-400">→</span>
-                        <span className="text-green-700 font-medium">{adj.requiredValue}</span>
-                        <span className="text-gray-500">{adj.impact}</span>
+                      <li key={i} className="text-sm">
+                        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                          <span className="font-medium text-gray-800 shrink-0">{adj.field}:</span>
+                          <span className="text-red-600 line-through break-words">{adj.currentValue}</span>
+                          <span className="text-gray-400">→</span>
+                          <span className="text-green-700 font-medium break-words">{adj.requiredValue}</span>
+                        </div>
+                        {adj.impact && <p className="text-gray-500 mt-0.5 break-words">{adj.impact}</p>}
                       </li>
                     ))}
                   </ul>
