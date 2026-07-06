@@ -548,12 +548,14 @@ export function ReportGenerator({
                       onToggle={toggleSite}
                       renderItem={(s) => (
                         <>
+                          <GradeBadge grade={s.grade} size="sm" />
                           <div className="flex-1 min-w-0">
                             <p className="truncate font-medium text-gray-900">{s.name ?? "Unnamed site"}</p>
                             <p className="truncate text-xs text-gray-500">
                               {[s.city, s.state].filter(Boolean).join(", ") || "—"}
                             </p>
                           </div>
+                          <span className="text-sm font-bold text-gray-600">{s.score?.toFixed(0) ?? "—"}</span>
                         </>
                       )}
                     />
