@@ -116,6 +116,9 @@ export function TenantProfile({
   const [selectedSiteId, setSelectedSiteId] = useState("");
   const [assigning, setAssigning] = useState(false);
   const [showAssignForm, setShowAssignForm] = useState(false);
+  const [showEmailForm, setShowEmailForm] = useState(false);
+  const [heroImageUrl, setHeroImageUrl] = useState("");
+  const [conceptImageUrl, setConceptImageUrl] = useState("");
 
   async function deleteTenant() {
     if (!confirm("Delete this tenant? This cannot be undone.")) return;
@@ -128,9 +131,12 @@ export function TenantProfile({
   async function generateCampaign() {
     setCampaignLoading(true);
     setCampaignHtml(null);
+    setShowEmailForm(false);
     try {
       const res = await fetch(`/api/tenants/${tenant.id}/campaign`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ heroImageUrl, conceptImageUrl }),
       });
       const data = await res.json();
       if (res.ok && data.html) {
@@ -438,20 +444,65 @@ export function TenantProfile({
       <div className="card">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-semibold text-gray-900">Campaigns</h2>
-          <button
-            onClick={generateCampaign}
-            disabled={campaignLoading}
-            className="btn-primary text-sm"
-          >
-            {campaignLoading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" /> Generating...
-              </>
-            ) : (
-              "Generate Campaign HTML"
-            )}
-          </button>
+          {!showEmailForm && (
+            <button
+              onClick={() => setShowEmailForm(true)}
+              disabled={campaignLoading}
+              className="btn-primary text-sm"
+            >
+              {campaignLoading ? (
+                <><Loader2 className="h-4 w-4 animate-spin" /> Generating...</>
+              ) : (
+                "Generate ISO Email"
+              )}
+            </button>
+          )}
         </div>
+
+        {showEmailForm && (
+          <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Email Images</p>
+            <div className="space-y-2">
+              <label className="block text-xs text-gray-600">Hero Image URL <span className="text-gray-400">(top banner, 200px tall)</span></label>
+              <input
+                type="url"
+                value={heroImageUrl}
+                onChange={(e) => setHeroImageUrl(e.target.value)}
+                placeholder="https://…"
+                className="input w-full text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-xs text-gray-600">Concept Image URL <span className="text-gray-400">(left side of concept row)</span></label>
+              <input
+                type="url"
+                value={conceptImageUrl}
+                onChange={(e) => setConceptImageUrl(e.target.value)}
+                placeholder="https://…"
+                className="input w-full text-sm"
+              />
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={generateCampaign}
+                disabled={campaignLoading || !heroImageUrl || !conceptImageUrl}
+                className="btn-primary text-sm"
+              >
+                {campaignLoading ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Generating...</>
+                ) : (
+                  "Generate"
+                )}
+              </button>
+              <button
+                onClick={() => setShowEmailForm(false)}
+                className="btn-secondary text-sm"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
 
         {campaignHtml && (
           <div className="mb-4 rounded-lg border border-gray-200 overflow-hidden">
