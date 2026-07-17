@@ -318,27 +318,29 @@ export function ReportGenerator({
 
   return (
     <div className="space-y-5">
-      {/* Mode toggle */}
-      {!viewingPast && <div className="flex gap-1 rounded-xl bg-gray-100 p-1 w-fit">
-        <button
-          onClick={() => switchMode("investor")}
-          className={clsx(
-            "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors",
-            mode === "investor" ? "bg-white shadow text-brand" : "text-gray-600 hover:text-gray-900"
-          )}
-        >
-          <Building2 className="h-4 w-4" /> Investor / Deals
-        </button>
-        <button
-          onClick={() => switchMode("tenant")}
-          className={clsx(
-            "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors",
-            mode === "tenant" ? "bg-white shadow text-brand" : "text-gray-600 hover:text-gray-900"
-          )}
-        >
-          <Store className="h-4 w-4" /> Tenant / Sites
-        </button>
-      </div>}
+      {/* Mode toggle — hidden on print */}
+      {!viewingPast && (
+        <div className="flex gap-1 rounded-xl bg-gray-100 p-1 w-fit print:hidden">
+          <button
+            onClick={() => switchMode("investor")}
+            className={clsx(
+              "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors",
+              mode === "investor" ? "bg-white shadow text-brand" : "text-gray-600 hover:text-gray-900"
+            )}
+          >
+            <Building2 className="h-4 w-4" /> Investor / Deals
+          </button>
+          <button
+            onClick={() => switchMode("tenant")}
+            className={clsx(
+              "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors",
+              mode === "tenant" ? "bg-white shadow text-brand" : "text-gray-600 hover:text-gray-900"
+            )}
+          >
+            <Store className="h-4 w-4" /> Tenant / Sites
+          </button>
+        </div>
+      )}
 
       {viewingPast && (
         <button
@@ -349,9 +351,9 @@ export function ReportGenerator({
         </button>
       )}
 
-      {/* ── INVESTOR MODE ── */}
+      {/* ── INVESTOR MODE — selection UI (hidden on print) ── */}
       {mode === "investor" && !viewingPast && (
-        <div className="space-y-5">
+        <div className="space-y-5 print:hidden">
           {allInvestors.length > 1 && (
             <div className="card flex flex-wrap items-center gap-3">
               <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Generate report for:</label>
@@ -439,8 +441,6 @@ export function ReportGenerator({
                 )}
               </button>
 
-              {dealReport && !viewingPast && <DealReportOutput report={dealReport} showScore={showScore} />}
-
               {pastReports.length > 0 && (
                 <div className="card">
                   <div className="mb-2 flex items-center gap-2">
@@ -473,17 +473,14 @@ export function ReportGenerator({
         </div>
       )}
 
-      {/* ── Past report output (shared, shown when viewingPast) ── */}
-      {viewingPast && mode === "investor" && dealReport && (
+      {/* ── INVESTOR REPORT OUTPUT ── */}
+      {mode === "investor" && dealReport && (
         <DealReportOutput report={dealReport} showScore={showScore} />
       )}
-      {viewingPast && mode === "tenant" && siteReport && (
-        <SiteReportOutput report={siteReport} showScore={showScore} />
-      )}
 
-      {/* ── TENANT MODE ── */}
+      {/* ── TENANT MODE — selection UI (hidden on print) ── */}
       {mode === "tenant" && !viewingPast && (
-        <div className="space-y-5">
+        <div className="space-y-5 print:hidden">
           {tenants.length === 0 ? (
             <p className="text-sm text-gray-400">No tenant clients yet. Add tenants to generate site reports.</p>
           ) : (
@@ -584,8 +581,6 @@ export function ReportGenerator({
                 </button>
               )}
 
-              {siteReport && !viewingPast && <SiteReportOutput report={siteReport} showScore={showScore} />}
-
               {(() => {
                 const tenantPastReports = selectedTenantId
                   ? pastSiteReports.filter((r) => r.tenantId === selectedTenantId)
@@ -622,6 +617,11 @@ export function ReportGenerator({
             </>
           )}
         </div>
+      )}
+
+      {/* ── TENANT REPORT OUTPUT ── */}
+      {mode === "tenant" && siteReport && (
+        <SiteReportOutput report={siteReport} showScore={showScore} />
       )}
     </div>
   );
