@@ -627,6 +627,19 @@ export function ReportGenerator({
   );
 }
 
+// ── Print with filename ────────────────────────────────────────────────────
+
+function printReport() {
+  const now = new Date();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  const yy = String(now.getFullYear()).slice(2);
+  const prev = document.title;
+  document.title = `EDH-BD-Deal_Evaluation-${mm}${dd}${yy}`;
+  window.print();
+  document.title = prev;
+}
+
 // ── Email draft ────────────────────────────────────────────────────────────
 
 function EmailDraft({ subject, body }: { subject: string; body: string }) {
@@ -759,7 +772,7 @@ function DealReportOutput({ report, showScore = true }: { report: DealReportData
         >
           {editing ? <><PencilOff className="h-4 w-4" /> Done editing</> : <><Pencil className="h-4 w-4" /> Edit report</>}
         </button>
-        <button onClick={() => window.print()} className="btn-secondary flex-1">
+        <button onClick={printReport} className="btn-secondary flex-1">
           <FileText className="h-4 w-4" /> Print / Save as PDF
         </button>
       </div>
@@ -966,7 +979,7 @@ function SiteReportOutput({ report, showScore = true }: { report: SiteReportData
         >
           {editing ? <><PencilOff className="h-4 w-4" /> Done editing</> : <><Pencil className="h-4 w-4" /> Edit report</>}
         </button>
-        <button onClick={() => window.print()} className="btn-secondary flex-1">
+        <button onClick={printReport} className="btn-secondary flex-1">
           <FileText className="h-4 w-4" /> Print / Save as PDF
         </button>
       </div>
