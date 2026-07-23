@@ -327,8 +327,8 @@ export function SiteProfile({
             gapAnalysis: null,
             gapHistory: null,
             gapContext: null,
-            scoreBreakdown: null,
-            fullBreakdown: null,
+            scoreBreakdown: data.breakdown ?? null,
+            fullBreakdown: data.breakdown ?? null,
             scoringConfig: null,
             tenant: tenant ?? { id: selectedTenantId, name: "Tenant" },
             requirements: data.requirements ?? null,
@@ -356,7 +356,7 @@ export function SiteProfile({
         setAssignments((prev) =>
           prev.map((a) =>
             a.tenantId === tenantId
-              ? { ...a, score: data.score, grade: data.grade, scoreBreakdown: data.breakdown, scoringConfig: data.scoringConfig }
+              ? { ...a, score: data.score, grade: data.grade, scoreBreakdown: data.breakdown, fullBreakdown: data.fullBreakdown ?? data.breakdown, scoringConfig: data.scoringConfig }
               : a
           )
         );

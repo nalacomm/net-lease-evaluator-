@@ -32,7 +32,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       create: { siteId: params.id, tenantId, score, grade, scoreBreakdown: scoreBreakdown ? JSON.parse(JSON.stringify(scoreBreakdown)) : undefined },
     });
 
-    return NextResponse.json(assignment);
+    return NextResponse.json({ ...assignment, breakdown: scoreBreakdown });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Failed" }, { status: 500 });
   }

@@ -43,7 +43,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       create: { siteId: params.id, tenantId, score, grade, scoreBreakdown: breakdown as object[], scoringConfig },
     });
 
-    return NextResponse.json({ score, grade, breakdown, scoringConfig });
+    return NextResponse.json({ score, grade, breakdown, fullBreakdown: fullBreakdown, scoringConfig });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Failed" }, { status: 500 });
   }
