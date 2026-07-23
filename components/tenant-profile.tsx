@@ -173,6 +173,7 @@ export function TenantProfile({
             id: data.id ?? selectedSiteId,
             score: data.score ?? null,
             grade: data.grade ?? null,
+            createdAt: new Date().toISOString(),
             site: {
               id: selectedSiteId,
               name: site?.name ?? "",
