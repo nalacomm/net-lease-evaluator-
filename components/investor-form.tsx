@@ -38,6 +38,8 @@ export function InvestorForm() {
   });
   const [preferred, setPreferred] = useState<string[]>(["eclc"]);
   const [acceptable, setAcceptable] = useState<string[]>([]);
+  const [preferredStates, setPreferredStates] = useState("");
+  const [targetMarkets, setTargetMarkets] = useState("");
 
   function set(k: string, v: string) {
     setForm((f) => ({ ...f, [k]: v }));
@@ -54,6 +56,8 @@ export function InvestorForm() {
     setSaving(true);
     setError("");
     try {
+      const statesArray = preferredStates.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
+      const marketsArray = targetMarkets.split(",").map((s) => s.trim()).filter(Boolean);
       const res = await fetch("/api/investors", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -67,6 +71,8 @@ export function InvestorForm() {
             ...form,
             assetTypesPreferred: preferred,
             assetTypesAcceptable: acceptable,
+            preferredStates: statesArray,
+            targetMarkets: marketsArray,
           },
         }),
       });
@@ -191,6 +197,29 @@ export function InvestorForm() {
                 {a.label}
               </button>
             ))}
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="label">Preferred States (comma-separated)</label>
+            <input
+              type="text"
+              className="input"
+              value={preferredStates}
+              onChange={(e) => setPreferredStates(e.target.value)}
+              placeholder="DC, MD, VA"
+            />
+          </div>
+          <div>
+            <label className="label">Target Markets (comma-separated)</label>
+            <input
+              type="text"
+              className="input"
+              value={targetMarkets}
+              onChange={(e) => setTargetMarkets(e.target.value)}
+              placeholder="Washington, Baltimore, Bethesda"
+            />
           </div>
         </div>
       </div>

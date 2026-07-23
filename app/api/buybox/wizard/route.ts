@@ -27,6 +27,8 @@ interface BuyBoxDraft {
   hhiMin: number | null;
   assetTypesPreferred: string[];
   assetTypesAcceptable: string[];
+  preferredStates: string[];
+  targetMarkets: string[];
   currentMonthlyIncome: number | null;
   notes: string | null;
   inferredFields: string[];
@@ -73,6 +75,8 @@ Enums:
 - leaseTypePreferred / leaseTypeAcceptable: "absolute_nnn" | "nnn" | "modified_nnn" | "gross"
 - guarantyPreferred / guarantyAcceptable / guarantyFloor: "corporate" | "multi_unit_franchisee" | "single_personal"
 - assetTypesPreferred / assetTypesAcceptable: array of: "eclc" | "qsr" | "pharmacy" | "medical" | "dollar_store" | "retail" | "shopping_center" | "restaurant" | "other"
+- preferredStates: array of uppercase state abbreviations (e.g. ["DC", "MD", "VA"])
+- targetMarkets: array of city/metro names (e.g. ["Washington", "Baltimore"])
 - ltv: fraction (e.g. 0.65 for 65%)
 
 Rules:
@@ -95,6 +99,7 @@ Return JSON only:
   "dscrMin": null, "ltv": null, "interestRate": null, "amortizationYears": null,
   "hhiMin": null,
   "assetTypesPreferred": [], "assetTypesAcceptable": [],
+  "preferredStates": [], "targetMarkets": [],
   "currentMonthlyIncome": null, "notes": null,
   "inferredFields": [], "missingFields": [], "confidenceLevel": "low",
   "narrativeSummary": ""

@@ -56,6 +56,8 @@ export async function POST(req: Request) {
                 hhiMin: bb.hhiMin ? Number(bb.hhiMin) : null,
                 assetTypesPreferred: bb.assetTypesPreferred || [],
                 assetTypesAcceptable: bb.assetTypesAcceptable || [],
+                preferredStates: bb.preferredStates || [],
+                targetMarkets: bb.targetMarkets || [],
                 currentMonthlyIncome: bb.currentMonthlyIncome
                   ? Number(bb.currentMonthlyIncome)
                   : null,

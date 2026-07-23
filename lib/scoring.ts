@@ -37,6 +37,8 @@ export interface DealLike {
   hhi1Mile?: number | null;
   hhi3Mile?: number | null;
   hhi5Mile?: number | null;
+  state?: string | null;
+  city?: string | null;
 }
 
 export interface BuyBoxLike {
@@ -49,6 +51,8 @@ export interface BuyBoxLike {
   amortizationYears: number;
   assetTypesPreferred: string[];
   assetTypesAcceptable: string[];
+  preferredStates?: string[];
+  targetMarkets?: string[];
 }
 
 function gradeFor(score: number): ScoreResult["grade"] {
@@ -333,6 +337,42 @@ export function scoreDeal(deal: DealLike, bb: BuyBoxLike): ScoreResult {
       category: "Asset Type Match (bonus)",
       points: bonus,
       max: 5,
+      status,
+      detail,
+    });
+    score += bonus;
+  }
+
+  // ----- Location Match (bonus up to +5, capped at 100) -----
+  {
+    const dealState = (deal.state ?? "").trim().toUpperCase();
+    const dealCity = (deal.city ?? "").toLowerCase().trim();
+    const states = (bb.preferredStates ?? []).map((s) => s.trim().toUpperCase());
+    const markets = (bb.targetMarkets ?? []).map((m) => m.toLowerCase().trim());
+    const hasPrefs = states.length > 0 || markets.length > 0;
+    let bonus = 0;
+    let status: CheckStatus = "info";
+    let detail = "No location preferences set";
+    if (hasPrefs) {
+      const stateMatch = states.length > 0 && dealState && states.includes(dealState);
+      const marketMatch =
+        markets.length > 0 &&
+        dealCity &&
+        markets.some((m) => dealCity.includes(m) || m.includes(dealCity));
+      if (stateMatch || marketMatch) {
+        bonus = 5;
+        status = "pass";
+        detail = `${deal.city ?? ""}${deal.city && deal.state ? ", " : ""}${deal.state ?? ""} — in preferred locations`;
+      } else {
+        bonus = 0;
+        status = "warn";
+        detail = `${deal.city ?? "?"}${deal.city && deal.state ? ", " : ""}${deal.state ?? ""} — outside preferred locations`;
+      }
+    }
+    breakdown.push({
+      category: "Location Match (bonus)",
+      points: bonus,
+      max: hasPrefs ? 5 : 0,
       status,
       detail,
     });

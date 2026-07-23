@@ -83,6 +83,8 @@ type InvestorWithBuyBox = {
     hhiMin: number | null;
     assetTypesPreferred: string[];
     assetTypesAcceptable: string[];
+    preferredStates: string[];
+    targetMarkets: string[];
     currentMonthlyIncome: number | null;
     notes: string | null;
   } | null;
@@ -128,6 +130,8 @@ export function InvestorEditForm({ investor }: { investor: InvestorWithBuyBox })
 
   const [preferred, setPreferred] = useState<string[]>(bb?.assetTypesPreferred ?? []);
   const [acceptable, setAcceptable] = useState<string[]>(bb?.assetTypesAcceptable ?? []);
+  const [preferredStates, setPreferredStates] = useState((bb?.preferredStates ?? []).join(", "));
+  const [targetMarkets, setTargetMarkets] = useState((bb?.targetMarkets ?? []).join(", "));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -144,12 +148,20 @@ export function InvestorEditForm({ investor }: { investor: InvestorWithBuyBox })
     setSaving(true);
     setError("");
     try {
+      const statesArray = preferredStates.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
+      const marketsArray = targetMarkets.split(",").map((s) => s.trim()).filter(Boolean);
       const res = await fetch(`/api/investors/${investor.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name, entityName, email, phone, notes,
-          buyBox: { ...form, assetTypesPreferred: preferred, assetTypesAcceptable: acceptable },
+          buyBox: {
+            ...form,
+            assetTypesPreferred: preferred,
+            assetTypesAcceptable: acceptable,
+            preferredStates: statesArray,
+            targetMarkets: marketsArray,
+          },
         }),
       });
       const data = await res.json();
@@ -234,6 +246,29 @@ export function InvestorEditForm({ investor }: { investor: InvestorWithBuyBox })
                 {a.label}
               </button>
             ))}
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="label">Preferred States (comma-separated)</label>
+            <input
+              type="text"
+              className="input"
+              value={preferredStates}
+              onChange={(e) => setPreferredStates(e.target.value)}
+              placeholder="DC, MD, VA"
+            />
+          </div>
+          <div>
+            <label className="label">Target Markets (comma-separated)</label>
+            <input
+              type="text"
+              className="input"
+              value={targetMarkets}
+              onChange={(e) => setTargetMarkets(e.target.value)}
+              placeholder="Washington, Baltimore, Bethesda"
+            />
           </div>
         </div>
       </div>

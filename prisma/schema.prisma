@@ -84,6 +84,10 @@ model BuyBox {
   assetTypesPreferred  String[]
   assetTypesAcceptable String[]
 
+  // Location Preferences
+  preferredStates String[]
+  targetMarkets   String[]
+
   // Cash Flow
   currentMonthlyIncome Float?
 

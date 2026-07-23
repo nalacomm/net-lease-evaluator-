@@ -86,6 +86,8 @@ type BuyBoxDraft = {
   hhiMin: number | null;
   assetTypesPreferred: string[];
   assetTypesAcceptable: string[];
+  preferredStates: string[];
+  targetMarkets: string[];
   currentMonthlyIncome: number | null;
   notes: string | null;
   inferredFields: string[];
@@ -167,6 +169,8 @@ export function InvestorOnboarding() {
   const [bb, setBb] = useState<BbFormState>(DEFAULT_BB);
   const [preferred, setPreferred] = useState<string[]>([]);
   const [acceptable, setAcceptable] = useState<string[]>([]);
+  const [preferredStates, setPreferredStates] = useState("");
+  const [targetMarkets, setTargetMarkets] = useState("");
 
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
@@ -205,6 +209,8 @@ export function InvestorOnboarding() {
     });
     setPreferred(d.assetTypesPreferred ?? []);
     setAcceptable(d.assetTypesAcceptable ?? []);
+    setPreferredStates((d.preferredStates ?? []).join(", "));
+    setTargetMarkets((d.targetMarkets ?? []).join(", "));
     if (d.notes) setNotes(d.notes);
     setWizardResult(d);
     setMode("manual");
@@ -238,7 +244,13 @@ export function InvestorOnboarding() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name, entityName, email, phone, notes,
-          buyBox: { ...bb, assetTypesPreferred: preferred, assetTypesAcceptable: acceptable },
+          buyBox: {
+            ...bb,
+            assetTypesPreferred: preferred,
+            assetTypesAcceptable: acceptable,
+            preferredStates: preferredStates.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean),
+            targetMarkets: targetMarkets.split(",").map((s) => s.trim()).filter(Boolean),
+          },
         }),
       });
       const data = await res.json();
@@ -411,6 +423,29 @@ export function InvestorOnboarding() {
                 {a.label}
               </button>
             ))}
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="label">Preferred States (comma-separated)</label>
+            <input
+              type="text"
+              className="input"
+              value={preferredStates}
+              onChange={(e) => setPreferredStates(e.target.value)}
+              placeholder="DC, MD, VA"
+            />
+          </div>
+          <div>
+            <label className="label">Target Markets (comma-separated)</label>
+            <input
+              type="text"
+              className="input"
+              value={targetMarkets}
+              onChange={(e) => setTargetMarkets(e.target.value)}
+              placeholder="Washington, Baltimore, Bethesda"
+            />
           </div>
         </div>
       </div>

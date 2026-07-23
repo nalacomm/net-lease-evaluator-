@@ -25,6 +25,8 @@ type BuyBox = {
   hhiMin: number | null;
   assetTypesPreferred: string[];
   assetTypesAcceptable: string[];
+  preferredStates: string[];
+  targetMarkets: string[];
   currentMonthlyIncome: number | null;
   notes: string | null;
 };
@@ -126,6 +128,12 @@ export function BuyBoxDisplay({ bb }: { bb: BuyBox }) {
           label="Construction"
           value={bb.constructionPreferred ?? "—"}
         />
+        {bb.preferredStates.length > 0 && (
+          <Row label="Preferred States" value={bb.preferredStates.join(", ")} />
+        )}
+        {bb.targetMarkets.length > 0 && (
+          <Row label="Target Markets" value={bb.targetMarkets.join(", ")} />
+        )}
         {bb.notes && (
           <div className="mt-3 rounded-lg bg-gray-50 p-3 text-sm text-gray-600">
             {bb.notes}
