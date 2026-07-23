@@ -30,7 +30,8 @@ export async function runGapAnalysis(
     dscrMin: number;
     bumpMinPercent?: number | null;
     guarantyPreferred: string;
-  }
+  },
+  additionalContext?: string
 ): Promise<GapAnalysisResult> {
   const scoreResult = scoreDeal(deal, bb);
 
@@ -63,6 +64,10 @@ export async function runGapAnalysis(
     .map((b) => `${b.category}: ${b.points}/${b.max} — ${b.detail}`)
     .join("\n");
 
+  const contextSection = additionalContext?.trim()
+    ? `\nADDITIONAL CONTEXT PROVIDED BY ANALYST:\n${additionalContext.trim()}\n`
+    : "";
+
   return askJson<GapAnalysisResult>(
     `You are a commercial real estate investment advisor.
 
@@ -74,7 +79,7 @@ ${bbDesc}
 
 SCORE GAPS (categories that failed or warned):
 ${breakdown || "None — deal meets all thresholds."}
-
+${contextSection}
 Analyze this deal:
 1. Despite any low score, are there exceptional qualities that make it potentially worth a second look? (location, tenant quality, construction age, market position, credit, etc.)
 2. What specific buy box parameters would the investor need to relax to make this deal work?

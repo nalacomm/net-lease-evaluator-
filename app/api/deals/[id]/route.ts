@@ -47,6 +47,10 @@ export async function PATCH(
     delete data.newsFlags;
     delete data.createdAt;
     delete data.updatedAt;
+
+    // Saving only analysisContext doesn't need re-scoring
+    const onlyContext = Object.keys(data).length === 1 && "analysisContext" in data;
+
     for (const f of NUM_FIELDS) {
       if (f in data) {
         if (data[f] === "" || data[f] === undefined) data[f] = null;
@@ -57,7 +61,7 @@ export async function PATCH(
       }
     }
     await prisma.deal.update({ where: { id: params.id }, data: data as never });
-    await analyzeDeal(params.id);
+    if (!onlyContext) await analyzeDeal(params.id);
     const full = await prisma.deal.findUnique({ where: { id: params.id } });
     return NextResponse.json(full);
   } catch (e) {

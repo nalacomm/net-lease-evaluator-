@@ -159,7 +159,8 @@ model Deal {
   scoreRationale   String?
   scoreBreakdown   Json?
   confidenceLevel  String?
-  selfCheckerNotes String?
+  selfCheckerNotes  String?
+  analysisContext   String?
 
   // Source
   sourceType     String?

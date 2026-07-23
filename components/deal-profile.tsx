@@ -28,6 +28,7 @@ import {
   FileDown,
   Trash2,
   Lightbulb,
+  Paperclip,
 } from "lucide-react";
 
 type Category = {
@@ -82,6 +83,7 @@ type Deal = {
   scoreBreakdown: Category[] | null;
   confidenceLevel: string | null;
   selfCheckerNotes: string | null;
+  analysisContext: string | null;
   sourceBroker: string | null;
   sourcePlatform: string | null;
   status: string;
@@ -161,6 +163,10 @@ export function DealProfile({
   // Initialize from cached assignment data — no re-run needed on revisit
   const [gapAnalysis, setGapAnalysis] = useState<GapAnalysisData | null>(cachedGapAnalysis ?? null);
   const [gapLoading, setGapLoading] = useState(false);
+  const [showContext, setShowContext] = useState(false);
+  const [contextText, setContextText] = useState(deal.analysisContext ?? "");
+  const [contextFiles, setContextFiles] = useState<File[]>([]);
+  const [savingContext, setSavingContext] = useState(false);
 
   async function toggleAssignment(investorId: string) {
     const isAssigned = assignments.some((a) => a.investorId === investorId);
@@ -206,15 +212,27 @@ export function DealProfile({
     router.refresh();
   }
 
+  async function saveContext() {
+    setSavingContext(true);
+    await fetch(`/api/deals/${deal.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ analysisContext: contextText }),
+    });
+    setSavingContext(false);
+  }
+
   async function runGapAnalysis() {
     setGapLoading(true);
     setGapAnalysis(null);
     try {
+      const fd = new FormData();
+      fd.append("investorId", investorContext?.investorId ?? "");
+      fd.append("additionalContext", contextText);
+      contextFiles.forEach((f) => fd.append("files", f));
       const res = await fetch(`/api/deals/${deal.id}/gap-analysis`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        // Pass investorId so the result is saved to the right DealAssignment
-        body: JSON.stringify({ investorId: investorContext?.investorId ?? null }),
+        body: fd,
       });
       const data = await res.json();
       if (res.ok) setGapAnalysis(data);
@@ -355,6 +373,63 @@ export function DealProfile({
             {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
             Delete
           </button>
+        </div>
+
+        {/* Analysis context panel */}
+        <div className="mt-3 border-t border-gray-100 pt-3">
+          <button
+            onClick={() => setShowContext((s) => !s)}
+            className="flex w-full items-center gap-2 text-sm text-gray-500 hover:text-gray-700"
+          >
+            <Paperclip className="h-4 w-4 shrink-0" />
+            <span className="font-medium">
+              Context for Gap Analysis
+              {(contextText.trim() || contextFiles.length > 0) && (
+                <span className="ml-1.5 inline-flex h-2 w-2 rounded-full bg-brand align-middle" />
+              )}
+            </span>
+            <ChevronDown className={`ml-auto h-4 w-4 transition ${showContext ? "rotate-180" : ""}`} />
+          </button>
+
+          {showContext && (
+            <div className="mt-3 space-y-3">
+              <div>
+                <label className="label">Additional notes / details</label>
+                <textarea
+                  className="input min-h-[100px]"
+                  placeholder="Paste broker notes, deal commentary, tenant background, location details, or anything else Claude should consider during analysis…"
+                  value={contextText}
+                  onChange={(e) => setContextText(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="label">Attach PDFs (included in this run only)</label>
+                <input
+                  type="file"
+                  accept="application/pdf,.txt"
+                  multiple
+                  className="block w-full text-sm text-gray-500 file:mr-3 file:rounded file:border file:border-gray-300 file:bg-white file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-gray-700"
+                  onChange={(e) => setContextFiles(Array.from(e.target.files ?? []))}
+                />
+                {contextFiles.length > 0 && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    {contextFiles.map((f) => f.name).join(", ")}
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={saveContext}
+                  disabled={savingContext}
+                  className="btn-secondary text-xs"
+                >
+                  {savingContext ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                  Save notes to deal
+                </button>
+                <span className="text-xs text-gray-400">Notes persist. PDFs apply to this run only.</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

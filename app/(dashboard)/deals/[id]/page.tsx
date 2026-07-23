@@ -46,6 +46,7 @@ export default async function DealPage({
 
   const serialized = {
     ...deal,
+    analysisContext: deal.analysisContext ?? null,
     // Override score/grade/breakdown with the assignment-specific values when in investor context
     score: ctxAssignment ? ctxAssignment.score : deal.score,
     grade: ctxAssignment ? ctxAssignment.grade : deal.grade,

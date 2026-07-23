@@ -10,9 +10,36 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Optional: pass investorId to save result to a specific assignment
-    const body = await req.json().catch(() => ({}));
-    const investorId: string | null = body.investorId ?? null;
+    let investorId: string | null = null;
+    let runtimeContext = "";
+
+    const contentType = req.headers.get("content-type") ?? "";
+    if (contentType.includes("multipart/form-data")) {
+      const form = await req.formData();
+      investorId = (form.get("investorId") as string | null) ?? null;
+      runtimeContext = (form.get("additionalContext") as string | null) ?? "";
+
+      // Extract text from any uploaded PDFs
+      const files = form.getAll("files") as File[];
+      for (const file of files) {
+        if (file.size === 0) continue;
+        try {
+          const buffer = Buffer.from(await file.arrayBuffer());
+          if (file.type === "application/pdf") {
+            const pdfParse = (await import("pdf-parse")).default;
+            const parsed = await pdfParse(buffer);
+            runtimeContext += `\n\n--- ${file.name} ---\n${parsed.text.slice(0, 8000)}`;
+          } else {
+            runtimeContext += `\n\n--- ${file.name} ---\n${buffer.toString("utf-8").slice(0, 8000)}`;
+          }
+        } catch {
+          // Skip unreadable files
+        }
+      }
+    } else {
+      const body = await req.json().catch(() => ({}));
+      investorId = body.investorId ?? null;
+    }
 
     const deal = await prisma.deal.findUnique({
       where: { id: params.id },
@@ -20,7 +47,6 @@ export async function POST(
     });
     if (!deal) return NextResponse.json({ error: "Deal not found" }, { status: 404 });
 
-    // Use investor context if provided, else fall back to primary investor
     let bb = deal.investor?.buyBox ?? null;
     if (investorId) {
       const inv = await prisma.investor.findUnique({
@@ -33,16 +59,21 @@ export async function POST(
 
     if (!bb) return NextResponse.json({ error: "No buy box to compare against" }, { status: 400 });
 
+    // Combine stored context with anything passed at run time
+    const combined = [deal.analysisContext?.trim(), runtimeContext.trim()]
+      .filter(Boolean)
+      .join("\n\n");
+
     const result = await runGapAnalysis(
       deal as DealLike & { tenantName?: string | null; address?: string | null; assetType?: string | null },
       bb as BuyBoxLike & {
         capRateMin: number; capRateTarget: number; priceMax: number;
         priceStretch?: number | null; termMinYears: number; dscrMin: number;
         bumpMinPercent?: number | null; guarantyPreferred: string;
-      }
+      },
+      combined || undefined
     );
 
-    // Persist to DealAssignment so it doesn't need re-running
     if (effectiveInvestorId) {
       await prisma.dealAssignment.upsert({
         where: { dealId_investorId: { dealId: params.id, investorId: effectiveInvestorId } },
