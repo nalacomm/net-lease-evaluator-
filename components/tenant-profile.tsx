@@ -101,9 +101,11 @@ function GradeBadge({ grade }: { grade: string | null }) {
 export function TenantProfile({
   tenant,
   availableSites = [],
+  reportedSiteIds = new Set(),
 }: {
   tenant: Tenant;
   availableSites?: AvailableSite[];
+  reportedSiteIds?: Set<string>;
 }) {
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
@@ -410,9 +412,12 @@ export function TenantProfile({
                   className="flex items-center justify-between gap-3 hover:bg-gray-50 -mx-2 px-2 rounded"
                 >
                   <div className="min-w-0">
-                    <p className="font-medium text-gray-900 text-sm">
-                      {sa.site.name}
-                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="font-medium text-gray-900 text-sm">{sa.site.name}</p>
+                      {reportedSiteIds.has(sa.site.id) && (
+                        <span title="Included in a report" className="inline-flex h-2 w-2 rounded-full bg-brand shrink-0" />
+                      )}
+                    </div>
                     <p className="text-xs text-gray-500">
                       {sa.site.address
                         ? `${sa.site.address}${sa.site.city ? `, ${sa.site.city}` : ""}${sa.site.state ? `, ${sa.site.state}` : ""}`

@@ -197,6 +197,8 @@ export function ReportGenerator({
   pastReports,
   pastSiteReports = [],
   tenants = [],
+  reportedDealIds = new Set<string>(),
+  reportedSiteIds = new Set<string>(),
   defaultMode = "investor",
 }: {
   allInvestors?: { id: string; name: string }[];
@@ -206,6 +208,8 @@ export function ReportGenerator({
   pastReports: PastReport[];
   pastSiteReports?: PastSiteReport[];
   tenants?: TenantOption[];
+  reportedDealIds?: Set<string>;
+  reportedSiteIds?: Set<string>;
   defaultMode?: "investor" | "tenant";
 }) {
   const [mode, setMode] = useState<"investor" | "tenant">(defaultMode);
@@ -410,7 +414,12 @@ export function ReportGenerator({
                       <>
                         <GradeBadge grade={d.grade} size="sm" />
                         <div className="flex-1 min-w-0">
-                          <p className="truncate font-medium text-gray-900">{d.address ?? "—"}</p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="truncate font-medium text-gray-900">{d.address ?? "—"}</p>
+                            {reportedDealIds.has(d.id) && (
+                              <span title="Included in a report" className="inline-flex h-2 w-2 rounded-full bg-brand shrink-0" />
+                            )}
+                          </div>
                           <p className="truncate text-xs text-gray-500">
                             {d.tenantName ?? "—"} · {labelFor(ASSET_TYPES, d.assetType)}
                           </p>
@@ -547,7 +556,12 @@ export function ReportGenerator({
                         <>
                           <GradeBadge grade={s.grade} size="sm" />
                           <div className="flex-1 min-w-0">
-                            <p className="truncate font-medium text-gray-900">{s.name ?? "Unnamed site"}</p>
+                            <div className="flex items-center gap-1.5">
+                              <p className="truncate font-medium text-gray-900">{s.name ?? "Unnamed site"}</p>
+                              {reportedSiteIds.has(s.id) && (
+                                <span title="Included in a report" className="inline-flex h-2 w-2 rounded-full bg-brand shrink-0" />
+                              )}
+                            </div>
                             <p className="truncate text-xs text-gray-500">
                               {[s.city, s.state].filter(Boolean).join(", ") || "—"}
                             </p>

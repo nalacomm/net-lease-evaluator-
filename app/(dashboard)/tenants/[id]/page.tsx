@@ -11,7 +11,7 @@ export default async function TenantPage({
 }: {
   params: { id: string };
 }) {
-  const [tenant, allSites] = await Promise.all([
+  const [tenant, allSites, tenantSiteReports] = await Promise.all([
     prisma.tenant.findUnique({
       where: { id: params.id },
       include: {
@@ -27,7 +27,13 @@ export default async function TenantPage({
       select: { id: true, name: true, city: true, state: true },
       orderBy: { createdAt: "desc" },
     }),
+    prisma.siteReport.findMany({
+      where: { tenantId: params.id },
+      select: { siteIds: true },
+    }),
   ]);
+
+  const reportedSiteIds = new Set(tenantSiteReports.flatMap((r) => r.siteIds));
   if (!tenant) notFound();
 
   return (
@@ -43,7 +49,7 @@ export default async function TenantPage({
           </div>
         }
       />
-      <TenantProfile tenant={tenant as never} availableSites={allSites} />
+      <TenantProfile tenant={tenant as never} availableSites={allSites} reportedSiteIds={reportedSiteIds} />
     </div>
   );
 }
