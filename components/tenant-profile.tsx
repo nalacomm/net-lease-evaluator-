@@ -36,6 +36,7 @@ type SiteAssignment = {
   id: string;
   score: number | null;
   grade: string | null;
+  createdAt: Date | string;
   site: {
     id: string;
     name: string;
@@ -418,11 +419,10 @@ export function TenantProfile({
                         ? `${sa.site.city}${sa.site.state ? `, ${sa.site.state}` : ""}`
                         : "—"}
                     </p>
-                    {sa.site.askingRentPsf != null && (
-                      <p className="text-xs text-gray-400">
-                        ${sa.site.askingRentPsf.toFixed(2)} PSF asking
-                      </p>
-                    )}
+                    <p className="text-xs text-gray-400">
+                      {sa.site.askingRentPsf != null ? `$${sa.site.askingRentPsf.toFixed(2)} PSF · ` : ""}
+                      Added {new Date(sa.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <GradeBadge grade={sa.grade} />

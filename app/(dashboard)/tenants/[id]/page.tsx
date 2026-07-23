@@ -16,7 +16,10 @@ export default async function TenantPage({
       where: { id: params.id },
       include: {
         requirements: true,
-        siteAssignments: { include: { site: true } },
+        siteAssignments: {
+          include: { site: true },
+          orderBy: { createdAt: "desc" },
+        },
         campaigns: true,
       },
     }),
