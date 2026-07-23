@@ -7,25 +7,30 @@ import { Plus } from "lucide-react";
 export const dynamic = "force-dynamic";
 
 export default async function DealsPage() {
-  const deals = await prisma.deal.findMany({
-    orderBy: { score: "desc" },
-    select: {
-      id: true,
-      address: true,
-      city: true,
-      state: true,
-      tenantName: true,
-      assetType: true,
-      askingPrice: true,
-      capRateAsking: true,
-      dscrCalculated: true,
-      grade: true,
-      score: true,
-      status: true,
-      sourcePlatform: true,
-      createdAt: true,
-    },
-  });
+  const [deals, reports] = await Promise.all([
+    prisma.deal.findMany({
+      orderBy: { score: "desc" },
+      select: {
+        id: true,
+        address: true,
+        city: true,
+        state: true,
+        tenantName: true,
+        assetType: true,
+        askingPrice: true,
+        capRateAsking: true,
+        dscrCalculated: true,
+        grade: true,
+        score: true,
+        status: true,
+        sourcePlatform: true,
+        createdAt: true,
+      },
+    }),
+    prisma.report.findMany({ select: { dealIds: true } }),
+  ]);
+
+  const reportedDealIds = new Set(reports.flatMap((r) => r.dealIds));
 
   return (
     <div className="space-y-5">
@@ -49,7 +54,7 @@ export default async function DealsPage() {
           }
         />
       ) : (
-        <DealList deals={deals} />
+        <DealList deals={deals} reportedDealIds={reportedDealIds} />
       )}
     </div>
   );

@@ -15,7 +15,8 @@ function bestGrade(grades: (string | null)[]): string | null {
 }
 
 export default async function SitesPage() {
-  const sites = await prisma.prospectiveSite.findMany({
+  const [sites, siteReports] = await Promise.all([
+  prisma.prospectiveSite.findMany({
     orderBy: { createdAt: "desc" },
     select: {
       id: true,
@@ -31,7 +32,11 @@ export default async function SitesPage() {
       _count: { select: { assignments: true } },
       assignments: { select: { grade: true, score: true } },
     },
-  });
+  }),
+  prisma.siteReport.findMany({ select: { siteIds: true } }),
+  ]);
+
+  const reportedSiteIds = new Set(siteReports.flatMap((r) => r.siteIds));
 
   return (
     <div className="space-y-5">
@@ -77,12 +82,17 @@ export default async function SitesPage() {
                   className="hover:bg-muted/30 transition-colors"
                 >
                   <td className="px-4 py-3 font-medium">
-                    <Link
-                      href={`/sites/${site.id}`}
-                      className="hover:underline text-foreground"
-                    >
-                      {site.name}
-                    </Link>
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/sites/${site.id}`}
+                        className="hover:underline text-foreground"
+                      >
+                        {site.name}
+                      </Link>
+                      {reportedSiteIds.has(site.id) && (
+                        <span title="Included in a report" className="inline-flex h-2 w-2 rounded-full bg-brand shrink-0" />
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">
                     {[site.address, site.city, site.state]

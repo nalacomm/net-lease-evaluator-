@@ -29,7 +29,7 @@ export type DealRow = {
 
 type SortKey = "score" | "capRateAsking" | "askingPrice" | "grade";
 
-export function DealList({ deals }: { deals: DealRow[] }) {
+export function DealList({ deals, reportedDealIds = new Set() }: { deals: DealRow[]; reportedDealIds?: Set<string> }) {
   const [sort, setSort] = useState<SortKey>("score");
   const [assetFilter, setAssetFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -137,9 +137,14 @@ export function DealList({ deals }: { deals: DealRow[] }) {
             {filtered.map((d) => (
               <tr key={d.id} className="border-b border-gray-100 hover:bg-gray-50">
                 <td className="px-3 py-2">
-                  <Link href={`/deals/${d.id}`} className="font-medium text-brand hover:underline">
-                    {d.address ?? "—"}
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    <Link href={`/deals/${d.id}`} className="font-medium text-brand hover:underline">
+                      {d.address ?? "—"}
+                    </Link>
+                    {reportedDealIds.has(d.id) && (
+                      <span title="Included in a report" className="inline-flex h-2 w-2 rounded-full bg-brand shrink-0" />
+                    )}
+                  </div>
                 </td>
                 <td className="px-3 py-2">{d.tenantName ?? "—"}</td>
                 <td className="px-3 py-2">{labelFor(ASSET_TYPES, d.assetType)}</td>
