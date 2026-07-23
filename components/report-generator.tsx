@@ -17,6 +17,7 @@ type DealOption = {
   grade: string | null;
   score: number | null;
   assetType: string | null;
+  createdAt?: Date | string | null;
 };
 
 type SiteOption = {
@@ -26,6 +27,7 @@ type SiteOption = {
   state: string | null;
   score: number | null;
   grade: string | null;
+  createdAt?: Date | string | null;
 };
 
 type TenantOption = {
@@ -422,6 +424,7 @@ export function ReportGenerator({
                           </div>
                           <p className="truncate text-xs text-gray-500">
                             {d.tenantName ?? "—"} · {labelFor(ASSET_TYPES, d.assetType)}
+                            {d.createdAt ? ` · Added ${new Date(d.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" })}` : ""}
                           </p>
                         </div>
                         <span className="text-sm font-bold text-gray-600">{d.score?.toFixed(0) ?? "—"}</span>
@@ -564,6 +567,7 @@ export function ReportGenerator({
                             </div>
                             <p className="truncate text-xs text-gray-500">
                               {[s.city, s.state].filter(Boolean).join(", ") || "—"}
+                              {s.createdAt ? ` · Added ${new Date(s.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" })}` : ""}
                             </p>
                           </div>
                           <span className="text-sm font-bold text-gray-600">{s.score?.toFixed(0) ?? "—"}</span>

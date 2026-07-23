@@ -23,7 +23,7 @@ export default async function ReportsPage({
       ? prisma.deal.findMany({
           where: { investorId: investor.id, status: "active" },
           orderBy: { score: "desc" },
-          select: { id: true, address: true, tenantName: true, grade: true, score: true, assetType: true },
+          select: { id: true, address: true, tenantName: true, grade: true, score: true, assetType: true, createdAt: true },
         })
       : Promise.resolve([]),
     investor
@@ -31,7 +31,7 @@ export default async function ReportsPage({
           where: { investorId: investor.id },
           include: {
             deal: {
-              select: { id: true, address: true, tenantName: true, assetType: true, status: true },
+              select: { id: true, address: true, tenantName: true, assetType: true, status: true, createdAt: true },
             },
           },
           orderBy: { score: "desc" },
@@ -48,7 +48,7 @@ export default async function ReportsPage({
             score: true,
             grade: true,
             site: {
-              select: { id: true, name: true, city: true, state: true },
+              select: { id: true, name: true, city: true, state: true, createdAt: true },
             },
           },
           orderBy: { score: "desc" },
@@ -69,6 +69,7 @@ export default async function ReportsPage({
         assetType: a.deal.assetType,
         grade: a.grade,
         score: a.score,
+        createdAt: a.deal.createdAt,
       })),
   ].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
 
@@ -104,6 +105,7 @@ export default async function ReportsPage({
       state: a.site.state,
       score: a.score,
       grade: a.grade,
+      createdAt: a.site.createdAt,
     })),
   }));
 
