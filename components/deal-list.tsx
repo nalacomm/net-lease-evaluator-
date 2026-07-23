@@ -24,6 +24,7 @@ export type DealRow = {
   score: number | null;
   status: string;
   sourcePlatform: string | null;
+  createdAt: Date | string;
 };
 
 type SortKey = "score" | "capRateAsking" | "askingPrice" | "grade";
@@ -128,6 +129,7 @@ export function DealList({ deals }: { deals: DealRow[] }) {
               <th className="px-3 py-2 text-right">DSCR</th>
               <th className="px-3 py-2 text-center">Grade</th>
               <th className="px-3 py-2 text-right">Score</th>
+              <th className="px-3 py-2">Added</th>
               <th className="px-3 py-2">Status</th>
             </tr>
           </thead>
@@ -146,6 +148,9 @@ export function DealList({ deals }: { deals: DealRow[] }) {
                 <td className="px-3 py-2 text-right">{fmtDscr(d.dscrCalculated)}</td>
                 <td className="px-3 py-2 text-center"><GradeBadge grade={d.grade} size="sm" /></td>
                 <td className="px-3 py-2 text-right font-semibold">{d.score?.toFixed(0) ?? "—"}</td>
+                <td className="px-3 py-2 text-xs text-gray-400">
+                  {new Date(d.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" })}
+                </td>
                 <td className="px-3 py-2">
                   <StatusPill status={d.status === "active" ? "info" : "info"}>
                     {labelFor(DEAL_STATUSES, d.status)}

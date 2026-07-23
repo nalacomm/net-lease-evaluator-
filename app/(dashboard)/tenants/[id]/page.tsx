@@ -22,7 +22,7 @@ export default async function TenantPage({
     }),
     prisma.prospectiveSite.findMany({
       select: { id: true, name: true, city: true, state: true },
-      orderBy: { name: "asc" },
+      orderBy: { createdAt: "desc" },
     }),
   ]);
   if (!tenant) notFound();

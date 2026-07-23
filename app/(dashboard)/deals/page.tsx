@@ -23,6 +23,7 @@ export default async function DealsPage() {
       score: true,
       status: true,
       sourcePlatform: true,
+      createdAt: true,
     },
   });
 

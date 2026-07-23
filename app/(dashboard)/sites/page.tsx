@@ -27,6 +27,7 @@ export default async function SitesPage() {
       askingRentPsf: true,
       siteType: true,
       status: true,
+      createdAt: true,
       _count: { select: { assignments: true } },
       assignments: { select: { grade: true, score: true } },
     },
@@ -65,6 +66,7 @@ export default async function SitesPage() {
                 <th className="px-4 py-3 text-right">Asking Rent/SF</th>
                 <th className="px-4 py-3 text-center">Grade</th>
                 <th className="px-4 py-3 text-right">Tenants</th>
+                <th className="px-4 py-3">Added</th>
                 <th className="px-4 py-3">Status</th>
               </tr>
             </thead>
@@ -105,6 +107,9 @@ export default async function SitesPage() {
                   </td>
                   <td className="px-4 py-3 text-right">
                     {site._count.assignments}
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground text-xs">
+                    {new Date(site.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" })}
                   </td>
                   <td className="px-4 py-3">
                     <StatusPill status={site.status}>

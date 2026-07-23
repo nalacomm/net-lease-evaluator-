@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { scoreSite, applyMetricConfig, computeScore, SCORE_CATEGORIES } from "@/lib/site-scoring";
 
 export async function GET(_: Request, { params }: { params: { id: string } }) {
   const site = await prisma.prospectiveSite.findUnique({
@@ -50,7 +51,34 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         notes: body.notes ?? undefined,
         status: body.status ?? undefined,
       },
+      include: {
+        assignments: {
+          include: { tenant: { include: { requirements: true } } },
+        },
+      },
     });
+
+    // Rescore all existing tenant assignments with the updated site data
+    await Promise.all(
+      site.assignments
+        .filter((a) => a.tenant.requirements)
+        .map((a) => {
+          const req = a.tenant.requirements!;
+          const config = a.scoringConfig as { enabledCategories?: string[] } | null;
+          const enabled = config?.enabledCategories ?? [...SCORE_CATEGORIES];
+          const fresh = scoreSite(site, req);
+          const stored = a.scoreBreakdown as { category: string; points: number; max: number; status: string; detail: string }[] | null;
+          const exceptional = stored?.find((r) => r.category === "Exceptional Flag (bonus)") ?? null;
+          let bd = applyMetricConfig(fresh.breakdown, enabled);
+          if (exceptional) bd = [...bd, { ...exceptional, status: exceptional.status as "pass" | "warn" | "fail" | "info" | "skip" }];
+          const { score, grade } = computeScore(bd);
+          return prisma.siteAssignment.update({
+            where: { id: a.id },
+            data: { score, grade, scoreBreakdown: bd as object[] },
+          });
+        })
+    );
+
     return NextResponse.json(site);
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Failed" }, { status: 500 });
