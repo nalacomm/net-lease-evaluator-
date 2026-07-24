@@ -3,11 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { fmtMoney, fmtPercent, fmtDscr } from "@/lib/format";
-import {
-  labelFor,
-  ASSET_TYPES,
-  DEAL_STATUSES,
-} from "@/lib/constants";
+import { labelFor, ASSET_TYPES, DEAL_STATUSES } from "@/lib/constants";
 import { GradeBadge, StatusPill } from "@/components/ui";
 
 export type DealRow = {
@@ -27,10 +23,53 @@ export type DealRow = {
   createdAt: Date | string;
 };
 
-type SortKey = "score" | "capRateAsking" | "askingPrice" | "grade";
+type SortKey = "address" | "tenantName" | "assetType" | "askingPrice" | "capRateAsking" | "dscrCalculated" | "grade" | "score" | "createdAt" | "status";
+type SortDir = "asc" | "desc";
 
-export function DealList({ deals, reportedDealIds = new Set() }: { deals: DealRow[]; reportedDealIds?: Set<string> }) {
+const GRADE_ORDER = ["A", "B", "C", "D", "F"];
+function gradeNum(g: string | null) {
+  if (!g) return 999;
+  return GRADE_ORDER.indexOf(g[0]) * 10 + (g[1] === "+" ? -1 : g[1] === "-" ? 1 : 0);
+}
+
+function SortTh({
+  label,
+  col,
+  sort,
+  dir,
+  onSort,
+  className = "",
+}: {
+  label: string;
+  col: SortKey;
+  sort: SortKey;
+  dir: SortDir;
+  onSort: (col: SortKey) => void;
+  className?: string;
+}) {
+  const active = sort === col;
+  return (
+    <th
+      className={`px-3 py-2 cursor-pointer select-none whitespace-nowrap hover:text-gray-700 ${active ? "text-brand" : ""} ${className}`}
+      onClick={() => onSort(col)}
+    >
+      {label}
+      <span className="ml-1 text-[10px]">
+        {active ? (dir === "asc" ? "↑" : "↓") : "↕"}
+      </span>
+    </th>
+  );
+}
+
+export function DealList({
+  deals,
+  reportedDealIds = new Set(),
+}: {
+  deals: DealRow[];
+  reportedDealIds?: Set<string>;
+}) {
   const [sort, setSort] = useState<SortKey>("score");
+  const [dir, setDir] = useState<SortDir>("desc");
   const [assetFilter, setAssetFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [gradeFilter, setGradeFilter] = useState("");
@@ -39,11 +78,19 @@ export function DealList({ deals, reportedDealIds = new Set() }: { deals: DealRo
   const [priceMax, setPriceMax] = useState("");
   const [showFilters, setShowFilters] = useState(false);
 
-  // Derive unique states from deal data
   const stateOptions = useMemo(() => {
     const set = new Set(deals.map((d) => d.state).filter(Boolean) as string[]);
     return Array.from(set).sort();
   }, [deals]);
+
+  function onSort(col: SortKey) {
+    if (sort === col) {
+      setDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSort(col);
+      setDir(col === "address" || col === "tenantName" || col === "assetType" || col === "status" ? "asc" : "desc");
+    }
+  }
 
   const filtered = useMemo(() => {
     let r = [...deals];
@@ -53,27 +100,28 @@ export function DealList({ deals, reportedDealIds = new Set() }: { deals: DealRo
     if (stateFilter) r = r.filter((d) => d.state === stateFilter);
     if (priceMin) r = r.filter((d) => d.askingPrice != null && d.askingPrice >= Number(priceMin));
     if (priceMax) r = r.filter((d) => d.askingPrice != null && d.askingPrice <= Number(priceMax));
+
     r.sort((a, b) => {
-      const av = (a[sort] ?? -Infinity) as number | string;
-      const bv = (b[sort] ?? -Infinity) as number | string;
-      if (sort === "grade") return String(av).localeCompare(String(bv));
-      return (bv as number) - (av as number);
+      let cmp = 0;
+      if (sort === "grade") {
+        cmp = gradeNum(a.grade) - gradeNum(b.grade);
+      } else if (sort === "createdAt") {
+        cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      } else if (sort === "address" || sort === "tenantName" || sort === "assetType" || sort === "status") {
+        cmp = (a[sort] ?? "").localeCompare(b[sort] ?? "");
+      } else {
+        cmp = (a[sort] ?? -Infinity) - (b[sort] ?? -Infinity);
+      }
+      return dir === "asc" ? cmp : -cmp;
     });
     return r;
-  }, [deals, sort, assetFilter, statusFilter, gradeFilter, stateFilter, priceMin, priceMax]);
+  }, [deals, sort, dir, assetFilter, statusFilter, gradeFilter, stateFilter, priceMin, priceMax]);
 
   const activeFilters = [assetFilter, statusFilter, gradeFilter, stateFilter, priceMin, priceMax].filter(Boolean).length;
 
   return (
     <div className="space-y-4">
-      {/* Primary controls row */}
       <div className="flex flex-wrap items-center gap-2">
-        <select className="input flex-1 min-w-[140px]" value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
-          <option value="score">Sort: Score</option>
-          <option value="capRateAsking">Sort: Cap Rate</option>
-          <option value="askingPrice">Sort: Price</option>
-          <option value="grade">Sort: Grade</option>
-        </select>
         <button
           onClick={() => setShowFilters((s) => !s)}
           className={`btn-secondary gap-1 ${activeFilters > 0 ? "border-brand text-brand" : ""}`}
@@ -82,7 +130,6 @@ export function DealList({ deals, reportedDealIds = new Set() }: { deals: DealRo
         </button>
       </div>
 
-      {/* Expanded filters */}
       {showFilters && (
         <div className="card grid gap-3 sm:grid-cols-3">
           <select className="input" value={assetFilter} onChange={(e) => setAssetFilter(e.target.value)}>
@@ -121,16 +168,16 @@ export function DealList({ deals, reportedDealIds = new Set() }: { deals: DealRo
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-500">
-              <th className="px-3 py-2">Address</th>
-              <th className="px-3 py-2">Tenant</th>
-              <th className="px-3 py-2">Type</th>
-              <th className="px-3 py-2 text-right">Price</th>
-              <th className="px-3 py-2 text-right">Cap</th>
-              <th className="px-3 py-2 text-right">DSCR</th>
-              <th className="px-3 py-2 text-center">Grade</th>
-              <th className="px-3 py-2 text-right">Score</th>
-              <th className="px-3 py-2">Added</th>
-              <th className="px-3 py-2">Status</th>
+              <SortTh label="Address" col="address" sort={sort} dir={dir} onSort={onSort} />
+              <SortTh label="Tenant" col="tenantName" sort={sort} dir={dir} onSort={onSort} />
+              <SortTh label="Type" col="assetType" sort={sort} dir={dir} onSort={onSort} />
+              <SortTh label="Price" col="askingPrice" sort={sort} dir={dir} onSort={onSort} className="text-right" />
+              <SortTh label="Cap" col="capRateAsking" sort={sort} dir={dir} onSort={onSort} className="text-right" />
+              <SortTh label="DSCR" col="dscrCalculated" sort={sort} dir={dir} onSort={onSort} className="text-right" />
+              <SortTh label="Grade" col="grade" sort={sort} dir={dir} onSort={onSort} className="text-center" />
+              <SortTh label="Score" col="score" sort={sort} dir={dir} onSort={onSort} className="text-right" />
+              <SortTh label="Added" col="createdAt" sort={sort} dir={dir} onSort={onSort} />
+              <SortTh label="Status" col="status" sort={sort} dir={dir} onSort={onSort} />
             </tr>
           </thead>
           <tbody>

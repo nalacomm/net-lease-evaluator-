@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { PageHeader, EmptyState, StatusPill, GradeBadge } from "@/components/ui";
+import { PageHeader, EmptyState } from "@/components/ui";
 import { Plus } from "lucide-react";
-import { labelFor, SITE_TYPES, SITE_STATUSES } from "@/lib/constants";
+import { SiteList } from "@/components/site-list";
 
 export const dynamic = "force-dynamic";
 
@@ -16,27 +16,42 @@ function bestGrade(grades: (string | null)[]): string | null {
 
 export default async function SitesPage() {
   const [sites, siteReports] = await Promise.all([
-  prisma.prospectiveSite.findMany({
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      name: true,
-      address: true,
-      city: true,
-      state: true,
-      squareFeet: true,
-      askingRentPsf: true,
-      siteType: true,
-      status: true,
-      createdAt: true,
-      _count: { select: { assignments: true } },
-      assignments: { select: { grade: true, score: true } },
-    },
-  }),
-  prisma.siteReport.findMany({ select: { siteIds: true } }),
+    prisma.prospectiveSite.findMany({
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        address: true,
+        city: true,
+        state: true,
+        squareFeet: true,
+        askingRentPsf: true,
+        siteType: true,
+        status: true,
+        createdAt: true,
+        _count: { select: { assignments: true } },
+        assignments: { select: { grade: true } },
+      },
+    }),
+    prisma.siteReport.findMany({ select: { siteIds: true } }),
   ]);
 
-  const reportedSiteIds = new Set(siteReports.flatMap((r) => r.siteIds));
+  const reportedSiteIds = siteReports.flatMap((r) => r.siteIds);
+
+  const rows = sites.map((site) => ({
+    id: site.id,
+    name: site.name,
+    address: site.address,
+    city: site.city,
+    state: site.state,
+    squareFeet: site.squareFeet,
+    askingRentPsf: site.askingRentPsf,
+    siteType: site.siteType,
+    status: site.status,
+    createdAt: site.createdAt.toISOString(),
+    tenantCount: site._count.assignments,
+    bestGrade: bestGrade(site.assignments.map((a) => a.grade)),
+  }));
 
   return (
     <div className="space-y-5">
@@ -60,77 +75,7 @@ export default async function SitesPage() {
           }
         />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/40 text-left text-xs font-medium text-muted-foreground">
-                <th className="px-4 py-3">Name</th>
-                <th className="px-4 py-3">Address</th>
-                <th className="px-4 py-3">Type</th>
-                <th className="px-4 py-3 text-right">SF</th>
-                <th className="px-4 py-3 text-right">Asking Rent/SF</th>
-                <th className="px-4 py-3 text-center">Grade</th>
-                <th className="px-4 py-3 text-right">Tenants</th>
-                <th className="px-4 py-3">Added</th>
-                <th className="px-4 py-3">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {sites.map((site: (typeof sites)[number]) => (
-                <tr
-                  key={site.id}
-                  className="hover:bg-muted/30 transition-colors"
-                >
-                  <td className="px-4 py-3 font-medium">
-                    <div className="flex items-center gap-2">
-                      <Link
-                        href={`/sites/${site.id}`}
-                        className="hover:underline text-foreground"
-                      >
-                        {site.name}
-                      </Link>
-                      {reportedSiteIds.has(site.id) && (
-                        <span title="Included in a report" className="inline-flex h-2 w-2 rounded-full bg-brand shrink-0" />
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {[site.address, site.city, site.state]
-                      .filter(Boolean)
-                      .join(", ") || "—"}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {labelFor(SITE_TYPES, site.siteType)}
-                  </td>
-                  <td className="px-4 py-3 text-right text-muted-foreground">
-                    {site.squareFeet
-                      ? site.squareFeet.toLocaleString()
-                      : "—"}
-                  </td>
-                  <td className="px-4 py-3 text-right text-muted-foreground">
-                    {site.askingRentPsf
-                      ? `$${site.askingRentPsf.toFixed(2)}`
-                      : "—"}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <GradeBadge grade={bestGrade(site.assignments.map((a) => a.grade))} size="sm" />
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    {site._count.assignments}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground text-xs">
-                    {new Date(site.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" })}
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusPill status={site.status}>
-                      {labelFor(SITE_STATUSES, site.status)}
-                    </StatusPill>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <SiteList sites={rows} reportedSiteIds={reportedSiteIds} />
       )}
     </div>
   );
