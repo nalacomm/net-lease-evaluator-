@@ -7,33 +7,37 @@ import {
   LEASE_TYPES,
   GUARANTY_TYPES,
   DEAL_STATUSES,
+  DEAL_CATEGORIES,
   SOURCE_PLATFORMS,
   QUADRANTS,
 } from "@/lib/constants";
 import { Loader2 } from "lucide-react";
 
-const FIELDS: {
+type FieldDef = {
   key: string;
   label: string;
   type: "text" | "number" | "select";
   options?: { value: string; label: string }[];
-}[] = [
+  netLeaseOnly?: boolean;
+};
+
+const FIELDS: FieldDef[] = [
   { key: "address", label: "Address", type: "text" },
   { key: "city", label: "City", type: "text" },
   { key: "state", label: "State", type: "text" },
   { key: "quadrant", label: "Quadrant", type: "select", options: QUADRANTS },
   { key: "assetType", label: "Asset Type", type: "select", options: ASSET_TYPES },
-  { key: "tenantName", label: "Tenant", type: "text" },
-  { key: "operatorName", label: "Operator", type: "text" },
-  { key: "operatorUnitCount", label: "Operator Units", type: "number" },
-  { key: "guarantyType", label: "Guaranty", type: "select", options: GUARANTY_TYPES },
+  { key: "tenantName", label: "Tenant / Occupant", type: "text" },
+  { key: "operatorName", label: "Operator", type: "text", netLeaseOnly: true },
+  { key: "operatorUnitCount", label: "Operator Units", type: "number", netLeaseOnly: true },
+  { key: "guarantyType", label: "Guaranty", type: "select", options: GUARANTY_TYPES, netLeaseOnly: true },
   { key: "askingPrice", label: "Asking Price ($)", type: "number" },
-  { key: "noi", label: "NOI ($/yr)", type: "number" },
-  { key: "capRateAsking", label: "Cap Rate (%)", type: "number" },
-  { key: "leaseType", label: "Lease Type", type: "select", options: LEASE_TYPES },
-  { key: "termRemainingYears", label: "Term Remaining (yrs)", type: "number" },
-  { key: "bumpStructure", label: "Bump Structure", type: "text" },
-  { key: "bumpPercent", label: "Bump % (annual)", type: "number" },
+  { key: "noi", label: "NOI ($/yr)", type: "number", netLeaseOnly: true },
+  { key: "capRateAsking", label: "Cap Rate (%)", type: "number", netLeaseOnly: true },
+  { key: "leaseType", label: "Lease Type", type: "select", options: LEASE_TYPES, netLeaseOnly: true },
+  { key: "termRemainingYears", label: "Term Remaining (yrs)", type: "number", netLeaseOnly: true },
+  { key: "bumpStructure", label: "Bump Structure", type: "text", netLeaseOnly: true },
+  { key: "bumpPercent", label: "Bump % (annual)", type: "number", netLeaseOnly: true },
   { key: "constructionYear", label: "Construction Year", type: "number" },
   { key: "buildingSize", label: "Building SF", type: "number" },
   { key: "hhi3Mile", label: "HHI 3-Mile ($)", type: "number" },
@@ -51,6 +55,9 @@ export function DealEditForm({
   initial: Record<string, unknown>;
 }) {
   const router = useRouter();
+  const [dealCategory, setDealCategory] = useState<string>(
+    (initial.dealCategory as string) ?? "net_lease"
+  );
   const [form, setForm] = useState<Record<string, string>>(() => {
     const o: Record<string, string> = {};
     for (const f of FIELDS) {
@@ -73,7 +80,7 @@ export function DealEditForm({
       const res = await fetch(`/api/deals/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, dealCategory }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Save failed");
@@ -85,10 +92,33 @@ export function DealEditForm({
     }
   }
 
+  const visibleFields = FIELDS.filter((f) => !f.netLeaseOnly || dealCategory === "net_lease");
+
   return (
     <div className="space-y-4">
+      {/* Category toggle */}
+      <div className="card">
+        <label className="label mb-2 block">Deal Category</label>
+        <div className="grid grid-cols-2 gap-2">
+          {DEAL_CATEGORIES.map((c) => (
+            <button
+              key={c.value}
+              type="button"
+              onClick={() => setDealCategory(c.value)}
+              className={`rounded-lg border px-3 py-2.5 text-sm font-medium ${
+                dealCategory === c.value
+                  ? "border-brand bg-brand text-white"
+                  : "border-gray-300 bg-white text-gray-700"
+              }`}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="card grid gap-3 sm:grid-cols-2">
-        {FIELDS.map((f) => (
+        {visibleFields.map((f) => (
           <div key={f.key}>
             <label className="label">{f.label}</label>
             {f.type === "select" ? (
@@ -118,13 +148,10 @@ export function DealEditForm({
       {error && <p className="text-sm text-red-600">{error}</p>}
       <div className="flex gap-2">
         <button onClick={save} disabled={saving} className="btn-primary flex-1">
-          {saving ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" /> Saving & re-scoring…
-            </>
-          ) : (
-            "Save & Re-score"
-          )}
+          {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</> : "Save Changes"}
+        </button>
+        <button onClick={() => router.back()} className="btn-secondary">
+          Cancel
         </button>
       </div>
     </div>

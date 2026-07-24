@@ -8,29 +8,32 @@ import {
   GUARANTY_TYPES,
   SOURCE_PLATFORMS,
   QUADRANTS,
+  DEAL_CATEGORIES,
 } from "@/lib/constants";
 import { Loader2, FileText, Link2, Type, AlertCircle } from "lucide-react";
 
 type Investor = { id: string; name: string };
 type Mode = "text" | "pdf" | "url";
 
-const FIELDS: { key: string; label: string; type: "text" | "number" | "select"; options?: { value: string; label: string }[] }[] = [
+type FieldDef = { key: string; label: string; type: "text" | "number" | "select"; options?: { value: string; label: string }[]; netLeaseOnly?: boolean };
+
+const FIELDS: FieldDef[] = [
   { key: "address", label: "Address", type: "text" },
   { key: "city", label: "City", type: "text" },
   { key: "state", label: "State", type: "text" },
   { key: "quadrant", label: "Quadrant", type: "select", options: QUADRANTS },
   { key: "assetType", label: "Asset Type", type: "select", options: ASSET_TYPES },
-  { key: "tenantName", label: "Tenant", type: "text" },
-  { key: "operatorName", label: "Operator", type: "text" },
-  { key: "operatorUnitCount", label: "Operator Units", type: "number" },
-  { key: "guarantyType", label: "Guaranty", type: "select", options: GUARANTY_TYPES },
+  { key: "tenantName", label: "Tenant / Occupant", type: "text" },
+  { key: "operatorName", label: "Operator", type: "text", netLeaseOnly: true },
+  { key: "operatorUnitCount", label: "Operator Units", type: "number", netLeaseOnly: true },
+  { key: "guarantyType", label: "Guaranty", type: "select", options: GUARANTY_TYPES, netLeaseOnly: true },
   { key: "askingPrice", label: "Asking Price ($)", type: "number" },
-  { key: "noi", label: "NOI ($/yr)", type: "number" },
-  { key: "capRateAsking", label: "Cap Rate (%)", type: "number" },
-  { key: "leaseType", label: "Lease Type", type: "select", options: LEASE_TYPES },
-  { key: "termRemainingYears", label: "Term Remaining (yrs)", type: "number" },
-  { key: "bumpStructure", label: "Bump Structure", type: "text" },
-  { key: "bumpPercent", label: "Bump % (annual)", type: "number" },
+  { key: "noi", label: "NOI ($/yr)", type: "number", netLeaseOnly: true },
+  { key: "capRateAsking", label: "Cap Rate (%)", type: "number", netLeaseOnly: true },
+  { key: "leaseType", label: "Lease Type", type: "select", options: LEASE_TYPES, netLeaseOnly: true },
+  { key: "termRemainingYears", label: "Term Remaining (yrs)", type: "number", netLeaseOnly: true },
+  { key: "bumpStructure", label: "Bump Structure", type: "text", netLeaseOnly: true },
+  { key: "bumpPercent", label: "Bump % (annual)", type: "number", netLeaseOnly: true },
   { key: "constructionYear", label: "Construction Year", type: "number" },
   { key: "buildingSize", label: "Building SF", type: "number" },
   { key: "hhi3Mile", label: "HHI 3-Mile ($)", type: "number" },
@@ -57,6 +60,7 @@ export function DealIntake({ investors }: { investors: Investor[] }) {
   } | null>(null);
   const [investorId, setInvestorId] = useState(investors[0]?.id ?? "");
   const [sourceType, setSourceType] = useState<Mode>("text");
+  const [dealCategory, setDealCategory] = useState("net_lease");
 
   async function runExtract() {
     setError("");
@@ -115,6 +119,7 @@ export function DealIntake({ investors }: { investors: Investor[] }) {
         body: JSON.stringify({
           ...draft,
           investorId,
+          dealCategory,
           sourceType,
           sourceUrl: mode === "url" ? url : null,
           confidenceLevel: meta?.confidenceLevel ?? null,
@@ -132,9 +137,27 @@ export function DealIntake({ investors }: { investors: Investor[] }) {
 
   const missing = new Set(meta?.missingFields ?? []);
   const inferred = new Set(meta?.inferredFields ?? []);
+  const visibleFields = FIELDS.filter((f) => !f.netLeaseOnly || dealCategory === "net_lease");
 
   return (
     <div className="space-y-5">
+      {/* Deal category */}
+      <div className="grid grid-cols-2 gap-2">
+        {DEAL_CATEGORIES.map((c) => (
+          <button
+            key={c.value}
+            onClick={() => setDealCategory(c.value)}
+            className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium ${
+              dealCategory === c.value
+                ? "border-brand bg-brand text-white"
+                : "border-gray-300 bg-white text-gray-700"
+            }`}
+          >
+            {c.label}
+          </button>
+        ))}
+      </div>
+
       {/* Mode toggle */}
       <div className="grid grid-cols-3 gap-2">
         {(
@@ -251,7 +274,7 @@ export function DealIntake({ investors }: { investors: Investor[] }) {
           </div>
 
           <div className="card grid gap-3 sm:grid-cols-2">
-            {FIELDS.map((f) => {
+            {visibleFields.map((f) => {
               const val = draft[f.key];
               const isMissing = missing.has(f.key) && (val == null || val === "");
               const isInferred = inferred.has(f.key);

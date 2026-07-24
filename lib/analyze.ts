@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 import { scoreDeal, BuyBoxLike, DealLike } from "./scoring";
 
@@ -15,6 +16,16 @@ export async function analyzeDeal(dealId: string): Promise<{
     include: { investor: { include: { buyBox: true } } },
   });
   if (!deal) throw new Error("Deal not found");
+
+  // Other CRE deals are not scored against a NNN buy box
+  if (deal.dealCategory === "other_cre") {
+    await prisma.deal.update({
+      where: { id: dealId },
+      data: { score: null, grade: null, scoreBreakdown: Prisma.DbNull, selfCheckerNotes: null, scoreRationale: null },
+    });
+    return { previousScore: deal.score, newScore: 0, grade: "F" };
+  }
+
   if (!deal.investor) throw new Error("Deal has no primary investor — re-assign to an investor first");
   const bb = deal.investor.buyBox;
   if (!bb) throw new Error("Investor has no buy box");

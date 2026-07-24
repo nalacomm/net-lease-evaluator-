@@ -20,6 +20,7 @@ export default async function DealsPage() {
         askingPrice: true,
         capRateAsking: true,
         dscrCalculated: true,
+        dealCategory: true,
         grade: true,
         score: true,
         status: true,

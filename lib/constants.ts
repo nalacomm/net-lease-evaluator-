@@ -30,6 +30,11 @@ export const GUARANTY_TYPES: { value: string; label: string }[] = [
   { value: "single_personal", label: "Single / Personal" },
 ];
 
+export const DEAL_CATEGORIES: { value: string; label: string }[] = [
+  { value: "net_lease", label: "Net Lease" },
+  { value: "other_cre", label: "Other CRE" },
+];
+
 export const DEAL_STATUSES: { value: string; label: string }[] = [
   { value: "active", label: "Active" },
   { value: "passed", label: "Passed" },

@@ -77,6 +77,7 @@ type Deal = {
   loanAmount: number | null;
   monthlyDebtService: number | null;
   monthlyNetCashFlow: number | null;
+  dealCategory: string;
   score: number | null;
   grade: string | null;
   scoreRationale: string | null;
@@ -300,6 +301,11 @@ export function DealProfile({
               <StatusPill status="info">
                 {labelFor(DEAL_STATUSES, deal.status)}
               </StatusPill>
+              {deal.dealCategory === "other_cre" && (
+                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600">
+                  Other CRE
+                </span>
+              )}
               {deal.confidenceLevel && (
                 <StatusPill
                   status={
@@ -323,24 +329,28 @@ export function DealProfile({
               )}
             </div>
           </div>
-          <div className="flex flex-col items-center">
-            <GradeBadge grade={deal.grade} size="lg" />
-            <span className="mt-1 text-lg font-bold text-gray-900">
-              {deal.score?.toFixed(0) ?? "—"}
-            </span>
-          </div>
+          {deal.dealCategory !== "other_cre" && (
+            <div className="flex flex-col items-center">
+              <GradeBadge grade={deal.grade} size="lg" />
+              <span className="mt-1 text-lg font-bold text-gray-900">
+                {deal.score?.toFixed(0) ?? "—"}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Actions */}
         <div className="mt-4 flex flex-wrap gap-2">
-          <button onClick={reanalyze} disabled={busy} className="btn-secondary">
-            {busy ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="h-4 w-4" />
-            )}
-            Re-analyze
-          </button>
+          {deal.dealCategory !== "other_cre" && (
+            <button onClick={reanalyze} disabled={busy} className="btn-secondary">
+              {busy ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              Re-analyze
+            </button>
+          )}
           <Link href={`/deals/${deal.id}/edit`} className="btn-secondary">
             <Pencil className="h-4 w-4" /> Edit
           </Link>
@@ -356,15 +366,17 @@ export function DealProfile({
           >
             <FileDown className="h-4 w-4" /> Export
           </Link>
-          <button
-            onClick={runGapAnalysis}
-            disabled={gapLoading}
-            className="btn-secondary"
-            title="Evaluate this deal even if it misses the buy box"
-          >
-            {gapLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lightbulb className="h-4 w-4" />}
-            Gap Analysis
-          </button>
+          {deal.dealCategory !== "other_cre" && (
+            <button
+              onClick={runGapAnalysis}
+              disabled={gapLoading}
+              className="btn-secondary"
+              title="Evaluate this deal even if it misses the buy box"
+            >
+              {gapLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lightbulb className="h-4 w-4" />}
+              Gap Analysis
+            </button>
+          )}
           <button
             onClick={deleteDeal}
             disabled={deleting}
@@ -490,41 +502,48 @@ export function DealProfile({
             />
           </div>
 
-          {/* Score breakdown */}
-          <div className="card">
-            <button
-              onClick={() => setShowBreakdown((s) => !s)}
-              className="flex w-full items-center justify-between"
-            >
-              <span className="font-semibold">Score Breakdown</span>
-              <ChevronDown
-                className={`h-5 w-5 transition ${showBreakdown ? "rotate-180" : ""}`}
-              />
-            </button>
-            {showBreakdown && deal.scoreBreakdown && (
-              <ul className="mt-3 space-y-2">
-                {deal.scoreBreakdown.map((c) => (
-                  <li
-                    key={c.category}
-                    className="flex items-center justify-between gap-2 text-sm"
-                  >
-                    <div className="min-w-0">
-                      <p className="font-medium text-gray-800">{c.category}</p>
-                      <p className="truncate text-xs text-gray-500">{c.detail}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <StatusPill status={STATUS_MAP[c.status] ?? "info"}>
-                        {c.points}/{c.max}
-                      </StatusPill>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          {/* Score breakdown — net lease only */}
+          {deal.dealCategory === "other_cre" && (
+            <div className="card bg-gray-50 text-sm text-gray-500">
+              This deal is tracked as Other CRE and is not scored against a net lease buy box.
+            </div>
+          )}
+          {deal.dealCategory !== "other_cre" && (
+            <div className="card">
+              <button
+                onClick={() => setShowBreakdown((s) => !s)}
+                className="flex w-full items-center justify-between"
+              >
+                <span className="font-semibold">Score Breakdown</span>
+                <ChevronDown
+                  className={`h-5 w-5 transition ${showBreakdown ? "rotate-180" : ""}`}
+                />
+              </button>
+              {showBreakdown && deal.scoreBreakdown && (
+                <ul className="mt-3 space-y-2">
+                  {deal.scoreBreakdown.map((c) => (
+                    <li
+                      key={c.category}
+                      className="flex items-center justify-between gap-2 text-sm"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-800">{c.category}</p>
+                        <p className="truncate text-xs text-gray-500">{c.detail}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <StatusPill status={STATUS_MAP[c.status] ?? "info"}>
+                          {c.points}/{c.max}
+                        </StatusPill>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
 
-          {/* Self-checker */}
-          {deal.selfCheckerNotes && (
+          {/* Self-checker — net lease only */}
+          {deal.dealCategory !== "other_cre" && deal.selfCheckerNotes && (
             <div className="card bg-amber-50">
               <h3 className="mb-1 font-semibold text-amber-900">
                 Self-Checker Notes
@@ -533,8 +552,8 @@ export function DealProfile({
             </div>
           )}
 
-          {/* Gap analysis result */}
-          {gapAnalysis && (
+          {/* Gap analysis result — net lease only */}
+          {deal.dealCategory !== "other_cre" && gapAnalysis && (
             <div className={clsx("card border-2", gapAnalysis.isExceptional ? "border-amber-400 bg-amber-50" : "border-gray-200")}>
               <div className="flex flex-wrap items-center gap-2 mb-2">
                 <Lightbulb className={clsx("h-5 w-5", gapAnalysis.isExceptional ? "text-amber-600" : "text-gray-400")} />

@@ -19,6 +19,7 @@ export type DealRow = {
   grade: string | null;
   score: number | null;
   status: string;
+  dealCategory: string;
   sourcePlatform: string | null;
   createdAt: Date | string;
 };
@@ -193,13 +194,20 @@ export function DealList({
                     )}
                   </div>
                 </td>
-                <td className="px-3 py-2">{d.tenantName ?? "—"}</td>
+                <td className="px-3 py-2">
+                  <div className="flex items-center gap-1.5">
+                    {d.tenantName ?? "—"}
+                    {d.dealCategory === "other_cre" && (
+                      <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-500">Other CRE</span>
+                    )}
+                  </div>
+                </td>
                 <td className="px-3 py-2">{labelFor(ASSET_TYPES, d.assetType)}</td>
                 <td className="px-3 py-2 text-right">{fmtMoney(d.askingPrice)}</td>
-                <td className="px-3 py-2 text-right">{fmtPercent(d.capRateAsking)}</td>
-                <td className="px-3 py-2 text-right">{fmtDscr(d.dscrCalculated)}</td>
-                <td className="px-3 py-2 text-center"><GradeBadge grade={d.grade} size="sm" /></td>
-                <td className="px-3 py-2 text-right font-semibold">{d.score?.toFixed(0) ?? "—"}</td>
+                <td className="px-3 py-2 text-right">{d.dealCategory === "other_cre" ? "—" : fmtPercent(d.capRateAsking)}</td>
+                <td className="px-3 py-2 text-right">{d.dealCategory === "other_cre" ? "—" : fmtDscr(d.dscrCalculated)}</td>
+                <td className="px-3 py-2 text-center">{d.dealCategory === "other_cre" ? <span className="text-xs text-gray-400">—</span> : <GradeBadge grade={d.grade} size="sm" />}</td>
+                <td className="px-3 py-2 text-right font-semibold">{d.dealCategory === "other_cre" ? "—" : (d.score?.toFixed(0) ?? "—")}</td>
                 <td className="px-3 py-2 text-xs text-gray-400">
                   {new Date(d.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" })}
                 </td>

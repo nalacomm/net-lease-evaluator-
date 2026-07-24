@@ -103,6 +103,9 @@ model Deal {
   investorId String?
   investor   Investor? @relation(fields: [investorId], references: [id], onDelete: SetNull)
 
+  // Deal category: "net_lease" (scored against buy box) | "other_cre" (no NNN scoring)
+  dealCategory String @default("net_lease")
+
   // Property
   address   String?
   city      String?
