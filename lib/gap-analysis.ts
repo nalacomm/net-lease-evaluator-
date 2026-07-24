@@ -34,7 +34,69 @@ export async function runGapAnalysis(
   additionalContext?: string
 ): Promise<GapAnalysisResult> {
   const scoreResult = scoreDeal(deal, bb);
+  const isOtherCre = (deal.dealCategory ?? "net_lease") === "other_cre";
 
+  const contextSection = additionalContext?.trim()
+    ? `\nADDITIONAL CONTEXT PROVIDED BY ANALYST:\n${additionalContext.trim()}\n`
+    : "";
+
+  // Other CRE prompt — focused only on applicable criteria
+  if (isOtherCre) {
+    const assetLabel = labelFor(ASSET_TYPES, deal.assetType) || "Other CRE";
+    const dealDesc = [
+      `Address: ${deal.address ?? "?"}`,
+      `Asset type: ${assetLabel} (Other CRE — not a net lease income property)`,
+      `Asking price: ${fmtMoney(deal.askingPrice)}`,
+      `Location: ${[deal.city, deal.state].filter(Boolean).join(", ") || "?"}`,
+    ].join("\n");
+
+    const bbDesc = [
+      bb.priceMax > 0 ? `Max price budget: ${fmtMoney(bb.priceMax)}${bb.priceStretch ? ` (stretch: ${fmtMoney(bb.priceStretch)})` : ""}` : null,
+      (bb.assetTypesPreferred ?? []).length ? `Preferred asset types: ${bb.assetTypesPreferred.join(", ")}` : null,
+      (bb.assetTypesAcceptable ?? []).length ? `Acceptable asset types: ${bb.assetTypesAcceptable.join(", ")}` : null,
+      (bb.preferredStates ?? []).length ? `Preferred states: ${bb.preferredStates!.join(", ")}` : null,
+      (bb.targetMarkets ?? []).length ? `Target markets: ${bb.targetMarkets!.join(", ")}` : null,
+      bb.hhiMin ? `Min area income: ${fmtMoney(bb.hhiMin)}` : null,
+    ].filter(Boolean).join("\n") || "General commercial investment criteria.";
+
+    const appliedBreakdown = scoreResult.breakdown
+      .filter((b) => b.max > 0 && b.status !== "pass")
+      .map((b) => `${b.category}: ${b.points}/${b.max} — ${b.detail}`)
+      .join("\n");
+
+    return askJson<GapAnalysisResult>(
+      `You are a commercial real estate investment advisor.
+
+DEAL (Other CRE — evaluate on its own merits, not as a net lease income property):
+${dealDesc}
+
+INVESTOR CRITERIA (applicable to this deal type):
+${bbDesc}
+
+SCORE (${scoreResult.score}/100 based on applicable criteria):
+${appliedBreakdown || "All applicable criteria passed."}
+${contextSection}
+This is NOT a net lease deal. Do not mention NNN, lease type, DSCR, term, guaranty, or cap rate in your analysis — those metrics simply don't apply here.
+
+Analyze this deal:
+1. How well does it fit the investor's budget, location preferences, and asset type focus?
+2. What is the investment thesis for this type of property (land banking, development, repositioning, etc.)?
+3. Give a plain-language verdict on whether this deal fits the investor's strategy.
+
+Return JSON only:
+{
+  "isExceptional": true/false,
+  "exceptionalReason": "string or null — only if genuinely compelling",
+  "buyBoxAdjustments": [
+    { "field": "human-readable field name", "currentValue": "current investor criteria", "requiredValue": "what would be needed", "impact": "brief note" }
+  ],
+  "verdict": "2-3 sentence plain summary focused on the actual investment thesis"
+}`,
+      { maxTokens: 800 }
+    );
+  }
+
+  // Net lease prompt — original logic
   const dealDesc = [
     `Address: ${deal.address ?? "?"}`,
     `Tenant: ${deal.tenantName ?? "?"}`,
@@ -52,7 +114,7 @@ export async function runGapAnalysis(
   const bbDesc = [
     `Cap rate floor: ${bb.capRateMin}%, target: ${bb.capRateTarget}%`,
     `Max price: ${fmtMoney(bb.priceMax)}${bb.priceStretch ? ` (stretch: ${fmtMoney(bb.priceStretch)})` : ""}`,
-    `Lease: preferred ${(bb as unknown as Record<string,string>).leaseTypePreferred ?? "?"}, acceptable ${(bb as unknown as Record<string,string>).leaseTypeAcceptable ?? "?"}`,
+    `Lease: preferred ${(bb as unknown as Record<string, string>).leaseTypePreferred ?? "?"}, acceptable ${(bb as unknown as Record<string, string>).leaseTypeAcceptable ?? "?"}`,
     `Min term: ${bb.termMinYears} yrs`,
     `Guaranty: ${bb.guarantyPreferred} preferred`,
     `Min DSCR: ${bb.dscrMin}x`,
@@ -60,13 +122,9 @@ export async function runGapAnalysis(
   ].join("\n");
 
   const breakdown = scoreResult.breakdown
-    .filter((b) => b.status !== "pass")
+    .filter((b) => b.max > 0 && b.status !== "pass")
     .map((b) => `${b.category}: ${b.points}/${b.max} — ${b.detail}`)
     .join("\n");
-
-  const contextSection = additionalContext?.trim()
-    ? `\nADDITIONAL CONTEXT PROVIDED BY ANALYST:\n${additionalContext.trim()}\n`
-    : "";
 
   return askJson<GapAnalysisResult>(
     `You are a commercial real estate investment advisor.

@@ -165,6 +165,7 @@ model Deal {
   confidenceLevel  String?
   selfCheckerNotes  String?
   analysisContext   String?
+  scoringConfig     Json?
 
   // Source
   sourceType     String?

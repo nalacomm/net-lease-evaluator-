@@ -48,8 +48,9 @@ export async function PATCH(
     delete data.createdAt;
     delete data.updatedAt;
 
-    // Saving only analysisContext doesn't need re-scoring
-    const onlyContext = Object.keys(data).length === 1 && "analysisContext" in data;
+    // These keys update metadata only — no re-scoring needed
+    const META_ONLY_KEYS = new Set(["analysisContext", "scoringConfig", "score", "grade"]);
+    const onlyContext = Object.keys(data).every((k) => META_ONLY_KEYS.has(k));
 
     for (const f of NUM_FIELDS) {
       if (f in data) {

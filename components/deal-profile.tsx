@@ -19,6 +19,7 @@ import {
   SOURCE_PLATFORMS,
 } from "@/lib/constants";
 import { GradeBadge, StatusPill } from "@/components/ui";
+import { computeScoreFromBreakdown, CategoryScore } from "@/lib/scoring";
 import {
   RefreshCw,
   Pencil,
@@ -85,6 +86,7 @@ type Deal = {
   confidenceLevel: string | null;
   selfCheckerNotes: string | null;
   analysisContext: string | null;
+  scoringConfig: { enabledCategories?: string[] } | null;
   sourceBroker: string | null;
   sourcePlatform: string | null;
   status: string;
@@ -167,6 +169,12 @@ export function DealProfile({
   const [showContext, setShowContext] = useState(false);
   const [contextText, setContextText] = useState(deal.analysisContext ?? "");
   const [contextFiles, setContextFiles] = useState<File[]>([]);
+  const [enabledCategories, setEnabledCategories] = useState<Set<string>>(() => {
+    const saved = deal.scoringConfig?.enabledCategories;
+    if (saved) return new Set(saved);
+    return new Set((deal.scoreBreakdown ?? []).filter((c) => c.max > 0).map((c) => c.category));
+  });
+  const [savingConfig, setSavingConfig] = useState(false);
   const [savingContext, setSavingContext] = useState(false);
 
   async function toggleAssignment(investorId: string) {
@@ -221,6 +229,22 @@ export function DealProfile({
       body: JSON.stringify({ analysisContext: contextText }),
     });
     setSavingContext(false);
+  }
+
+  async function toggleCategory(category: string) {
+    const next = new Set(enabledCategories);
+    if (next.has(category)) next.delete(category);
+    else next.add(category);
+    setEnabledCategories(next);
+    const { score, grade } = computeScoreFromBreakdown(deal.scoreBreakdown as CategoryScore[] ?? [], next);
+    setSavingConfig(true);
+    await fetch(`/api/deals/${deal.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scoringConfig: { enabledCategories: Array.from(next) }, score, grade }),
+    });
+    setSavingConfig(false);
+    router.refresh();
   }
 
   async function runGapAnalysis() {
@@ -523,26 +547,62 @@ export function DealProfile({
                   className={`h-5 w-5 transition ${showBreakdown ? "rotate-180" : ""}`}
                 />
               </button>
-              {showBreakdown && deal.scoreBreakdown && (
-                <ul className="mt-3 space-y-2">
-                  {deal.scoreBreakdown.map((c) => (
-                    <li
-                      key={c.category}
-                      className="flex items-center justify-between gap-2 text-sm"
-                    >
-                      <div className="min-w-0">
-                        <p className="font-medium text-gray-800">{c.category}</p>
-                        <p className="truncate text-xs text-gray-500">{c.detail}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <StatusPill status={STATUS_MAP[c.status] ?? "info"}>
-                          {c.max === 0 ? "—" : `${c.points}/${c.max}`}
-                        </StatusPill>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              {showBreakdown && deal.scoreBreakdown && (() => {
+                const { score: liveScore, grade: liveGrade } = computeScoreFromBreakdown(
+                  deal.scoreBreakdown as CategoryScore[],
+                  enabledCategories
+                );
+                return (
+                  <>
+                    <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+                      <span>
+                        Live score: <span className="font-semibold text-gray-800">{liveScore}</span> · {liveGrade}
+                      </span>
+                      {savingConfig && <span className="text-brand">Saving…</span>}
+                    </div>
+                    <ul className="mt-2 space-y-2">
+                      {deal.scoreBreakdown.map((c) => {
+                        const canToggle = c.max > 0;
+                        const checked = enabledCategories.has(c.category);
+                        return (
+                          <li
+                            key={c.category}
+                            className="flex items-center justify-between gap-2 text-sm"
+                          >
+                            <div className="flex min-w-0 items-center gap-2">
+                              {canToggle ? (
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => toggleCategory(c.category)}
+                                  className="h-4 w-4 shrink-0 rounded border-gray-300 text-brand accent-brand"
+                                />
+                              ) : (
+                                <div className="h-4 w-4 shrink-0" />
+                              )}
+                              <div className="min-w-0">
+                                <p className={`font-medium ${checked ? "text-gray-800" : "text-gray-400"}`}>
+                                  {c.category}
+                                </p>
+                                <p className={`truncate text-xs ${checked ? "text-gray-500" : "text-gray-300"}`}>
+                                  {c.detail}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <StatusPill
+                                status={checked ? (STATUS_MAP[c.status] ?? "info") : "info"}
+                              >
+                                {c.max === 0 ? "—" : `${c.points}/${c.max}`}
+                              </StatusPill>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </>
+                );
+              })()}
             </div>
           )}
 

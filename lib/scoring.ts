@@ -60,7 +60,7 @@ export interface BuyBoxLike {
   targetMarkets?: string[];
 }
 
-function gradeFor(score: number): ScoreResult["grade"] {
+export function gradeFor(score: number): ScoreResult["grade"] {
   if (score >= 85) return "A";
   if (score >= 70) return "B";
   if (score >= 55) return "C";
@@ -352,7 +352,7 @@ export function scoreDeal(deal: DealLike, bb: BuyBoxLike): ScoreResult {
 
   return {
     score,
-    grade: gradeFor(score),
+    grade: gradeFor(score) as ScoreResult["grade"],
     breakdown,
     dscrCalculated: dscr,
     capRateCalculated: capRateCalc,
@@ -360,4 +360,29 @@ export function scoreDeal(deal: DealLike, bb: BuyBoxLike): ScoreResult {
     monthlyDebtService: fin.monthlyDebtService,
     monthlyNetCashFlow: fin.monthlyNetCashFlow,
   };
+}
+
+// Recompute score from a stored breakdown with optional metric toggles.
+// Bonus categories (containing "bonus") are added after normalization.
+export function computeScoreFromBreakdown(
+  breakdown: CategoryScore[],
+  enabledCategories?: Set<string>
+): { score: number; grade: ScoreResult["grade"] } {
+  const enabled = enabledCategories ?? new Set(breakdown.map((c) => c.category));
+  const base = breakdown.filter((c) => !c.category.toLowerCase().includes("bonus"));
+  const bonuses = breakdown.filter((c) => c.category.toLowerCase().includes("bonus"));
+
+  const activeBase = base.map((c) =>
+    enabled.has(c.category) ? c : { ...c, points: 0, max: 0 }
+  );
+  const totalMax = activeBase.reduce((s, c) => s + c.max, 0);
+  const totalPts = activeBase.reduce((s, c) => s + c.points, 0);
+  let score = totalMax > 0 ? Math.round((totalPts / totalMax) * 100) : 0;
+
+  for (const bonus of bonuses) {
+    if (enabled.has(bonus.category)) score += bonus.points;
+  }
+
+  score = Math.max(0, Math.min(100, score));
+  return { score, grade: gradeFor(score) as ScoreResult["grade"] };
 }
