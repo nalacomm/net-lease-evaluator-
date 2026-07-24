@@ -6,6 +6,7 @@ const { version } = require("./package.json");
 const nextConfig = {
   env: {
     NEXT_PUBLIC_APP_VERSION: version,
+    NEXT_PUBLIC_COMMIT_SHA: process.env.VERCEL_GIT_COMMIT_SHA ?? "dev",
   },
   reactStrictMode: true,
   // Next.js 14.2+ top-level config (was experimental.serverComponentsExternalPackages)
