@@ -23,6 +23,7 @@ export interface ScoreResult {
 
 // Minimal shapes so this works with Prisma models or plain drafts.
 export interface DealLike {
+  dealCategory?: string | null;
   capRateAsking?: number | null;
   capRateUnderwritten?: number | null;
   askingPrice?: number | null;
@@ -49,6 +50,10 @@ export interface BuyBoxLike {
   ltv: number;
   interestRate: number;
   amortizationYears: number;
+  dscrMin?: number | null;
+  termMinYears?: number | null;
+  termPreferredYears?: number | null;
+  hhiMin?: number | null;
   assetTypesPreferred: string[];
   assetTypesAcceptable: string[];
   preferredStates?: string[];
@@ -66,8 +71,13 @@ function gradeFor(score: number): ScoreResult["grade"] {
 const num = (v: number | null | undefined): number | null =>
   v === null || v === undefined || isNaN(v) ? null : v;
 
+function skip(category: string, detail: string): CategoryScore {
+  return { category, points: 0, max: 0, status: "info", detail };
+}
+
 export function scoreDeal(deal: DealLike, bb: BuyBoxLike): ScoreResult {
   const breakdown: CategoryScore[] = [];
+  const isOtherCre = (deal.dealCategory ?? "net_lease") === "other_cre";
 
   // ----- Finance / DSCR recalculation -----
   const price = num(deal.askingPrice) ?? 0;
@@ -82,122 +92,113 @@ export function scoreDeal(deal: DealLike, bb: BuyBoxLike): ScoreResult {
   const dscr = fin.dscr;
   const capRateCalc = price > 0 ? (noi / price) * 100 : null;
 
-  // ----- Cap Rate (20) -----
-  const capRate =
-    num(deal.capRateUnderwritten) ?? num(deal.capRateAsking) ?? capRateCalc;
-  {
+  // ----- Cap Rate (20) — skip for Other CRE or if no target set -----
+  const skipCapRate = isOtherCre || (bb.capRateMin === 0 && bb.capRateTarget === 0);
+  if (skipCapRate) {
+    breakdown.push(skip("Cap Rate", isOtherCre ? "Not applicable for Other CRE" : "No cap rate target set"));
+  } else {
+    const capRate =
+      num(deal.capRateUnderwritten) ?? num(deal.capRateAsking) ?? capRateCalc;
     let pts = 0;
     let status: CheckStatus = "fail";
     let detail: string;
     if (capRate === null) {
       detail = "Cap rate unknown";
     } else if (capRate >= bb.capRateTarget) {
-      pts = 20;
-      status = "pass";
+      pts = 20; status = "pass";
       detail = `${capRate.toFixed(2)}% ≥ target ${bb.capRateTarget}%`;
     } else if (capRate >= bb.capRateMin) {
-      pts = 12;
-      status = "warn";
+      pts = 12; status = "warn";
       detail = `${capRate.toFixed(2)}% between floor ${bb.capRateMin}% and target ${bb.capRateTarget}%`;
     } else {
-      pts = 0;
-      status = "fail";
+      pts = 0; status = "fail";
       detail = `${capRate.toFixed(2)}% below floor ${bb.capRateMin}%`;
     }
     breakdown.push({ category: "Cap Rate", points: pts, max: 20, status, detail });
   }
 
-  // ----- DSCR (20) -----
-  {
+  // ----- DSCR (20) — skip for Other CRE or if no DSCR minimum set -----
+  const dscrFloor = num(bb.dscrMin);
+  const skipDscr = isOtherCre || (dscrFloor === null || dscrFloor === 0);
+  if (skipDscr) {
+    breakdown.push(skip("DSCR", isOtherCre ? "Not applicable for Other CRE" : "No DSCR minimum set"));
+  } else {
     let pts = 0;
     let status: CheckStatus = "fail";
     let detail: string;
     if (dscr === null) {
-      pts = 20;
-      status = "pass";
+      pts = 20; status = "pass";
       detail = "All cash — no debt service";
-    } else if (dscr >= 1.45) {
-      pts = 20;
-      status = "pass";
-      detail = `${dscr.toFixed(2)}x ≥ 1.45`;
-    } else if (dscr >= 1.35) {
-      pts = 15;
-      status = "pass";
-      detail = `${dscr.toFixed(2)}x ≥ 1.35 floor`;
-    } else if (dscr >= 1.25) {
-      pts = 5;
-      status = "warn";
-      detail = `${dscr.toFixed(2)}x below 1.35 floor`;
+    } else if (dscr >= dscrFloor! * 1.07) {
+      pts = 20; status = "pass";
+      detail = `${dscr.toFixed(2)}x — strong coverage`;
+    } else if (dscr >= dscrFloor!) {
+      pts = 15; status = "pass";
+      detail = `${dscr.toFixed(2)}x ≥ ${dscrFloor!.toFixed(2)}x floor`;
+    } else if (dscr >= dscrFloor! * 0.93) {
+      pts = 5; status = "warn";
+      detail = `${dscr.toFixed(2)}x slightly below ${dscrFloor!.toFixed(2)}x floor`;
     } else {
-      pts = 0;
-      status = "fail";
-      detail = `${dscr.toFixed(2)}x well below floor`;
+      pts = 0; status = "fail";
+      detail = `${dscr.toFixed(2)}x well below ${dscrFloor!.toFixed(2)}x floor`;
     }
     breakdown.push({ category: "DSCR", points: pts, max: 20, status, detail });
   }
 
-  // ----- Lease Type (15) -----
-  {
+  // ----- Lease Type (15) — skip for Other CRE -----
+  if (isOtherCre) {
+    breakdown.push(skip("Lease Type", "Not applicable for Other CRE"));
+  } else {
     const lt = (deal.leaseType ?? "").toLowerCase();
     let pts = 0;
     let status: CheckStatus = "fail";
     let detail = lt || "unknown";
     if (lt === "absolute_nnn") {
-      pts = 15;
-      status = "pass";
-      detail = "Absolute NNN";
+      pts = 15; status = "pass"; detail = "Absolute NNN";
     } else if (lt === "nnn") {
-      pts = 10;
-      status = "pass";
-      detail = "NNN";
+      pts = 10; status = "pass"; detail = "NNN";
     } else if (lt === "modified_nnn") {
-      pts = 5;
-      status = "warn";
-      detail = "Modified NNN";
+      pts = 5; status = "warn"; detail = "Modified NNN";
     } else if (lt === "gross") {
-      pts = 0;
-      status = "fail";
-      detail = "Gross";
+      pts = 0; status = "fail"; detail = "Gross";
     } else {
       detail = "Lease type unknown";
     }
     breakdown.push({ category: "Lease Type", points: pts, max: 15, status, detail });
   }
 
-  // ----- Term Remaining (15) -----
-  {
+  // ----- Term Remaining (15) — skip for Other CRE or if no term minimum set -----
+  const termMin = num(bb.termMinYears);
+  const skipTerm = isOtherCre || (termMin === null || termMin === 0);
+  if (skipTerm) {
+    breakdown.push(skip("Term Remaining", isOtherCre ? "Not applicable for Other CRE" : "No minimum term set"));
+  } else {
     const t = num(deal.termRemainingYears);
+    const tPref = num(bb.termPreferredYears) ?? termMin!;
     let pts = 0;
     let status: CheckStatus = "fail";
     let detail: string;
     if (t === null) {
       detail = "Term unknown";
-    } else if (t >= 15) {
-      pts = 15;
-      status = "pass";
-      detail = `${t} yrs ≥ 15`;
-    } else if (t >= 10) {
-      pts = 10;
-      status = "pass";
-      detail = `${t} yrs ≥ 10`;
-    } else if (t >= 7) {
-      pts = 5;
-      status = "warn";
-      detail = `${t} yrs ≥ 7`;
+    } else if (t >= tPref + 5) {
+      pts = 15; status = "pass"; detail = `${t} yrs — excellent`;
+    } else if (t >= tPref) {
+      pts = 10; status = "pass"; detail = `${t} yrs ≥ preferred ${tPref} yrs`;
+    } else if (t >= termMin!) {
+      pts = 5; status = "warn"; detail = `${t} yrs ≥ min ${termMin} yrs`;
     } else {
-      pts = 0;
-      status = "fail";
-      detail = `${t} yrs < 7`;
+      pts = 0; status = "fail"; detail = `${t} yrs < min ${termMin} yrs`;
     }
     breakdown.push({ category: "Term Remaining", points: pts, max: 15, status, detail });
   }
 
-  // ----- Rent Bumps (10) -----
-  {
+  // ----- Rent Bumps (10) — skip for Other CRE -----
+  if (isOtherCre) {
+    breakdown.push(skip("Rent Bumps", "Not applicable for Other CRE"));
+  } else {
     const bp = num(deal.bumpPercent);
     const struct = (deal.bumpStructure ?? "").toLowerCase();
-    const isFlat =
-      struct.includes("flat") || (bp !== null && bp === 0);
+    const isFlat = struct.includes("flat") || (bp !== null && bp === 0);
     const hasAltStructure =
       /10%?\s*(every)?\s*5\s*(yr|year)/.test(struct) ||
       struct.includes("10% every 5");
@@ -205,112 +206,94 @@ export function scoreDeal(deal: DealLike, bb: BuyBoxLike): ScoreResult {
     let status: CheckStatus = "warn";
     let detail = struct || (bp !== null ? `${bp}%` : "unknown");
     if (isFlat) {
-      pts = 0;
-      status = "fail";
-      detail = "Flat / no escalations";
+      pts = 0; status = "fail"; detail = "Flat / no escalations";
     } else if ((bp !== null && bp >= 2) || hasAltStructure) {
-      pts = 10;
-      status = "pass";
+      pts = 10; status = "pass";
       detail = bp !== null ? `${bp}% annual` : "10% every 5 years";
     } else if (bp !== null) {
-      pts = 5;
-      status = "warn";
-      detail = `${bp}% (< 2% / irregular)`;
+      pts = 5; status = "warn"; detail = `${bp}% (< 2% / irregular)`;
     } else {
-      pts = 5;
-      status = "warn";
-      detail = "Bump structure unclear";
+      pts = 5; status = "warn"; detail = "Bump structure unclear";
     }
     breakdown.push({ category: "Rent Bumps", points: pts, max: 10, status, detail });
   }
 
-  // ----- Guaranty (10) -----
-  {
+  // ----- Guaranty (10) — skip for Other CRE -----
+  if (isOtherCre) {
+    breakdown.push(skip("Guaranty", "Not applicable for Other CRE"));
+  } else {
     const g = (deal.guarantyType ?? "").toLowerCase();
     const units = num(deal.operatorUnitCount);
     let pts = 0;
     let status: CheckStatus = "fail";
     let detail = g || "unknown";
     if (g === "corporate") {
-      pts = 10;
-      status = "pass";
-      detail = "Corporate";
+      pts = 10; status = "pass"; detail = "Corporate";
     } else if (g === "multi_unit_franchisee") {
       if (units !== null && units >= 12) {
-        pts = 8;
-        status = "pass";
-        detail = `Multi-unit franchisee (${units} units)`;
+        pts = 8; status = "pass"; detail = `Multi-unit franchisee (${units} units)`;
       } else {
-        pts = 5;
-        status = "warn";
-        detail = `Multi-unit franchisee (${units ?? "?"} units, < 12)`;
+        pts = 5; status = "warn"; detail = `Multi-unit franchisee (${units ?? "?"} units, < 12)`;
       }
     } else if (g === "single_personal") {
-      pts = 2;
-      status = "warn";
-      detail = "Single / personal guaranty";
+      pts = 2; status = "warn"; detail = "Single / personal guaranty";
     } else {
       detail = "Guaranty unknown";
     }
     breakdown.push({ category: "Guaranty", points: pts, max: 10, status, detail });
   }
 
-  // ----- Price vs Ceiling (5) -----
-  {
+  // ----- Price vs Ceiling (5) — skip if no price max set -----
+  const skipPrice = bb.priceMax === 0;
+  if (skipPrice) {
+    breakdown.push(skip("Price vs Ceiling", "No price ceiling set"));
+  } else {
+    const stretch = num(bb.priceStretch) ?? bb.priceMax;
     let pts = 0;
     let status: CheckStatus = "fail";
     let detail: string;
-    const stretch = num(bb.priceStretch) ?? bb.priceMax;
     if (price <= 0) {
-      detail = "Price unknown";
-      status = "info";
+      detail = "Price unknown"; status = "info";
     } else if (price <= bb.priceMax) {
-      pts = 5;
-      status = "pass";
-      detail = `$${(price / 1e6).toFixed(2)}M ≤ ceiling`;
+      pts = 5; status = "pass"; detail = `$${(price / 1e6).toFixed(2)}M ≤ ceiling`;
     } else if (price <= stretch) {
-      pts = 3;
-      status = "warn";
-      detail = `$${(price / 1e6).toFixed(2)}M in stretch range`;
+      pts = 3; status = "warn"; detail = `$${(price / 1e6).toFixed(2)}M in stretch range`;
     } else {
-      pts = 0;
-      status = "fail";
-      detail = `$${(price / 1e6).toFixed(2)}M above stretch ceiling`;
+      pts = 0; status = "fail"; detail = `$${(price / 1e6).toFixed(2)}M above stretch ceiling`;
     }
     breakdown.push({ category: "Price vs Ceiling", points: pts, max: 5, status, detail });
   }
 
-  // ----- Demographics (5) -----
-  {
-    const hhi =
-      num(deal.hhi3Mile) ?? num(deal.hhi1Mile) ?? num(deal.hhi5Mile);
-    let pts = 1;
+  // ----- Demographics (5) — skip if no HHI minimum set -----
+  const hhiFloor = num(bb.hhiMin);
+  const skipHhi = hhiFloor === null || hhiFloor === 0;
+  if (skipHhi) {
+    breakdown.push(skip("Demographics", "No HHI minimum set"));
+  } else {
+    const hhi = num(deal.hhi3Mile) ?? num(deal.hhi1Mile) ?? num(deal.hhi5Mile);
+    let pts = 0;
     let status: CheckStatus = "warn";
     let detail: string;
     if (hhi === null) {
-      pts = 1;
-      status = "warn";
-      detail = "HHI unknown";
-    } else if (hhi >= 110000) {
-      pts = 5;
-      status = "pass";
-      detail = `HHI $${Math.round(hhi / 1000)}K ≥ $110K`;
-    } else if (hhi >= 90000) {
-      pts = 3;
-      status = "warn";
-      detail = `HHI $${Math.round(hhi / 1000)}K ($90K–$110K)`;
+      pts = 0; status = "warn"; detail = "HHI unknown";
+    } else if (hhi >= hhiFloor! * 1.22) {
+      pts = 5; status = "pass"; detail = `HHI $${Math.round(hhi / 1000)}K — strong`;
+    } else if (hhi >= hhiFloor!) {
+      pts = 3; status = "warn"; detail = `HHI $${Math.round(hhi / 1000)}K ≥ floor $${Math.round(hhiFloor! / 1000)}K`;
     } else {
-      pts = 1;
-      status = "fail";
-      detail = `HHI $${Math.round(hhi / 1000)}K < $90K`;
+      pts = 0; status = "fail"; detail = `HHI $${Math.round(hhi / 1000)}K < floor $${Math.round(hhiFloor! / 1000)}K`;
     }
     breakdown.push({ category: "Demographics", points: pts, max: 5, status, detail });
   }
 
-  // ----- Base score -----
-  let score = breakdown.reduce((s, c) => s + c.points, 0);
+  // ----- Normalize base score against achievable max -----
+  // Only metrics with max > 0 count toward the score
+  const baseMetrics = breakdown.filter((c) => c.max > 0);
+  const baseMax = baseMetrics.reduce((s, c) => s + c.max, 0);
+  const baseEarned = baseMetrics.reduce((s, c) => s + c.points, 0);
+  let score = baseMax > 0 ? Math.round((baseEarned / baseMax) * 100) : 0;
 
-  // ----- Asset Type Match (bonus up to +5, capped at 100) -----
+  // ----- Asset Type Match (bonus up to +5, added after normalization) -----
   {
     const at = (deal.assetType ?? "").toLowerCase();
     let bonus = 0;
@@ -319,31 +302,19 @@ export function scoreDeal(deal: DealLike, bb: BuyBoxLike): ScoreResult {
     const preferred = bb.assetTypesPreferred.map((s) => s.toLowerCase());
     const acceptable = bb.assetTypesAcceptable.map((s) => s.toLowerCase());
     if (at === "eclc") {
-      bonus = 5;
-      status = "pass";
-      detail = "ECLC (primary thesis)";
+      bonus = 5; status = "pass"; detail = "ECLC (primary thesis)";
     } else if (preferred.includes(at)) {
-      bonus = 3;
-      status = "pass";
-      detail = `Preferred type (${at})`;
+      bonus = 3; status = "pass"; detail = `Preferred type (${at})`;
     } else if (acceptable.includes(at)) {
-      bonus = 1;
-      status = "warn";
-      detail = `Acceptable type (${at})`;
+      bonus = 1; status = "warn"; detail = `Acceptable type (${at})`;
     } else if (at) {
       detail = `Off-thesis type (${at})`;
     }
-    breakdown.push({
-      category: "Asset Type Match (bonus)",
-      points: bonus,
-      max: 5,
-      status,
-      detail,
-    });
+    breakdown.push({ category: "Asset Type Match (bonus)", points: bonus, max: 5, status, detail });
     score += bonus;
   }
 
-  // ----- Location Match (bonus up to +5, capped at 100) -----
+  // ----- Location Match (bonus up to +5) -----
   {
     const dealState = (deal.state ?? "").trim().toUpperCase();
     const dealCity = (deal.city ?? "").toLowerCase().trim();
@@ -360,12 +331,10 @@ export function scoreDeal(deal: DealLike, bb: BuyBoxLike): ScoreResult {
         dealCity &&
         markets.some((m) => dealCity.includes(m) || m.includes(dealCity));
       if (stateMatch || marketMatch) {
-        bonus = 5;
-        status = "pass";
+        bonus = 5; status = "pass";
         detail = `${deal.city ?? ""}${deal.city && deal.state ? ", " : ""}${deal.state ?? ""} — in preferred locations`;
       } else {
-        bonus = 0;
-        status = "warn";
+        bonus = 0; status = "warn";
         detail = `${deal.city ?? "?"}${deal.city && deal.state ? ", " : ""}${deal.state ?? ""} — outside preferred locations`;
       }
     }
@@ -379,7 +348,7 @@ export function scoreDeal(deal: DealLike, bb: BuyBoxLike): ScoreResult {
     score += bonus;
   }
 
-  score = Math.max(0, Math.min(100, Math.round(score)));
+  score = Math.max(0, Math.min(100, score));
 
   return {
     score,

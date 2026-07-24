@@ -17,16 +17,17 @@ export async function analyzeDeal(dealId: string): Promise<{
   });
   if (!deal) throw new Error("Deal not found");
 
-  // Other CRE deals are not scored against a NNN buy box
-  if (deal.dealCategory === "other_cre") {
-    await prisma.deal.update({
-      where: { id: dealId },
-      data: { score: null, grade: null, scoreBreakdown: Prisma.DbNull, selfCheckerNotes: null, scoreRationale: null },
-    });
-    return { previousScore: deal.score, newScore: 0, grade: "F" };
+  if (!deal.investor) {
+    // Other CRE deals without an investor can't be evaluated — clear score silently
+    if (deal.dealCategory === "other_cre") {
+      await prisma.deal.update({
+        where: { id: dealId },
+        data: { score: null, grade: null, scoreBreakdown: Prisma.DbNull, selfCheckerNotes: null, scoreRationale: null },
+      });
+      return { previousScore: deal.score, newScore: 0, grade: "F" };
+    }
+    throw new Error("Deal has no primary investor — re-assign to an investor first");
   }
-
-  if (!deal.investor) throw new Error("Deal has no primary investor — re-assign to an investor first");
   const bb = deal.investor.buyBox;
   if (!bb) throw new Error("Investor has no buy box");
 

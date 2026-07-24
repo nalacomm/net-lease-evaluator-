@@ -532,7 +532,7 @@ export function DealProfile({
                       </div>
                       <div className="flex items-center gap-2">
                         <StatusPill status={STATUS_MAP[c.status] ?? "info"}>
-                          {c.points}/{c.max}
+                          {c.max === 0 ? "—" : `${c.points}/${c.max}`}
                         </StatusPill>
                       </div>
                     </li>
