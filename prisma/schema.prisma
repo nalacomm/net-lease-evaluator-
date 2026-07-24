@@ -25,7 +25,8 @@ model Investor {
   email      String?
   phone      String?
   entityName String?
-  notes      String?
+  notes           String?
+  investorSummary String?
   buyBox      BuyBox?
   deals       Deal[]
   reports     Report[]

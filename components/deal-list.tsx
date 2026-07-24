@@ -69,7 +69,7 @@ export function DealList({
   deals: DealRow[];
   reportedDealIds?: Set<string>;
 }) {
-  const [sort, setSort] = useState<SortKey>("score");
+  const [sort, setSort] = useState<SortKey>("createdAt");
   const [dir, setDir] = useState<SortDir>("desc");
   const [assetFilter, setAssetFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");

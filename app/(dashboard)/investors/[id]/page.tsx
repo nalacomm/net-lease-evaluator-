@@ -5,6 +5,7 @@ import { computeFinance } from "@/lib/finance";
 import { fmtMoney } from "@/lib/format";
 import { PageHeader, GradeBadge } from "@/components/ui";
 import { BuyBoxDisplay } from "@/components/buybox-display";
+import { InvestorAnalysis } from "@/components/investor-analysis";
 
 export const dynamic = "force-dynamic";
 
@@ -73,6 +74,8 @@ export default async function InvestorPage({
       {investor.notes && (
         <div className="card text-sm text-gray-600">{investor.notes}</div>
       )}
+
+      <InvestorAnalysis investorId={investor.id} initialSummary={investor.investorSummary ?? null} />
 
       {/* Portfolio cash flow */}
       {bb && (

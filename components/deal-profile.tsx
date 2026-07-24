@@ -341,16 +341,14 @@ export function DealProfile({
 
         {/* Actions */}
         <div className="mt-4 flex flex-wrap gap-2">
-          {deal.dealCategory !== "other_cre" && (
-            <button onClick={reanalyze} disabled={busy} className="btn-secondary">
-              {busy ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCw className="h-4 w-4" />
-              )}
-              Re-analyze
-            </button>
-          )}
+          <button onClick={reanalyze} disabled={busy} className="btn-secondary">
+            {busy ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+            Re-score
+          </button>
           <Link href={`/deals/${deal.id}/edit`} className="btn-secondary">
             <Pencil className="h-4 w-4" /> Edit
           </Link>
@@ -366,17 +364,15 @@ export function DealProfile({
           >
             <FileDown className="h-4 w-4" /> Export
           </Link>
-          {deal.dealCategory !== "other_cre" && (
-            <button
-              onClick={runGapAnalysis}
-              disabled={gapLoading}
-              className="btn-secondary"
-              title="Evaluate this deal even if it misses the buy box"
-            >
-              {gapLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lightbulb className="h-4 w-4" />}
-              Gap Analysis
-            </button>
-          )}
+          <button
+            onClick={runGapAnalysis}
+            disabled={gapLoading}
+            className="btn-secondary"
+            title="AI analysis of this deal against the investor buy box"
+          >
+            {gapLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lightbulb className="h-4 w-4" />}
+            AI Analysis
+          </button>
           <button
             onClick={deleteDeal}
             disabled={deleting}
@@ -429,14 +425,22 @@ export function DealProfile({
                   </p>
                 )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={saveContext}
                   disabled={savingContext}
                   className="btn-secondary text-xs"
                 >
                   {savingContext ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-                  Save notes to deal
+                  Save notes
+                </button>
+                <button
+                  onClick={async () => { await saveContext(); await runGapAnalysis(); }}
+                  disabled={savingContext || gapLoading}
+                  className="btn-primary text-xs"
+                >
+                  {gapLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Lightbulb className="h-3 w-3" />}
+                  Save & Run Analysis
                 </button>
                 <span className="text-xs text-gray-400">Notes persist. PDFs apply to this run only.</span>
               </div>
@@ -552,8 +556,8 @@ export function DealProfile({
             </div>
           )}
 
-          {/* Gap analysis result — net lease only */}
-          {deal.dealCategory !== "other_cre" && gapAnalysis && (
+          {/* Gap analysis result */}
+          {gapAnalysis && (
             <div className={clsx("card border-2", gapAnalysis.isExceptional ? "border-amber-400 bg-amber-50" : "border-gray-200")}>
               <div className="flex flex-wrap items-center gap-2 mb-2">
                 <Lightbulb className={clsx("h-5 w-5", gapAnalysis.isExceptional ? "text-amber-600" : "text-gray-400")} />
