@@ -22,7 +22,7 @@ export default async function ReportsPage({
     investor
       ? prisma.deal.findMany({
           where: { investorId: investor.id, status: "active" },
-          orderBy: { score: "desc" },
+          orderBy: { createdAt: "desc" },
           select: { id: true, address: true, tenantName: true, grade: true, score: true, assetType: true, createdAt: true },
         })
       : Promise.resolve([]),
@@ -34,7 +34,7 @@ export default async function ReportsPage({
               select: { id: true, address: true, tenantName: true, assetType: true, status: true, createdAt: true },
             },
           },
-          orderBy: { score: "desc" },
+          orderBy: { deal: { createdAt: "desc" } },
         })
       : Promise.resolve([]),
     prisma.tenant.findMany({
@@ -51,7 +51,7 @@ export default async function ReportsPage({
               select: { id: true, name: true, city: true, state: true, createdAt: true },
             },
           },
-          orderBy: { score: "desc" },
+          orderBy: { createdAt: "desc" },
         },
       },
     }),
@@ -71,7 +71,7 @@ export default async function ReportsPage({
         score: a.score,
         createdAt: a.deal.createdAt,
       })),
-  ].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   const [pastReports, pastSiteReports, allReportedDeals, allReportedSites] = await Promise.all([
     investor
