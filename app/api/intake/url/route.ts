@@ -6,7 +6,7 @@ export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
-    const { url } = await req.json();
+    const { url, dealCategory } = await req.json();
     if (!url || typeof url !== "string") {
       return NextResponse.json({ error: "Provide a URL." }, { status: 400 });
     }
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
         { status: 422 }
       );
     }
-    const result = await extractDeal(text);
+    const result = await extractDeal(text, dealCategory);
     return NextResponse.json(result);
   } catch (e) {
     console.error("intake/url error", e);

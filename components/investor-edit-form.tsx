@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ASSET_TYPES, LEASE_TYPES, GUARANTY_TYPES } from "@/lib/constants";
-import { Loader2 } from "lucide-react";
+import { Loader2, ChevronDown, ChevronUp } from "lucide-react";
 
 // Stable helpers defined OUTSIDE component to avoid remount on every keystroke
 function BbInput({
@@ -134,6 +134,12 @@ export function InvestorEditForm({ investor }: { investor: InvestorWithBuyBox })
   const [targetMarkets, setTargetMarkets] = useState((bb?.targetMarkets ?? []).join(", "));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [draftOpen, setDraftOpen] = useState(false);
+  const [draftNarrative, setDraftNarrative] = useState("");
+  const [draftFiles, setDraftFiles] = useState<File[]>([]);
+  const [draftLoading, setDraftLoading] = useState(false);
+  const [draftError, setDraftError] = useState("");
+  const [draftSummary, setDraftSummary] = useState<string | null>(null);
 
   function setF(k: string, v: string | boolean) {
     setForm((prev) => ({ ...prev, [k]: v }));
@@ -141,6 +147,58 @@ export function InvestorEditForm({ investor }: { investor: InvestorWithBuyBox })
 
   function toggle(list: string[], setList: (v: string[]) => void, v: string) {
     setList(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
+  }
+
+  async function applyDraft() {
+    if (!draftNarrative.trim() && draftFiles.length === 0) {
+      setDraftError("Add a description or upload a document first.");
+      return;
+    }
+    setDraftError("");
+    setDraftLoading(true);
+    try {
+      const fd = new FormData();
+      fd.append("narrative", draftNarrative);
+      for (const f of draftFiles) fd.append("files", f);
+      const res = await fetch("/api/buybox/wizard", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Draft failed");
+      const bb = data;
+      setForm((prev) => ({
+        ...prev,
+        capRateMin: bb.capRateMin != null ? String(bb.capRateMin) : prev.capRateMin,
+        capRateTarget: bb.capRateTarget != null ? String(bb.capRateTarget) : prev.capRateTarget,
+        priceMax: bb.priceMax != null ? String(bb.priceMax) : prev.priceMax,
+        priceStretch: bb.priceStretch != null ? String(bb.priceStretch) : prev.priceStretch,
+        leaseTypePreferred: bb.leaseTypePreferred ?? prev.leaseTypePreferred,
+        leaseTypeAcceptable: bb.leaseTypeAcceptable ?? prev.leaseTypeAcceptable,
+        termMinYears: bb.termMinYears != null ? String(bb.termMinYears) : prev.termMinYears,
+        termPreferredYears: bb.termPreferredYears != null ? String(bb.termPreferredYears) : prev.termPreferredYears,
+        bumpMinPercent: bb.bumpMinPercent != null ? String(bb.bumpMinPercent) : prev.bumpMinPercent,
+        bumpAltStructure: bb.bumpAltStructure ?? prev.bumpAltStructure,
+        guarantyPreferred: bb.guarantyPreferred ?? prev.guarantyPreferred,
+        guarantyAcceptable: bb.guarantyAcceptable ?? prev.guarantyAcceptable,
+        guarantyFloor: bb.guarantyFloor ?? prev.guarantyFloor,
+        operatorMinUnits: bb.operatorMinUnits != null ? String(bb.operatorMinUnits) : prev.operatorMinUnits,
+        dscrMin: bb.dscrMin != null ? String(bb.dscrMin) : prev.dscrMin,
+        ltv: bb.ltv != null ? String(bb.ltv) : prev.ltv,
+        interestRate: bb.interestRate != null ? String(bb.interestRate) : prev.interestRate,
+        amortizationYears: bb.amortizationYears != null ? String(bb.amortizationYears) : prev.amortizationYears,
+        hhiMin: bb.hhiMin != null ? String(bb.hhiMin) : prev.hhiMin,
+        currentMonthlyIncome: bb.currentMonthlyIncome != null ? String(bb.currentMonthlyIncome) : prev.currentMonthlyIncome,
+      }));
+      if (bb.assetTypesPreferred?.length) setPreferred(bb.assetTypesPreferred);
+      if (bb.assetTypesAcceptable?.length) setAcceptable(bb.assetTypesAcceptable);
+      if (bb.preferredStates?.length) setPreferredStates(bb.preferredStates.join(", "));
+      if (bb.targetMarkets?.length) setTargetMarkets(bb.targetMarkets.join(", "));
+      if (bb.narrativeSummary && !notes.trim()) setNotes(bb.narrativeSummary);
+      setDraftSummary(bb.narrativeSummary ?? null);
+      setDraftOpen(false);
+    } catch (e) {
+      setDraftError(e instanceof Error ? e.message : "Draft failed");
+    } finally {
+      setDraftLoading(false);
+    }
   }
 
   async function save() {
@@ -198,6 +256,50 @@ export function InvestorEditForm({ investor }: { investor: InvestorWithBuyBox })
           <label className="label">Notes / Investor Thesis</label>
           <textarea className="input min-h-[80px]" value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
+      </div>
+
+      <div className="card">
+        <button
+          type="button"
+          onClick={() => setDraftOpen((o) => !o)}
+          className="flex w-full items-center justify-between text-left"
+        >
+          <span className="font-semibold">Draft Buy Box with AI</span>
+          {draftOpen ? <ChevronUp className="h-4 w-4 text-gray-500" /> : <ChevronDown className="h-4 w-4 text-gray-500" />}
+        </button>
+        {draftOpen && (
+          <div className="mt-3 space-y-3">
+            <p className="text-sm text-gray-500">Paste the investor&apos;s description, emails, or notes. Optionally attach PDFs. AI will draft the buy box fields below — review before saving.</p>
+            <textarea
+              className="input min-h-[120px]"
+              placeholder="Describe what this investor is looking for — asset types, budget, location, lease preferences, hold period, etc."
+              value={draftNarrative}
+              onChange={(e) => setDraftNarrative(e.target.value)}
+            />
+            <div>
+              <label className="label">Supporting documents (optional)</label>
+              <input
+                type="file"
+                accept="application/pdf,.txt"
+                multiple
+                className="input"
+                onChange={(e) => setDraftFiles(Array.from(e.target.files ?? []))}
+              />
+            </div>
+            {draftError && <p className="text-sm text-red-600">{draftError}</p>}
+            {draftSummary && (
+              <p className="rounded-lg bg-blue-50 p-3 text-sm text-blue-800">{draftSummary}</p>
+            )}
+            <button
+              type="button"
+              onClick={applyDraft}
+              disabled={draftLoading}
+              className="btn-primary w-full"
+            >
+              {draftLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Drafting…</> : "Generate & Apply"}
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="card">

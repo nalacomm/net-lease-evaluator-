@@ -11,6 +11,7 @@ const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB soft cap before Vercel hard-ki
 export async function POST(req: Request) {
   try {
     const form = await req.formData();
+    const dealCategory = (form.get("dealCategory") as string) ?? "net_lease";
     const file = form.get("file");
     if (!file || !(file instanceof File)) {
       return NextResponse.json({ error: "No file uploaded." }, { status: 400 });
@@ -70,7 +71,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const result = await extractDeal(text);
+    const result = await extractDeal(text, dealCategory);
     return NextResponse.json(result);
   } catch (e) {
     console.error("intake/pdf error", e);

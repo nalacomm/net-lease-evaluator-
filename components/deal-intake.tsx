@@ -71,17 +71,18 @@ export function DealIntake({ investors }: { investors: Investor[] }) {
         res = await fetch("/api/intake/text", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content: text }),
+          body: JSON.stringify({ content: text, dealCategory }),
         });
       } else if (mode === "url") {
         res = await fetch("/api/intake/url", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url }),
+          body: JSON.stringify({ url, dealCategory }),
         });
       } else {
         const fd = new FormData();
         if (file) fd.append("file", file);
+        fd.append("dealCategory", dealCategory);
         res = await fetch("/api/intake/pdf", { method: "POST", body: fd });
       }
       const data = await res.json();
@@ -138,6 +139,9 @@ export function DealIntake({ investors }: { investors: Investor[] }) {
   const missing = new Set(meta?.missingFields ?? []);
   const inferred = new Set(meta?.inferredFields ?? []);
   const visibleFields = FIELDS.filter((f) => !f.netLeaseOnly || dealCategory === "net_lease");
+  const visibleKeys = new Set(visibleFields.map((f) => f.key));
+  const effectiveMissing = (meta?.missingFields ?? []).filter((k) => visibleKeys.has(k));
+  const effectiveInferred = (meta?.inferredFields ?? []).filter((k) => visibleKeys.has(k));
 
   return (
     <div className="space-y-5">
@@ -251,8 +255,8 @@ export function DealIntake({ investors }: { investors: Investor[] }) {
                 <p className="mt-2 text-sm text-gray-600">{meta.notes}</p>
               )}
               <p className="mt-2 text-xs text-gray-500">
-                {meta.inferredFields.length} inferred ·{" "}
-                {meta.missingFields.length} missing. Red = missing, amber =
+                {effectiveInferred.length} inferred ·{" "}
+                {effectiveMissing.length} missing. Red = missing, amber =
                 inferred. Review before saving.
               </p>
             </div>

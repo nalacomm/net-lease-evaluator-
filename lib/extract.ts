@@ -33,9 +33,51 @@ export interface ExtractResult {
   notes: string;
 }
 
-const SYSTEM = `You are a commercial real estate net-lease analyst. Extract structured deal data from listing text. Return ONLY valid JSON, no prose, no markdown fences.`;
+const SYSTEM_NET_LEASE = `You are a commercial real estate net-lease analyst. Extract structured deal data from listing text. Return ONLY valid JSON, no prose, no markdown fences.`;
 
-export async function extractDeal(content: string): Promise<ExtractResult> {
+const SYSTEM_OTHER_CRE = `You are a commercial real estate analyst. Extract structured deal data from listing text. Return ONLY valid JSON, no prose, no markdown fences.`;
+
+export async function extractDeal(content: string, category?: string): Promise<ExtractResult> {
+  const isOtherCre = category === "other_cre";
+
+  if (isOtherCre) {
+    const prompt = `Extract general commercial real estate fields from the source below. This is NOT a net lease property — do not look for or flag NNN fields (NOI, cap rate, lease type, guaranty, term, operator info) as missing.
+
+Enums:
+- assetType: one of "eclc","qsr","pharmacy","medical","dollar_store","retail","restaurant","other"
+- sourcePlatform: one of "costar","loopnet","crexi","direct","other"
+
+Rules:
+- Numbers only for money fields (no $ or % symbols).
+- Use null for anything not present. Do not invent values.
+- Track which fields were INFERRED (not explicitly stated) and which key fields are MISSING.
+- Key fields for this deal type: address, assetType, askingPrice. Flag only these if absent.
+- confidenceLevel: "high" if address, asset type, and price are all explicit; "medium" if 1 is inferred; "low" if 2+ are missing.
+- Leave all NNN fields (noi, capRateAsking, leaseType, termRemainingYears, bumpStructure, bumpPercent, guarantyType, operatorName, operatorUnitCount) as null — do not list them in missingFields.
+
+Return JSON exactly:
+{
+  "deal": {
+    "address": null, "city": null, "state": null, "assetType": null,
+    "tenantName": null, "operatorName": null, "operatorUnitCount": null, "guarantyType": null,
+    "askingPrice": null, "noi": null, "capRateAsking": null,
+    "leaseType": null, "termRemainingYears": null, "bumpStructure": null, "bumpPercent": null,
+    "constructionYear": null, "buildingSize": null,
+    "hhi1Mile": null, "hhi3Mile": null, "population1Mile": null,
+    "sourceBroker": null, "sourcePlatform": null
+  },
+  "inferredFields": [],
+  "missingFields": [],
+  "confidenceLevel": "low",
+  "notes": ""
+}
+
+SOURCE:
+${content.slice(0, 12000)}`;
+
+    return askJson<ExtractResult>(prompt, { system: SYSTEM_OTHER_CRE, maxTokens: 1000 });
+  }
+
   const prompt = `Extract net lease deal fields from the source below.
 
 Enums:
@@ -71,5 +113,5 @@ Return JSON exactly:
 SOURCE:
 ${content.slice(0, 12000)}`;
 
-  return askJson<ExtractResult>(prompt, { system: SYSTEM, maxTokens: 1500 });
+  return askJson<ExtractResult>(prompt, { system: SYSTEM_NET_LEASE, maxTokens: 1500 });
 }

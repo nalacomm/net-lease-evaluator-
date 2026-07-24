@@ -6,14 +6,14 @@ export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
-    const { content } = await req.json();
+    const { content, dealCategory } = await req.json();
     if (!content || typeof content !== "string" || content.trim().length < 10) {
       return NextResponse.json(
         { error: "Provide deal text (at least 10 characters)." },
         { status: 400 }
       );
     }
-    const result = await extractDeal(content);
+    const result = await extractDeal(content, dealCategory);
     return NextResponse.json(result);
   } catch (e) {
     console.error("intake/text error", e);
