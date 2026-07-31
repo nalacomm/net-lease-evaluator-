@@ -180,7 +180,7 @@ export function DealProfile({
   // Recompute score live from the stored breakdown as toggles change.
   // This makes the badge update instantly without waiting for PATCH + router.refresh().
   const { score: liveScore, grade: liveGrade } = useMemo(() => {
-    if (!deal.scoreBreakdown || deal.dealCategory === "other_cre") {
+    if (!deal.scoreBreakdown) {
       return { score: deal.score ?? 0, grade: (deal.grade ?? "F") as "A" | "B" | "C" | "D" | "F" };
     }
     return computeScoreFromBreakdown(deal.scoreBreakdown as CategoryScore[], enabledCategories);
@@ -363,7 +363,7 @@ export function DealProfile({
               )}
             </div>
           </div>
-          {deal.dealCategory !== "other_cre" && (
+          {(deal.score != null || deal.grade != null) && (
             <div className="flex flex-col items-center">
               <GradeBadge grade={liveGrade} size="lg" />
               <span className="mt-1 text-lg font-bold text-gray-900">
@@ -540,19 +540,19 @@ export function DealProfile({
             />
           </div>
 
-          {/* Score breakdown — net lease only */}
-          {deal.dealCategory === "other_cre" && (
-            <div className="card bg-gray-50 text-sm text-gray-500">
-              This deal is tracked as Other CRE and is not scored against a net lease buy box.
-            </div>
-          )}
-          {deal.dealCategory !== "other_cre" && (
+          {/* Score breakdown */}
+          {deal.scoreBreakdown && (
             <div className="card">
               <button
                 onClick={() => setShowBreakdown((s) => !s)}
                 className="flex w-full items-center justify-between"
               >
+                <div>
                 <span className="font-semibold">Score Breakdown</span>
+                {deal.dealCategory === "other_cre" && (
+                  <p className="text-xs text-gray-400 mt-0.5">Scored against investor buy box using applicable criteria — NNN fields not included.</p>
+                )}
+              </div>
                 <ChevronDown
                   className={`h-5 w-5 transition ${showBreakdown ? "rotate-180" : ""}`}
                 />
