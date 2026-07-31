@@ -85,6 +85,7 @@ type Deal = {
   scoreBreakdown: Category[] | null;
   confidenceLevel: string | null;
   selfCheckerNotes: string | null;
+  primaryInvestorName: string | null;
   analysisContext: string | null;
   scoringConfig: { enabledCategories?: string[] } | null;
   sourceBroker: string | null;
@@ -364,10 +365,15 @@ export function DealProfile({
             </div>
           </div>
           {(deal.score != null || deal.grade != null) && (
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col items-center text-center">
               <GradeBadge grade={liveGrade} size="lg" />
               <span className="mt-1 text-lg font-bold text-gray-900">
                 {liveScore > 0 ? liveScore.toFixed(0) : (deal.score?.toFixed(0) ?? "—")}
+              </span>
+              <span className="mt-0.5 text-[10px] text-gray-400 max-w-[80px] leading-tight">
+                {investorContext
+                  ? investorContext.investorName
+                  : (deal.primaryInvestorName ?? "primary buy box")}
               </span>
             </div>
           )}

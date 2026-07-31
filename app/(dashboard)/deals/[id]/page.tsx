@@ -16,6 +16,7 @@ export default async function DealPage({
     prisma.deal.findUnique({
       where: { id: params.id },
       include: {
+        investor: { select: { name: true } },
         updates: { orderBy: { createdAt: "desc" } },
         newsFlags: {
           include: { newsItem: true },
@@ -46,6 +47,7 @@ export default async function DealPage({
 
   const serialized = {
     ...deal,
+    primaryInvestorName: deal.investor?.name ?? null,
     analysisContext: deal.analysisContext ?? null,
     scoringConfig: (deal.scoringConfig as { enabledCategories?: string[] } | null) ?? null,
     // Override score/grade/breakdown with the assignment-specific values when in investor context
