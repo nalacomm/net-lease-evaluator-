@@ -87,7 +87,7 @@ export default async function DealPage({
 
   // Load cached gap analysis from the assignment (if it exists)
   const cachedGapAnalysis = effectiveAssignment?.gapAnalysis
-    ? (ctxAssignment.gapAnalysis as {
+    ? (effectiveAssignment.gapAnalysis as {
         isExceptional: boolean;
         exceptionalReason: string | null;
         buyBoxAdjustments: { field: string; currentValue: string; requiredValue: string; impact: string }[];
