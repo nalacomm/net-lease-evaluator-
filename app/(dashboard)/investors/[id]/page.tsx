@@ -18,7 +18,7 @@ export default async function InvestorPage({
     where: { id: params.id },
     include: {
       buyBox: true,
-      deals: { where: { status: "active" }, orderBy: { score: "desc" } },
+      deals: { orderBy: { createdAt: "desc" } },
       assignments: {
         include: { deal: true },
         orderBy: { score: "desc" },
@@ -28,7 +28,7 @@ export default async function InvestorPage({
   if (!investor) notFound();
   const bb = investor.buyBox;
 
-  // Portfolio cash flow projections at default LTV
+  // Income projections: hypothetical monthly income if each deal is acquired
   const projections = bb
     ? investor.deals
         .filter((d) => d.askingPrice && d.noi)
@@ -51,6 +51,29 @@ export default async function InvestorPage({
         })
         .sort((a, b) => b.additive - a.additive)
     : [];
+
+  // Merge assignments + directly-linked deals into one unified list
+  // Assignments have per-investor scores; directly-linked deals use the deal's own score
+  const assignedDealIds = new Set(investor.assignments.map((a) => a.dealId));
+  const directOnlyDeals = investor.deals.filter((d) => !assignedDealIds.has(d.id));
+  const allEvaluatedDeals = [
+    ...investor.assignments.map((a) => ({
+      id: a.dealId,
+      address: a.deal.address,
+      tenantName: a.deal.tenantName,
+      score: a.score,
+      grade: a.grade,
+      formal: true,
+    })),
+    ...directOnlyDeals.map((d) => ({
+      id: d.id,
+      address: d.address,
+      tenantName: d.tenantName,
+      score: d.score,
+      grade: d.grade,
+      formal: false,
+    })),
+  ];
 
   return (
     <div className="space-y-5">
@@ -77,82 +100,75 @@ export default async function InvestorPage({
 
       <InvestorAnalysis investorId={investor.id} initialSummary={investor.investorSummary ?? null} />
 
-      {/* Portfolio cash flow */}
-      {bb && (
+      {/* Income projections (hypothetical — not current holdings) */}
+      {bb && projections.length > 0 && (
         <div className="card">
-          <h2 className="mb-2 font-semibold">Portfolio Cash Flow</h2>
-          <p className="text-sm text-gray-500">
-            Current monthly income:{" "}
-            <span className="font-semibold text-gray-900">
-              {fmtMoney(bb.currentMonthlyIncome ?? 0)}
-            </span>{" "}
-            · at {(bb.ltv * 100).toFixed(0)}% LTV default
+          <h2 className="mb-1 font-semibold">Income Projections</h2>
+          <p className="mb-3 text-xs text-gray-400">
+            Hypothetical monthly cash flow if each deal is acquired at buy box defaults ({(bb.ltv * 100).toFixed(0)}% LTV). These are prospective scenarios — not current holdings.
+            {bb.currentMonthlyIncome ? ` Current baseline: ${fmtMoney(bb.currentMonthlyIncome)}/mo.` : ""}
           </p>
-          {projections.length === 0 ? (
-            <p className="py-3 text-center text-sm text-gray-400">
-              No active deals with financials yet.
-            </p>
-          ) : (
-            <ul className="mt-3 space-y-2">
-              {projections.map((p) => (
-                <li key={p.id}>
-                  <Link
-                    href={`/deals/${p.id}`}
-                    className="flex items-center justify-between rounded-lg border border-gray-100 p-3 hover:bg-gray-50"
-                  >
-                    <div className="flex items-center gap-2">
-                      <GradeBadge grade={p.grade} size="sm" />
-                      <span className="text-sm font-medium">{p.label}</span>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-semibold text-green-700">
-                        +{fmtMoney(p.additive)}/mo
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        → {fmtMoney(p.newTotal)}/mo total
-                      </p>
-                    </div>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
+          <ul className="space-y-2">
+            {projections.map((p) => (
+              <li key={p.id}>
+                <Link
+                  href={`/deals/${p.id}`}
+                  className="flex items-center justify-between rounded-lg border border-gray-100 p-3 hover:bg-gray-50"
+                >
+                  <div className="flex items-center gap-2">
+                    <GradeBadge grade={p.grade} size="sm" />
+                    <span className="text-sm font-medium">{p.label}</span>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-green-700">
+                      +{fmtMoney(p.additive)}/mo
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      → {fmtMoney(p.newTotal)}/mo total
+                    </p>
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
-      {/* Assigned deals (evaluated against this investor's buy box) */}
-      {investor.assignments.length > 0 && (
+      {/* All deals linked to this investor */}
+      {allEvaluatedDeals.length > 0 && (
         <div className="card">
           <h2 className="mb-2 font-semibold">
             Deals Evaluated Against This Buy Box
           </h2>
           <p className="mb-3 text-xs text-gray-500">
-            All modules — Finance, Scoring, Sensitivity — use this investor's buy box defaults.
+            All modules — Finance, Scoring, Sensitivity — use this investor&apos;s buy box defaults.
           </p>
           <ul className="space-y-2">
-            {investor.assignments.map((a) => (
+            {allEvaluatedDeals.map((a) => (
               <li key={a.id}>
                 <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-100 p-3">
                   <div className="flex items-center gap-2">
                     <GradeBadge grade={a.grade} size="sm" />
                     <div>
                       <p className="text-sm font-medium text-gray-900">
-                        {a.deal.address ?? a.deal.tenantName ?? "Deal"}
+                        {a.address ?? a.tenantName ?? "Deal"}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {a.deal.tenantName} · Score {a.score?.toFixed(0) ?? "—"}
+                        {a.tenantName && a.address ? a.tenantName : null}
+                        {a.score != null ? ` · Score ${a.score.toFixed(0)}` : ""}
+                        {!a.formal && <span className="ml-1 text-gray-400">(not yet re-scored against buy box)</span>}
                       </p>
                     </div>
                   </div>
                   <div className="flex gap-2">
                     <Link
-                      href={`/deals/${a.dealId}?investorId=${investor.id}`}
+                      href={`/deals/${a.id}?investorId=${investor.id}`}
                       className="btn-secondary text-xs"
                     >
                       Overview
                     </Link>
                     <Link
-                      href={`/finance/${a.dealId}?investorId=${investor.id}`}
+                      href={`/finance/${a.id}?investorId=${investor.id}`}
                       className="btn-primary text-xs"
                     >
                       Finance
