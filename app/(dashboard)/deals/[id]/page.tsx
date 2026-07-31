@@ -42,19 +42,26 @@ export default async function DealPage({
     ? deal.assignments.find((a) => a.investorId === ctxInvestorId)
     : null;
 
-  const ctxInvestor = ctxAssignment?.investor ?? null;
+  // When no explicit investor context: if there's exactly one assignment, use it as the default
+  // display so the badge reflects the investor this deal is actually assigned to, not whoever
+  // happened to be the primary investor at intake time.
+  const defaultAssignment =
+    !ctxInvestorId && deal.assignments.length === 1 ? deal.assignments[0] : null;
+
+  const effectiveAssignment = ctxAssignment ?? defaultAssignment;
+  const ctxInvestor = effectiveAssignment?.investor ?? null;
   const ctxBuyBox = ctxInvestor?.buyBox ?? null;
 
   const serialized = {
     ...deal,
-    primaryInvestorName: deal.investor?.name ?? null,
+    primaryInvestorName: effectiveAssignment?.investor?.name ?? deal.investor?.name ?? null,
     analysisContext: deal.analysisContext ?? null,
     scoringConfig: (deal.scoringConfig as { enabledCategories?: string[] } | null) ?? null,
     // Override score/grade/breakdown with the assignment-specific values when in investor context
-    score: ctxAssignment ? ctxAssignment.score : deal.score,
-    grade: ctxAssignment ? ctxAssignment.grade : deal.grade,
+    score: effectiveAssignment ? effectiveAssignment.score : deal.score,
+    grade: effectiveAssignment ? effectiveAssignment.grade : deal.grade,
     scoreBreakdown: (
-      ctxAssignment ? ctxAssignment.scoreBreakdown : deal.scoreBreakdown
+      effectiveAssignment ? effectiveAssignment.scoreBreakdown : deal.scoreBreakdown
     ) as { category: string; points: number; max: number; status: string; detail: string }[] | null,
     updates: deal.updates.map((u) => ({
       ...u,
@@ -79,7 +86,7 @@ export default async function DealPage({
   };
 
   // Load cached gap analysis from the assignment (if it exists)
-  const cachedGapAnalysis = ctxAssignment?.gapAnalysis
+  const cachedGapAnalysis = effectiveAssignment?.gapAnalysis
     ? (ctxAssignment.gapAnalysis as {
         isExceptional: boolean;
         exceptionalReason: string | null;
@@ -103,7 +110,7 @@ export default async function DealPage({
       totalCount={ids.length}
       currentIndex={idx}
       investorContext={
-        ctxInvestor && ctxBuyBox
+        effectiveAssignment && ctxInvestor && ctxBuyBox
           ? {
               investorId: ctxInvestor.id,
               investorName: ctxInvestor.name,
