@@ -26,6 +26,9 @@ export default async function DealsPage() {
         status: true,
         sourcePlatform: true,
         createdAt: true,
+        assignments: {
+          select: { investor: { select: { name: true } } },
+        },
       },
     }),
     prisma.report.findMany({ select: { dealIds: true } }),
@@ -55,7 +58,13 @@ export default async function DealsPage() {
           }
         />
       ) : (
-        <DealList deals={deals} reportedDealIds={reportedDealIds} />
+        <DealList
+          deals={deals.map((d) => ({
+            ...d,
+            investorNames: d.assignments.map((a) => a.investor.name),
+          }))}
+          reportedDealIds={reportedDealIds}
+        />
       )}
     </div>
   );

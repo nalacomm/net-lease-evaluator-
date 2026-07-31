@@ -30,7 +30,7 @@ export default async function SitesPage() {
         status: true,
         createdAt: true,
         _count: { select: { assignments: true } },
-        assignments: { select: { grade: true } },
+        assignments: { select: { grade: true, tenant: { select: { name: true } } } },
       },
     }),
     prisma.siteReport.findMany({ select: { siteIds: true } }),
@@ -51,6 +51,7 @@ export default async function SitesPage() {
     createdAt: site.createdAt.toISOString(),
     tenantCount: site._count.assignments,
     bestGrade: bestGrade(site.assignments.map((a) => a.grade)),
+    tenantNames: site.assignments.map((a) => a.tenant.name),
   }));
 
   return (

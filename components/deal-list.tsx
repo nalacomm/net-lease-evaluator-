@@ -6,6 +6,25 @@ import { fmtMoney, fmtPercent, fmtDscr } from "@/lib/format";
 import { labelFor, ASSET_TYPES, DEAL_STATUSES } from "@/lib/constants";
 import { GradeBadge, StatusPill } from "@/components/ui";
 
+const PAGE_SIZE = 25;
+
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function InitialsBadge({ name, title }: { name: string; title: string }) {
+  return (
+    <span
+      title={title}
+      className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-brand text-[10px] font-semibold text-white shrink-0"
+    >
+      {initials(name)}
+    </span>
+  );
+}
+
 export type DealRow = {
   id: string;
   address: string | null;
@@ -22,6 +41,7 @@ export type DealRow = {
   dealCategory: string;
   sourcePlatform: string | null;
   createdAt: Date | string;
+  investorNames?: string[];
 };
 
 type SortKey = "address" | "tenantName" | "assetType" | "askingPrice" | "capRateAsking" | "dscrCalculated" | "grade" | "score" | "createdAt" | "status";
@@ -78,6 +98,7 @@ export function DealList({
   const [priceMin, setPriceMin] = useState("");
   const [priceMax, setPriceMax] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const [page, setPage] = useState(1);
 
   const stateOptions = useMemo(() => {
     const set = new Set(deals.map((d) => d.state).filter(Boolean) as string[]);
@@ -91,6 +112,7 @@ export function DealList({
       setSort(col);
       setDir(col === "address" || col === "tenantName" || col === "assetType" || col === "status" ? "asc" : "desc");
     }
+    setPage(1);
   }
 
   const filtered = useMemo(() => {
@@ -117,6 +139,9 @@ export function DealList({
     });
     return r;
   }, [deals, sort, dir, assetFilter, statusFilter, gradeFilter, stateFilter, priceMin, priceMax]);
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const activeFilters = [assetFilter, statusFilter, gradeFilter, stateFilter, priceMin, priceMax].filter(Boolean).length;
 
@@ -164,6 +189,7 @@ export function DealList({
 
       <p className="text-xs text-gray-400">{filtered.length} of {deals.length} deals</p>
 
+
       {/* Desktop table */}
       <div className="hidden overflow-x-auto md:block">
         <table className="w-full text-sm">
@@ -178,11 +204,12 @@ export function DealList({
               <SortTh label="Grade" col="grade" sort={sort} dir={dir} onSort={onSort} className="text-center" />
               <SortTh label="Score" col="score" sort={sort} dir={dir} onSort={onSort} className="text-right" />
               <SortTh label="Added" col="createdAt" sort={sort} dir={dir} onSort={onSort} />
+              <th className="px-3 py-2 whitespace-nowrap text-xs uppercase tracking-wide text-gray-500">Investor</th>
               <SortTh label="Status" col="status" sort={sort} dir={dir} onSort={onSort} />
             </tr>
           </thead>
           <tbody>
-            {filtered.map((d) => (
+            {paged.map((d) => (
               <tr key={d.id} className="border-b border-gray-100 hover:bg-gray-50">
                 <td className="px-3 py-2">
                   <div className="flex items-center gap-2">
@@ -212,6 +239,14 @@ export function DealList({
                   {new Date(d.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" })}
                 </td>
                 <td className="px-3 py-2">
+                  <div className="flex items-center gap-1">
+                    {(d.investorNames ?? []).map((name) => (
+                      <InitialsBadge key={name} name={name} title={name} />
+                    ))}
+                    {(d.investorNames ?? []).length === 0 && <span className="text-xs text-gray-300">—</span>}
+                  </div>
+                </td>
+                <td className="px-3 py-2">
                   <StatusPill status={d.status === "active" ? "info" : "info"}>
                     {labelFor(DEAL_STATUSES, d.status)}
                   </StatusPill>
@@ -224,11 +259,16 @@ export function DealList({
 
       {/* Mobile cards */}
       <ul className="space-y-2 md:hidden">
-        {filtered.map((d) => (
+        {paged.map((d) => (
           <li key={d.id}>
             <Link href={`/deals/${d.id}`} className="card flex items-center justify-between">
               <div className="min-w-0">
-                <p className="truncate font-medium text-gray-900">{d.address ?? "—"}</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="truncate font-medium text-gray-900">{d.address ?? "—"}</p>
+                  {(d.investorNames ?? []).map((name) => (
+                    <InitialsBadge key={name} name={name} title={name} />
+                  ))}
+                </div>
                 <p className="truncate text-sm text-gray-500">
                   {d.tenantName ?? "—"} · {labelFor(ASSET_TYPES, d.assetType)}
                 </p>
@@ -247,6 +287,30 @@ export function DealList({
 
       {filtered.length === 0 && (
         <p className="py-8 text-center text-sm text-gray-400">No deals match.</p>
+      )}
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-1 text-sm">
+          <span className="text-xs text-gray-400">
+            Page {page} of {totalPages}
+          </span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="btn-secondary px-3 py-1 text-xs disabled:opacity-40"
+            >
+              Prev
+            </button>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="btn-secondary px-3 py-1 text-xs disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -5,6 +5,25 @@ import Link from "next/link";
 import { labelFor, SITE_TYPES, SITE_STATUSES } from "@/lib/constants";
 import { GradeBadge, StatusPill } from "@/components/ui";
 
+const PAGE_SIZE = 25;
+
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function InitialsBadge({ name, title }: { name: string; title: string }) {
+  return (
+    <span
+      title={title}
+      className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-brand text-[10px] font-semibold text-white shrink-0"
+    >
+      {initials(name)}
+    </span>
+  );
+}
+
 export type SiteRow = {
   id: string;
   name: string;
@@ -18,6 +37,7 @@ export type SiteRow = {
   createdAt: string;
   tenantCount: number;
   bestGrade: string | null;
+  tenantNames?: string[];
 };
 
 type SortKey = "name" | "address" | "siteType" | "squareFeet" | "askingRentPsf" | "bestGrade" | "tenantCount" | "createdAt" | "status";
@@ -68,6 +88,7 @@ export function SiteList({
 }) {
   const [sort, setSort] = useState<SortKey>("createdAt");
   const [dir, setDir] = useState<SortDir>("desc");
+  const [page, setPage] = useState(1);
   const reported = useMemo(() => new Set(reportedSiteIds), [reportedSiteIds]);
 
   function onSort(col: SortKey) {
@@ -77,6 +98,7 @@ export function SiteList({
       setSort(col);
       setDir(col === "name" || col === "address" || col === "siteType" || col === "status" ? "asc" : "desc");
     }
+    setPage(1);
   }
 
   const sorted = useMemo(() => {
@@ -95,7 +117,11 @@ export function SiteList({
     });
   }, [sites, sort, dir]);
 
+  const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
+  const paged = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   return (
+    <div className="space-y-4">
     <div className="overflow-x-auto rounded-xl border border-border">
       <table className="w-full text-sm">
         <thead>
@@ -112,7 +138,7 @@ export function SiteList({
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
-          {sorted.map((site) => (
+          {paged.map((site) => (
             <tr key={site.id} className="hover:bg-muted/30 transition-colors">
               <td className="px-4 py-3 font-medium">
                 <div className="flex items-center gap-2">
@@ -137,7 +163,16 @@ export function SiteList({
               <td className="px-4 py-3 text-center">
                 <GradeBadge grade={site.bestGrade} size="sm" />
               </td>
-              <td className="px-4 py-3 text-right">{site.tenantCount}</td>
+              <td className="px-4 py-3">
+                <div className="flex items-center gap-1">
+                  {(site.tenantNames ?? []).length > 0
+                    ? (site.tenantNames ?? []).map((name) => (
+                        <InitialsBadge key={name} name={name} title={name} />
+                      ))
+                    : <span className="text-xs text-muted-foreground">{site.tenantCount || "—"}</span>
+                  }
+                </div>
+              </td>
               <td className="px-4 py-3 text-muted-foreground text-xs">
                 {new Date(site.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" })}
               </td>
@@ -148,6 +183,31 @@ export function SiteList({
           ))}
         </tbody>
       </table>
+    </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-1 text-sm">
+          <span className="text-xs text-muted-foreground">
+            Page {page} of {totalPages}
+          </span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="btn-secondary px-3 py-1 text-xs disabled:opacity-40"
+            >
+              Prev
+            </button>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="btn-secondary px-3 py-1 text-xs disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
