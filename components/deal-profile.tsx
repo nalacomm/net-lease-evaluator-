@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -176,6 +176,16 @@ export function DealProfile({
   });
   const [savingConfig, setSavingConfig] = useState(false);
   const [savingContext, setSavingContext] = useState(false);
+
+  // Recompute score live from the stored breakdown as toggles change.
+  // This makes the badge update instantly without waiting for PATCH + router.refresh().
+  const { score: liveScore, grade: liveGrade } = useMemo(() => {
+    if (!deal.scoreBreakdown || deal.dealCategory === "other_cre") {
+      return { score: deal.score ?? 0, grade: (deal.grade ?? "F") as "A" | "B" | "C" | "D" | "F" };
+    }
+    return computeScoreFromBreakdown(deal.scoreBreakdown as CategoryScore[], enabledCategories);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deal.scoreBreakdown, deal.score, deal.grade, deal.dealCategory, enabledCategories]);
 
   async function toggleAssignment(investorId: string) {
     const isAssigned = assignments.some((a) => a.investorId === investorId);
@@ -355,9 +365,9 @@ export function DealProfile({
           </div>
           {deal.dealCategory !== "other_cre" && (
             <div className="flex flex-col items-center">
-              <GradeBadge grade={deal.grade} size="lg" />
+              <GradeBadge grade={liveGrade} size="lg" />
               <span className="mt-1 text-lg font-bold text-gray-900">
-                {deal.score?.toFixed(0) ?? "—"}
+                {liveScore > 0 ? liveScore.toFixed(0) : (deal.score?.toFixed(0) ?? "—")}
               </span>
             </div>
           )}
@@ -548,15 +558,11 @@ export function DealProfile({
                 />
               </button>
               {showBreakdown && deal.scoreBreakdown && (() => {
-                const { score: liveScore, grade: liveGrade } = computeScoreFromBreakdown(
-                  deal.scoreBreakdown as CategoryScore[],
-                  enabledCategories
-                );
                 return (
                   <>
                     <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
                       <span>
-                        Live score: <span className="font-semibold text-gray-800">{liveScore}</span> · {liveGrade}
+                        Score: <span className="font-semibold text-gray-800">{liveScore}</span> · {liveGrade}
                       </span>
                       {savingConfig && <span className="text-brand">Saving…</span>}
                     </div>
