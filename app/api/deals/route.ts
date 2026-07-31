@@ -66,6 +66,27 @@ export async function POST(req: Request) {
 
     await analyzeDeal(deal.id);
     const full = await prisma.deal.findUnique({ where: { id: deal.id } });
+
+    // Create a DealAssignment for the primary investor so the deal is formally assigned
+    // from day one and the score display reflects the right investor immediately.
+    if (full?.score != null && full?.grade != null) {
+      await prisma.dealAssignment.upsert({
+        where: { dealId_investorId: { dealId: deal.id, investorId: body.investorId } },
+        update: {
+          score: full.score,
+          grade: full.grade,
+          scoreBreakdown: (full.scoreBreakdown ?? null) as never,
+        },
+        create: {
+          dealId: deal.id,
+          investorId: body.investorId,
+          score: full.score,
+          grade: full.grade,
+          scoreBreakdown: (full.scoreBreakdown ?? null) as never,
+        },
+      });
+    }
+
     return NextResponse.json(full, { status: 201 });
   } catch (e) {
     console.error("deals POST error", e);
