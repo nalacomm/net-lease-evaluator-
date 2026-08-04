@@ -9,7 +9,7 @@ export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
-    const { investorId, dealIds } = await req.json();
+    const { investorId, dealIds, compareMode = false } = await req.json();
     if (!investorId || !dealIds?.length) {
       return NextResponse.json({ error: "investorId + dealIds required" }, { status: 400 });
     }
@@ -69,9 +69,8 @@ Monthly Net Cash Flow: ${fmtMoney(fin.monthlyNetCashFlow)}`;
 
     const bbContext = `Your investment criteria: cap rate floor ${bb.capRateMin}%, target ${bb.capRateTarget}%. Maximum price ${fmtMoney(bb.priceMax)}. Preferred lease structure: ${bb.leaseTypePreferred.replace(/_/g, " ")}. Minimum DSCR: ${bb.dscrMin}x.`;
 
-    const [execSummary, recommendation] = await Promise.all([
-      askText(
-        `You are a commercial real estate advisor writing a personalized investment report for a client named ${investor.name}${investor.entityName ? ` (${investor.entityName})` : ""}.
+    const summaryPrompt = compareMode
+      ? `You are a commercial real estate advisor writing a personalized investment report for a client named ${investor.name}${investor.entityName ? ` (${investor.entityName})` : ""}.
 
 Write directly TO the investor using "you" and "your" — not about them in third person.
 ${bbContext}
@@ -79,11 +78,18 @@ ${bbContext}
 Properties being presented:
 ${allSummaries}
 
-Write a 2-3 sentence executive summary. Speak directly to the investor about how these opportunities fit their strategy and goals. No preamble, no "Here is the summary".`,
-        { maxTokens: 300 }
-      ),
-      askText(
-        `You are a commercial real estate advisor writing directly to your client, ${investor.name}.
+Write a 2-3 sentence executive summary. Speak directly to the investor about how these opportunities compare against each other and fit their strategy. No preamble, no "Here is the summary".`
+      : `You are a commercial real estate advisor writing a personalized investment report for a client named ${investor.name}${investor.entityName ? ` (${investor.entityName})` : ""}.
+
+Write directly TO the investor using "you" and "your" — not about them in third person.
+${bbContext}
+
+Properties being presented:
+${allSummaries}
+
+Write a 2-3 sentence executive summary evaluating how each property fits the investor's criteria. Do not name a winner or make a recommendation. No preamble, no "Here is the summary".`;
+
+    const recommendationPrompt = `You are a commercial real estate advisor writing directly to your client, ${investor.name}.
 
 Use "you" and "your" throughout — never third person.
 ${bbContext}
@@ -91,9 +97,11 @@ ${bbContext}
 Properties under review:
 ${allSummaries}
 
-Write a 2-3 sentence recommendation telling the client which property best fits their investment thesis and exactly why. Be direct, specific, and speak as their advisor. No preamble.`,
-        { maxTokens: 300 }
-      ),
+Write a 2-3 sentence recommendation telling the client which property best fits their investment thesis and exactly why. Be direct, specific, and speak as their advisor. No preamble.`;
+
+    const [execSummary, recommendation] = await Promise.all([
+      askText(summaryPrompt, { maxTokens: 300 }),
+      compareMode ? askText(recommendationPrompt, { maxTokens: 300 }) : Promise.resolve(null),
     ]);
 
     // Per-deal AI risks/strengths — written to the investor directly

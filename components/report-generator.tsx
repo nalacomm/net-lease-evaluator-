@@ -123,7 +123,7 @@ type DealReportData = {
   reportId: string;
   investor: { name: string; entityName: string | null };
   execSummary: string;
-  recommendation: string;
+  recommendation: string | null;
   deals: ReportDeal[];
 };
 
@@ -131,7 +131,7 @@ type SiteReportData = {
   tenant: { name: string; company: string | null };
   requirements: string;
   execSummary: string;
-  recommendation: string;
+  recommendation: string | null;
   sites: ReportSite[];
 };
 
@@ -223,6 +223,7 @@ export function ReportGenerator({
   const [dealReport, setDealReport] = useState<DealReportData | null>(null);
   const [siteReport, setSiteReport] = useState<SiteReportData | null>(null);
   const [showScore, setShowScore] = useState(true);
+  const [compareMode, setCompareMode] = useState(false);
   const [loadingPastId, setLoadingPastId] = useState<string | null>(null);
   const [viewingPast, setViewingPast] = useState(false);
 
@@ -289,7 +290,7 @@ export function ReportGenerator({
       const res = await fetch("/api/reports/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ investorId: investor.id, dealIds: selectedDeals }),
+        body: JSON.stringify({ investorId: investor.id, dealIds: selectedDeals, compareMode }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
@@ -310,7 +311,7 @@ export function ReportGenerator({
       const res = await fetch("/api/reports/sites/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tenantId: selectedTenantId, siteIds: selectedSites }),
+        body: JSON.stringify({ tenantId: selectedTenantId, siteIds: selectedSites, compareMode }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
@@ -440,6 +441,18 @@ export function ReportGenerator({
                 <input type="checkbox" checked={showScore} onChange={(e) => setShowScore(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-brand" />
                 Show score in report
               </label>
+
+              <div className="rounded-lg border border-gray-200 p-3 space-y-1">
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-800 cursor-pointer select-none">
+                  <input type="checkbox" checked={compareMode} onChange={(e) => setCompareMode(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-brand" />
+                  Compare deals against each other
+                </label>
+                <p className="text-xs text-gray-400 ml-6">
+                  {compareMode
+                    ? "Report will evaluate deals against each other and recommend the best fit."
+                    : "Report evaluates each deal against your buy box only — no recommendation."}
+                </p>
+              </div>
 
               <button
                 onClick={generateDealReport}
@@ -584,6 +597,18 @@ export function ReportGenerator({
                 <input type="checkbox" checked={showScore} onChange={(e) => setShowScore(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-brand" />
                 Show score in report
               </label>
+
+              <div className="rounded-lg border border-gray-200 p-3 space-y-1">
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-800 cursor-pointer select-none">
+                  <input type="checkbox" checked={compareMode} onChange={(e) => setCompareMode(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-brand" />
+                  Compare sites against each other
+                </label>
+                <p className="text-xs text-gray-400 ml-6">
+                  {compareMode
+                    ? "Report will compare sites against each other and recommend the best fit."
+                    : "Report evaluates each site against requirements only — no recommendation."}
+                </p>
+              </div>
 
               {activeTenant && (
                 <button
@@ -777,10 +802,12 @@ function DealReportOutput({ report, showScore = true }: { report: DealReportData
         </div>
       ))}
 
-      <div className="card print:shadow-none">
-        <h3 className="mb-1 font-semibold">Recommendation</h3>
-        <p className="text-sm text-gray-700">{report.recommendation}</p>
-      </div>
+      {report.recommendation && (
+        <div className="card print:shadow-none">
+          <h3 className="mb-1 font-semibold">Recommendation</h3>
+          <p className="text-sm text-gray-700">{report.recommendation}</p>
+        </div>
+      )}
       </div>
 
       <div className="flex gap-2 print:hidden">
@@ -808,8 +835,7 @@ function DealReportOutput({ report, showScore = true }: { report: DealReportData
           `Please find attached a net lease investment analysis report comparing ${report.deals.length} deal${report.deals.length !== 1 ? "s" : ""} we${report.investor.entityName ? ` have been tracking for ${report.investor.entityName}` : "'ve been reviewing"}.`,
           ``,
           report.execSummary,
-          ``,
-          report.recommendation,
+          ...(report.recommendation ? [``, report.recommendation] : []),
           ``,
           `Please review the attached report and let me know if you have any questions or would like to schedule a call to discuss.`,
           ``,
@@ -984,10 +1010,12 @@ function SiteReportOutput({ report, showScore = true }: { report: SiteReportData
         );
       })}
 
-      <div className="card print:shadow-none">
-        <h3 className="mb-1 font-semibold">Recommendation</h3>
-        <p className="text-sm text-gray-700">{report.recommendation}</p>
-      </div>
+      {report.recommendation && (
+        <div className="card print:shadow-none">
+          <h3 className="mb-1 font-semibold">Recommendation</h3>
+          <p className="text-sm text-gray-700">{report.recommendation}</p>
+        </div>
+      )}
       </div>
 
       <div className="flex gap-2 print:hidden">
@@ -1015,8 +1043,7 @@ function SiteReportOutput({ report, showScore = true }: { report: SiteReportData
           `Please find attached a site comparison report evaluating ${report.sites.length} site${report.sites.length !== 1 ? "s" : ""} for your consideration${report.tenant.company ? ` on behalf of ${report.tenant.company}` : ""}.`,
           ``,
           report.execSummary,
-          ``,
-          report.recommendation,
+          ...(report.recommendation ? [``, report.recommendation] : []),
           ``,
           `Please review the attached and let me know which sites you'd like to prioritize or if you'd like to schedule time to walk through the findings together.`,
           ``,

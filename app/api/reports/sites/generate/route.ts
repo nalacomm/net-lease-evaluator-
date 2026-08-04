@@ -7,7 +7,7 @@ export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
-    const { tenantId, siteIds } = await req.json();
+    const { tenantId, siteIds, compareMode = false } = await req.json();
     if (!tenantId || !siteIds?.length) {
       return NextResponse.json({ error: "tenantId + siteIds required" }, { status: 400 });
     }
@@ -63,22 +63,29 @@ export async function POST(req: Request) {
 
     const allSummaries = sites.map(siteSummary).join("\n\n---\n");
 
-    const [execSummary, recommendation] = await Promise.all([
-      askText(
-        `You are Ed Henderson at Blake-Dickson Commercial Real Estate writing directly to your client ${tenantName}${tenant.company ? ` (${tenant.company})` : ""}.
+    const summaryPrompt = compareMode
+      ? `You are Ed Henderson at Blake-Dickson Commercial Real Estate writing directly to your client ${tenantName}${tenant.company ? ` (${tenant.company})` : ""}.
 
-This is a client-facing report. Write in first person ("I", "we", "I recommend") — never refer to yourself as "tenant rep" or in third person.
+This is a client-facing report. Write in first person ("I", "we") — never refer to yourself as "tenant rep" or in third person.
 Never mention scores, grades, or scoring systems.
 Tenant requirements: ${reqContext}
 
 Sites being presented:
 ${allSummaries}
 
-Write a 2–3 sentence executive summary covering how these sites collectively match the client's requirements. No preamble.`,
-        { maxTokens: 300 }
-      ),
-      askText(
-        `You are Ed Henderson at Blake-Dickson Commercial Real Estate writing directly to your client ${tenantName}.
+Write a 2–3 sentence executive summary covering how these sites compare against each other and match the client's requirements. No preamble.`
+      : `You are Ed Henderson at Blake-Dickson Commercial Real Estate writing directly to your client ${tenantName}${tenant.company ? ` (${tenant.company})` : ""}.
+
+This is a client-facing report. Write in first person ("I", "we") — never refer to yourself as "tenant rep" or in third person.
+Never mention scores, grades, or scoring systems.
+Tenant requirements: ${reqContext}
+
+Sites being presented:
+${allSummaries}
+
+Write a 2–3 sentence executive summary evaluating how each site fits the client's requirements. Do not name a top pick or make a recommendation. No preamble.`;
+
+    const recommendationPrompt = `You are Ed Henderson at Blake-Dickson Commercial Real Estate writing directly to your client ${tenantName}.
 
 This is a client-facing report. Write in first person ("I recommend", "I believe", "we suggest") — never refer to yourself as "tenant rep" or in third person.
 Never mention scores, grades, or scoring systems.
@@ -87,9 +94,11 @@ Tenant requirements: ${reqContext}
 Sites under review:
 ${allSummaries}
 
-Write a 2–3 sentence recommendation naming the top site and exactly why it best fits the client's requirements. Be direct and specific. No preamble.`,
-        { maxTokens: 300 }
-      ),
+Write a 2–3 sentence recommendation naming the top site and exactly why it best fits the client's requirements. Be direct and specific. No preamble.`;
+
+    const [execSummary, recommendation] = await Promise.all([
+      askText(summaryPrompt, { maxTokens: 300 }),
+      compareMode ? askText(recommendationPrompt, { maxTokens: 300 }) : Promise.resolve(null),
     ]);
 
     // Process in batches of 4 to stay within rate limits
