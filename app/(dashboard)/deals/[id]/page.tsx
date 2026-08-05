@@ -57,6 +57,8 @@ export default async function DealPage({
     primaryInvestorName: effectiveAssignment?.investor?.name ?? deal.investor?.name ?? null,
     analysisContext: deal.analysisContext ?? null,
     scoringConfig: (deal.scoringConfig as { enabledCategories?: string[] } | null) ?? null,
+    walt: deal.walt ?? null,
+    rentRoll: (deal.rentRoll ?? null) as never,
     // Override score/grade/breakdown with the assignment-specific values when in investor context
     score: effectiveAssignment ? effectiveAssignment.score : deal.score,
     grade: effectiveAssignment ? effectiveAssignment.grade : deal.grade,

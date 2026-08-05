@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
-import { scoreDeal, BuyBoxLike, DealLike } from "./scoring";
+import { scoreDeal, BuyBoxLike, DealLike, TenantLeaseRow, computeWalt } from "./scoring";
 
 /**
  * Recompute score, grade, finance fields, and self-checker notes for a deal,
@@ -32,8 +32,17 @@ export async function analyzeDeal(dealId: string): Promise<{
   if (!bb) throw new Error("Investor has no buy box");
 
   const previousScore = deal.score;
-  const result = scoreDeal(deal as DealLike, bb as BuyBoxLike);
 
+  // For multi-tenant deals, attach rentRoll and compute WALT before scoring
+  const rentRoll = (deal.rentRoll ?? null) as TenantLeaseRow[] | null;
+  const computedWalt = rentRoll && rentRoll.length > 0 ? computeWalt(rentRoll) : null;
+  const dealForScoring: DealLike = {
+    ...(deal as DealLike),
+    rentRoll: rentRoll ?? undefined,
+    walt: (deal.walt as number | null) ?? computedWalt ?? undefined,
+  };
+
+  const result = scoreDeal(dealForScoring, bb as BuyBoxLike);
   const notes = buildSelfCheckerNotes(deal, result);
 
   await prisma.deal.update({
@@ -48,6 +57,7 @@ export async function analyzeDeal(dealId: string): Promise<{
       monthlyDebtService: result.monthlyDebtService,
       monthlyNetCashFlow: result.monthlyNetCashFlow,
       selfCheckerNotes: notes,
+      ...(computedWalt != null ? { walt: computedWalt } : {}),
       scoreRationale: result.breakdown
         .filter((b) => b.status !== "pass")
         .map((b) => `${b.category}: ${b.detail}`)

@@ -139,11 +139,13 @@ model Deal {
   buildingSize     Float?
   lotSize          Float?
 
-  // Shopping Center specific
+  // Multi-tenant / Shopping Center
   numberOfTenants   Int?
   anchorTenant      String?
   vacancyRate       Float?    // percent, e.g. 5.0
   grossLeasableArea Float?    // total GLA in SF
+  rentRoll          Json?     // TenantLeaseRow[] — per-tenant lease data
+  walt              Float?    // Weighted Average Lease Term (income-weighted, years)
 
   // Demographics
   hhi1Mile        Float?

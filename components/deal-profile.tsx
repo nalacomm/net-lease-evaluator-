@@ -72,6 +72,8 @@ type Deal = {
   anchorTenant: string | null;
   vacancyRate: number | null;
   grossLeasableArea: number | null;
+  walt: number | null;
+  rentRoll: { tenantName: string; suite?: string | null; squareFeet?: number | null; annualRent: number; remainingYears: number; leaseType?: string | null; bumpPercent?: number | null; creditType?: string | null }[] | null;
   hhi3Mile: number | null;
   population1Mile: number | null;
   dscrCalculated: number | null;
@@ -519,6 +521,29 @@ export function DealProfile({
 
       {tab === "overview" && (
         <div className="space-y-4">
+          {deal.dealCategory === "multi_tenant" ? (
+            <div className="card grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+              <Metric label="Asking Price" value={fmtMoney(deal.askingPrice)} />
+              <Metric label="NOI" value={fmtMoney(deal.noi)} />
+              <Metric label="Cap Rate" value={fmtPercent(deal.capRateAsking)} />
+              <Metric label="GLA" value={deal.grossLeasableArea ? `${deal.grossLeasableArea.toLocaleString()} SF` : "—"} />
+              <Metric label="Vacancy" value={deal.vacancyRate != null ? `${deal.vacancyRate}%` : "—"} />
+              <Metric label="Tenants" value={deal.numberOfTenants ?? "—"} />
+              <Metric label="DSCR" value={fmtDscr(deal.dscrCalculated)} />
+              <Metric label="Mo. Cash Flow" value={fmtMoney(deal.monthlyNetCashFlow)} />
+              {deal.walt != null && (
+                <div className="col-span-2 sm:col-span-1 flex items-center gap-2">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand/10 shrink-0">
+                    <span className="text-xs font-bold text-brand">{deal.walt.toFixed(1)}</span>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">WALT</p>
+                    <p className="text-sm font-semibold text-gray-900">{deal.walt.toFixed(1)} yrs</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
           <div className="card grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
             <Metric label="Asking Price" value={fmtMoney(deal.askingPrice)} />
             <Metric label="NOI" value={fmtMoney(deal.noi)} />
@@ -545,6 +570,64 @@ export function DealProfile({
               value={deal.operatorUnitCount ?? "—"}
             />
           </div>
+          )}
+
+          {/* Rent roll for multi-tenant deals */}
+          {deal.dealCategory === "multi_tenant" && deal.rentRoll && deal.rentRoll.length > 0 && (
+            <div className="card">
+              <h3 className="mb-2 font-semibold">Rent Roll</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100 text-left text-xs font-medium text-gray-400">
+                      <th className="pb-2 pr-4">Tenant</th>
+                      <th className="pb-2 pr-4 text-right">SF</th>
+                      <th className="pb-2 pr-4 text-right">Annual Rent</th>
+                      <th className="pb-2 pr-4 text-right">Yrs Left</th>
+                      <th className="pb-2 text-left">Lease</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {deal.rentRoll.map((r, i) => {
+                      const expYr = new Date().getFullYear() + Math.ceil(r.remainingYears);
+                      return (
+                        <tr key={i}>
+                          <td className="py-2 pr-4 font-medium text-gray-900">
+                            {r.tenantName}
+                            {r.creditType === "national" && <span className="ml-1.5 rounded bg-blue-50 px-1 py-0.5 text-[10px] font-semibold text-blue-700">NAT</span>}
+                            {r.creditType === "regional" && <span className="ml-1.5 rounded bg-purple-50 px-1 py-0.5 text-[10px] font-semibold text-purple-700">REG</span>}
+                          </td>
+                          <td className="py-2 pr-4 text-right text-gray-500">{r.squareFeet != null ? r.squareFeet.toLocaleString() : "—"}</td>
+                          <td className="py-2 pr-4 text-right text-gray-500">${(r.annualRent / 1000).toFixed(0)}K</td>
+                          <td className="py-2 pr-4 text-right">
+                            <span className={`font-medium ${r.remainingYears < 2 ? "text-red-600" : r.remainingYears < 4 ? "text-yellow-600" : "text-gray-700"}`}>
+                              {r.remainingYears.toFixed(1)} <span className="text-xs text-gray-400">({expYr})</span>
+                            </span>
+                          </td>
+                          <td className="py-2 text-xs text-gray-500">{r.leaseType ?? "—"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t border-gray-200">
+                      <td className="pt-2 text-xs font-semibold text-gray-500">Total / WALT</td>
+                      <td className="pt-2 pr-4 text-right text-xs text-gray-500">
+                        {deal.rentRoll.reduce((s, r) => s + (r.squareFeet ?? 0), 0).toLocaleString()} SF
+                      </td>
+                      <td className="pt-2 pr-4 text-right text-xs font-semibold text-gray-700">
+                        ${(deal.rentRoll.reduce((s, r) => s + r.annualRent, 0) / 1000).toFixed(0)}K/yr
+                      </td>
+                      <td className="pt-2 pr-4 text-right text-xs font-semibold text-brand">
+                        {deal.walt?.toFixed(1) ?? "—"} yrs WALT
+                      </td>
+                      <td />
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          )}
 
           {/* Score breakdown */}
           {deal.scoreBreakdown && (
@@ -557,6 +640,9 @@ export function DealProfile({
                 <span className="font-semibold">Score Breakdown</span>
                 {deal.dealCategory === "other_cre" && (
                   <p className="text-xs text-gray-400 mt-0.5">Scored against investor buy box using applicable criteria — NNN fields not included.</p>
+                )}
+                {deal.dealCategory === "multi_tenant" && (
+                  <p className="text-xs text-gray-400 mt-0.5">Scored using multi-tenant criteria: cap rate, DSCR, WALT, occupancy, and lease stagger.</p>
                 )}
               </div>
                 <ChevronDown

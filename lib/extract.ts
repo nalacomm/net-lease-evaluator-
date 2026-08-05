@@ -1,5 +1,16 @@
 import { askJson } from "./anthropic";
 
+export interface TenantLeaseRowExtracted {
+  tenantName: string;
+  suite: string | null;
+  squareFeet: number | null;
+  annualRent: number;
+  remainingYears: number;
+  leaseType: string | null;
+  bumpPercent: number | null;
+  creditType: string | null;
+}
+
 export interface ExtractedDeal {
   address: string | null;
   city: string | null;
@@ -23,6 +34,12 @@ export interface ExtractedDeal {
   population1Mile: number | null;
   sourceBroker: string | null;
   sourcePlatform: string | null;
+  // multi-tenant fields
+  grossLeasableArea: number | null;
+  numberOfTenants: number | null;
+  vacancyRate: number | null;
+  walt: number | null;
+  rentRoll: TenantLeaseRowExtracted[] | null;
 }
 
 export interface ExtractResult {
@@ -37,8 +54,57 @@ const SYSTEM_NET_LEASE = `You are a commercial real estate net-lease analyst. Ex
 
 const SYSTEM_OTHER_CRE = `You are a commercial real estate analyst. Extract structured deal data from listing text. Return ONLY valid JSON, no prose, no markdown fences.`;
 
+const SYSTEM_MULTI_TENANT = `You are a commercial real estate analyst specializing in multi-tenant properties. Extract structured deal data including the rent roll from listing text. Return ONLY valid JSON, no prose, no markdown fences.`;
+
 export async function extractDeal(content: string, category?: string): Promise<ExtractResult> {
   const isOtherCre = category === "other_cre";
+  const isMultiTenant = category === "multi_tenant";
+
+  if (isMultiTenant) {
+    const today = new Date().toISOString().slice(0, 10);
+    const prompt = `Extract multi-tenant commercial real estate fields from the source below. Today's date is ${today}.
+
+Enums:
+- assetType: one of "retail","office","industrial","medical","mixed_use","strip_center","power_center","lifestyle_center","other"
+- sourcePlatform: one of "costar","loopnet","crexi","direct","other"
+- creditType per tenant: one of "national","regional","local" (use "national" for publicly traded or investment-grade chains, "regional" for multi-state operators, "local" for single-location/independent)
+
+Rules:
+- Numbers only for money fields (no $ or % symbols).
+- vacancyRate as percent e.g. 5.0 means 5%.
+- remainingYears = years from today to lease expiration (compute from dates if needed, list in inferredFields if computed).
+- For the rentRoll, extract every tenant you can find. annualRent and remainingYears are REQUIRED for each row; use null for optional fields you cannot find.
+- walt = income-weighted average remaining term: Σ(remainingYears × annualRent) ÷ totalAnnualRent. Compute it if you have the rent roll. List in inferredFields if computed.
+- Use null for anything not present. Do not invent values.
+- Key fields: address, askingPrice, noi/capRateAsking, grossLeasableArea, rentRoll. Flag these in missingFields if absent.
+- confidenceLevel: "high" if rent roll, price, and NOI/cap rate are all present; "medium" if 1-2 are missing; "low" if 3+ missing.
+
+Return JSON exactly:
+{
+  "deal": {
+    "address": null, "city": null, "state": null, "assetType": null,
+    "tenantName": null,
+    "operatorName": null, "operatorUnitCount": null, "guarantyType": null,
+    "askingPrice": null, "noi": null, "capRateAsking": null,
+    "leaseType": null, "termRemainingYears": null, "bumpStructure": null, "bumpPercent": null,
+    "constructionYear": null, "buildingSize": null,
+    "hhi1Mile": null, "hhi3Mile": null, "population1Mile": null,
+    "sourceBroker": null, "sourcePlatform": null,
+    "grossLeasableArea": null, "numberOfTenants": null, "vacancyRate": null,
+    "walt": null,
+    "rentRoll": []
+  },
+  "inferredFields": [],
+  "missingFields": [],
+  "confidenceLevel": "low",
+  "notes": ""
+}
+
+SOURCE:
+${content.slice(0, 14000)}`;
+
+    return askJson<ExtractResult>(prompt, { system: SYSTEM_MULTI_TENANT, maxTokens: 2000 });
+  }
 
   if (isOtherCre) {
     const prompt = `Extract general commercial real estate fields from the source below. This is NOT a net lease property — do not look for or flag NNN fields (NOI, cap rate, lease type, guaranty, term, operator info) as missing.

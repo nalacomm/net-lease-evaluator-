@@ -27,6 +27,10 @@ const NUM_FIELDS = [
   "hhi3Mile",
   "hhi5Mile",
   "population1Mile",
+  "grossLeasableArea",
+  "vacancyRate",
+  "numberOfTenants",
+  "walt",
 ];
 
 function coerce(body: Record<string, unknown>) {

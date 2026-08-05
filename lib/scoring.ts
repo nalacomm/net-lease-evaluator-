@@ -21,6 +21,24 @@ export interface ScoreResult {
   monthlyNetCashFlow: number;
 }
 
+export interface TenantLeaseRow {
+  tenantName: string;
+  suite?: string | null;
+  squareFeet?: number | null;
+  annualRent: number;
+  remainingYears: number;
+  leaseType?: string | null;
+  bumpPercent?: number | null;
+  creditType?: string | null; // "national" | "regional" | "local"
+}
+
+export function computeWalt(rentRoll: TenantLeaseRow[]): number | null {
+  const totalRent = rentRoll.reduce((s, r) => s + (r.annualRent ?? 0), 0);
+  if (totalRent === 0) return null;
+  const weighted = rentRoll.reduce((s, r) => s + r.remainingYears * (r.annualRent ?? 0), 0);
+  return Math.round((weighted / totalRent) * 100) / 100;
+}
+
 // Minimal shapes so this works with Prisma models or plain drafts.
 export interface DealLike {
   dealCategory?: string | null;
@@ -40,6 +58,10 @@ export interface DealLike {
   hhi5Mile?: number | null;
   state?: string | null;
   city?: string | null;
+  // multi-tenant
+  walt?: number | null;
+  vacancyRate?: number | null;
+  rentRoll?: TenantLeaseRow[] | null;
 }
 
 export interface BuyBoxLike {
@@ -75,9 +97,174 @@ function skip(category: string, detail: string): CategoryScore {
   return { category, points: 0, max: 0, status: "info", detail };
 }
 
+export function scoreMultiTenantDeal(deal: DealLike, bb: BuyBoxLike): ScoreResult {
+  const breakdown: CategoryScore[] = [];
+
+  const price = num(deal.askingPrice) ?? 0;
+  const noi = num(deal.noi) ?? 0;
+  const fin = computeFinance({
+    price,
+    noi,
+    ltv: bb.ltv,
+    ratePercent: bb.interestRate,
+    amortizationYears: bb.amortizationYears,
+  });
+  const dscr = fin.dscr;
+  const capRateCalc = price > 0 ? (noi / price) * 100 : null;
+
+  // ----- Cap Rate (20) -----
+  const skipCapRate = bb.capRateMin === 0 && bb.capRateTarget === 0;
+  if (skipCapRate) {
+    breakdown.push(skip("Cap Rate", "No cap rate target set"));
+  } else {
+    const capRate = num(deal.capRateUnderwritten) ?? num(deal.capRateAsking) ?? capRateCalc;
+    let pts = 0; let status: CheckStatus = "fail"; let detail: string;
+    if (capRate === null) { detail = "Cap rate unknown"; }
+    else if (capRate >= bb.capRateTarget) { pts = 20; status = "pass"; detail = `${capRate.toFixed(2)}% ≥ target ${bb.capRateTarget}%`; }
+    else if (capRate >= bb.capRateMin) { pts = 12; status = "warn"; detail = `${capRate.toFixed(2)}% between floor ${bb.capRateMin}% and target ${bb.capRateTarget}%`; }
+    else { pts = 0; status = "fail"; detail = `${capRate.toFixed(2)}% below floor ${bb.capRateMin}%`; }
+    breakdown.push({ category: "Cap Rate", points: pts, max: 20, status, detail });
+  }
+
+  // ----- DSCR (20) -----
+  const dscrFloor = num(bb.dscrMin);
+  if (!dscrFloor) {
+    breakdown.push(skip("DSCR", "No DSCR minimum set"));
+  } else {
+    let pts = 0; let status: CheckStatus = "fail"; let detail: string;
+    if (dscr === null) { pts = 20; status = "pass"; detail = "All cash — no debt service"; }
+    else if (dscr >= dscrFloor * 1.07) { pts = 20; status = "pass"; detail = `${dscr.toFixed(2)}x — strong coverage`; }
+    else if (dscr >= dscrFloor) { pts = 15; status = "pass"; detail = `${dscr.toFixed(2)}x ≥ ${dscrFloor.toFixed(2)}x floor`; }
+    else if (dscr >= dscrFloor * 0.93) { pts = 5; status = "warn"; detail = `${dscr.toFixed(2)}x slightly below ${dscrFloor.toFixed(2)}x floor`; }
+    else { pts = 0; status = "fail"; detail = `${dscr.toFixed(2)}x well below ${dscrFloor.toFixed(2)}x floor`; }
+    breakdown.push({ category: "DSCR", points: pts, max: 20, status, detail });
+  }
+
+  // ----- WALT (20) -----
+  const rentRoll = deal.rentRoll ?? [];
+  const walt = num(deal.walt) ?? (rentRoll.length > 0 ? computeWalt(rentRoll) : null);
+  {
+    let pts = 0; let status: CheckStatus = "fail"; let detail: string;
+    if (walt === null) { detail = "WALT unknown — no rent roll data"; status = "info"; }
+    else if (walt >= 7) { pts = 20; status = "pass"; detail = `${walt.toFixed(1)} yrs — strong income durability`; }
+    else if (walt >= 5) { pts = 14; status = "warn"; detail = `${walt.toFixed(1)} yrs — moderate term`; }
+    else if (walt >= 3) { pts = 7; status = "warn"; detail = `${walt.toFixed(1)} yrs — short, near-term rollover risk`; }
+    else { pts = 0; status = "fail"; detail = `${walt.toFixed(1)} yrs — high rollover risk`; }
+    breakdown.push({ category: "WALT", points: pts, max: 20, status, detail });
+  }
+
+  // ----- Occupancy (15) -----
+  const occ = num(deal.vacancyRate) !== null ? 100 - (num(deal.vacancyRate) ?? 0) : null;
+  {
+    let pts = 0; let status: CheckStatus = "fail"; let detail: string;
+    if (occ === null) { detail = "Occupancy unknown"; status = "info"; }
+    else if (occ >= 95) { pts = 15; status = "pass"; detail = `${occ.toFixed(0)}% occupied`; }
+    else if (occ >= 90) { pts = 10; status = "warn"; detail = `${occ.toFixed(0)}% occupied — minor vacancy`; }
+    else if (occ >= 85) { pts = 5; status = "warn"; detail = `${occ.toFixed(0)}% occupied — meaningful vacancy`; }
+    else { pts = 0; status = "fail"; detail = `${occ.toFixed(0)}% occupied — high vacancy`; }
+    breakdown.push({ category: "Occupancy", points: pts, max: 15, status, detail });
+  }
+
+  // ----- Lease Stagger (10) — check for rollover concentration -----
+  if (rentRoll.length === 0) {
+    breakdown.push(skip("Lease Stagger", "No rent roll data"));
+  } else {
+    const totalRent = rentRoll.reduce((s, r) => s + (r.annualRent ?? 0), 0);
+    const byYear: Record<number, number> = {};
+    for (const r of rentRoll) {
+      const yr = Math.ceil(r.remainingYears);
+      byYear[yr] = (byYear[yr] ?? 0) + r.annualRent;
+    }
+    const maxConc = totalRent > 0 ? Math.max(...Object.values(byYear)) / totalRent : 0;
+    const worstYear = Object.entries(byYear).find(([, v]) => v / totalRent === maxConc)?.[0];
+    let pts = 0; let status: CheckStatus = "fail"; let detail: string;
+    if (maxConc <= 0.30) { pts = 10; status = "pass"; detail = `Well staggered — max ${(maxConc * 100).toFixed(0)}% of NOI expires in any one year`; }
+    else if (maxConc <= 0.45) { pts = 5; status = "warn"; detail = `Moderate concentration — ${(maxConc * 100).toFixed(0)}% of NOI expires in year ${worstYear}`; }
+    else { pts = 0; status = "fail"; detail = `High concentration — ${(maxConc * 100).toFixed(0)}% of NOI expires in year ${worstYear}`; }
+    breakdown.push({ category: "Lease Stagger", points: pts, max: 10, status, detail });
+  }
+
+  // ----- Price vs Ceiling (5) -----
+  if (bb.priceMax > 0) {
+    const stretch = num(bb.priceStretch) ?? bb.priceMax;
+    let pts = 0; let status: CheckStatus = "fail"; let detail: string;
+    if (price <= 0) { detail = "Price unknown"; status = "info"; }
+    else if (price <= bb.priceMax) { pts = 5; status = "pass"; detail = `$${(price / 1e6).toFixed(2)}M ≤ ceiling`; }
+    else if (price <= stretch) { pts = 3; status = "warn"; detail = `$${(price / 1e6).toFixed(2)}M in stretch range`; }
+    else { status = "fail"; detail = `$${(price / 1e6).toFixed(2)}M above stretch ceiling`; }
+    breakdown.push({ category: "Price vs Ceiling", points: pts, max: 5, status, detail });
+  } else {
+    breakdown.push(skip("Price vs Ceiling", "No price ceiling set"));
+  }
+
+  // ----- Demographics (5) -----
+  const hhiFloor2 = num(bb.hhiMin);
+  if (!hhiFloor2) {
+    breakdown.push(skip("Demographics", "No HHI minimum set"));
+  } else {
+    const hhi = num(deal.hhi3Mile) ?? num(deal.hhi1Mile) ?? num(deal.hhi5Mile);
+    let pts = 0; let status: CheckStatus = "warn"; let detail: string;
+    if (hhi === null) { detail = "HHI unknown"; }
+    else if (hhi >= hhiFloor2 * 1.22) { pts = 5; status = "pass"; detail = `HHI $${Math.round(hhi / 1000)}K — strong`; }
+    else if (hhi >= hhiFloor2) { pts = 3; status = "warn"; detail = `HHI $${Math.round(hhi / 1000)}K ≥ floor $${Math.round(hhiFloor2 / 1000)}K`; }
+    else { pts = 0; status = "fail"; detail = `HHI $${Math.round(hhi / 1000)}K < floor $${Math.round(hhiFloor2 / 1000)}K`; }
+    breakdown.push({ category: "Demographics", points: pts, max: 5, status, detail });
+  }
+
+  // Normalize base score
+  const baseMetrics2 = breakdown.filter((c) => c.max > 0);
+  const baseMax2 = baseMetrics2.reduce((s, c) => s + c.max, 0);
+  const baseEarned2 = baseMetrics2.reduce((s, c) => s + c.points, 0);
+  let score2 = baseMax2 > 0 ? Math.round((baseEarned2 / baseMax2) * 100) : 0;
+
+  // Asset Type (bonus)
+  {
+    const at = (deal.assetType ?? "").toLowerCase();
+    let bonus = 0; let status: CheckStatus = "info"; let detail = at || "unknown";
+    const preferred = bb.assetTypesPreferred.map((s) => s.toLowerCase());
+    const acceptable = bb.assetTypesAcceptable.map((s) => s.toLowerCase());
+    if (preferred.includes(at)) { bonus = 3; status = "pass"; detail = `Preferred type (${at})`; }
+    else if (acceptable.includes(at)) { bonus = 1; status = "warn"; detail = `Acceptable type (${at})`; }
+    else if (at) { detail = `Off-thesis type (${at})`; }
+    breakdown.push({ category: "Asset Type Match (bonus)", points: bonus, max: 5, status, detail });
+    score2 += bonus;
+  }
+
+  // Location Match (bonus)
+  {
+    const dealState = (deal.state ?? "").trim().toUpperCase();
+    const dealCity = (deal.city ?? "").toLowerCase().trim();
+    const states = (bb.preferredStates ?? []).map((s) => s.trim().toUpperCase());
+    const markets = (bb.targetMarkets ?? []).map((m) => m.toLowerCase().trim());
+    const hasPrefs = states.length > 0 || markets.length > 0;
+    let bonus = 0; let status: CheckStatus = "info"; let detail = "No location preferences set";
+    if (hasPrefs) {
+      const stateMatch = states.length > 0 && dealState && states.includes(dealState);
+      const marketMatch = markets.length > 0 && dealCity && markets.some((m) => dealCity.includes(m) || m.includes(dealCity));
+      if (stateMatch || marketMatch) { bonus = 5; status = "pass"; detail = `${deal.city ?? ""}${deal.city && deal.state ? ", " : ""}${deal.state ?? ""} — in preferred locations`; }
+      else { status = "warn"; detail = `${deal.city ?? "?"}${deal.city && deal.state ? ", " : ""}${deal.state ?? ""} — outside preferred locations`; }
+    }
+    breakdown.push({ category: "Location Match (bonus)", points: bonus, max: hasPrefs ? 5 : 0, status, detail });
+    score2 += bonus;
+  }
+
+  score2 = Math.max(0, Math.min(100, score2));
+  return {
+    score: score2,
+    grade: gradeFor(score2) as ScoreResult["grade"],
+    breakdown,
+    dscrCalculated: dscr,
+    capRateCalculated: capRateCalc,
+    loanAmount: fin.loanAmount,
+    monthlyDebtService: fin.monthlyDebtService,
+    monthlyNetCashFlow: fin.monthlyNetCashFlow,
+  };
+}
+
 export function scoreDeal(deal: DealLike, bb: BuyBoxLike): ScoreResult {
   const breakdown: CategoryScore[] = [];
   const isOtherCre = (deal.dealCategory ?? "net_lease") === "other_cre";
+  if ((deal.dealCategory ?? "net_lease") === "multi_tenant") return scoreMultiTenantDeal(deal, bb);
 
   // ----- Finance / DSCR recalculation -----
   const price = num(deal.askingPrice) ?? 0;

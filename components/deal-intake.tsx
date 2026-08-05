@@ -15,7 +15,8 @@ import { Loader2, FileText, Link2, Type, AlertCircle } from "lucide-react";
 type Investor = { id: string; name: string };
 type Mode = "text" | "pdf" | "url";
 
-type FieldDef = { key: string; label: string; type: "text" | "number" | "select"; options?: { value: string; label: string }[]; netLeaseOnly?: boolean };
+// showFor: categories that show this field. undefined = show for all.
+type FieldDef = { key: string; label: string; type: "text" | "number" | "select"; options?: { value: string; label: string }[]; showFor?: string[] };
 
 const FIELDS: FieldDef[] = [
   { key: "address", label: "Address", type: "text" },
@@ -23,17 +24,20 @@ const FIELDS: FieldDef[] = [
   { key: "state", label: "State", type: "text" },
   { key: "quadrant", label: "Quadrant", type: "select", options: QUADRANTS },
   { key: "assetType", label: "Asset Type", type: "select", options: ASSET_TYPES },
-  { key: "tenantName", label: "Tenant / Occupant", type: "text" },
-  { key: "operatorName", label: "Operator", type: "text", netLeaseOnly: true },
-  { key: "operatorUnitCount", label: "Operator Units", type: "number", netLeaseOnly: true },
-  { key: "guarantyType", label: "Guaranty", type: "select", options: GUARANTY_TYPES, netLeaseOnly: true },
+  { key: "tenantName", label: "Tenant / Anchor", type: "text" },
+  { key: "operatorName", label: "Operator", type: "text", showFor: ["net_lease"] },
+  { key: "operatorUnitCount", label: "Operator Units", type: "number", showFor: ["net_lease"] },
+  { key: "guarantyType", label: "Guaranty", type: "select", options: GUARANTY_TYPES, showFor: ["net_lease"] },
   { key: "askingPrice", label: "Asking Price ($)", type: "number" },
-  { key: "noi", label: "NOI ($/yr)", type: "number", netLeaseOnly: true },
-  { key: "capRateAsking", label: "Cap Rate (%)", type: "number", netLeaseOnly: true },
-  { key: "leaseType", label: "Lease Type", type: "select", options: LEASE_TYPES, netLeaseOnly: true },
-  { key: "termRemainingYears", label: "Term Remaining (yrs)", type: "number", netLeaseOnly: true },
-  { key: "bumpStructure", label: "Bump Structure", type: "text", netLeaseOnly: true },
-  { key: "bumpPercent", label: "Bump % (annual)", type: "number", netLeaseOnly: true },
+  { key: "noi", label: "NOI ($/yr)", type: "number", showFor: ["net_lease", "multi_tenant"] },
+  { key: "capRateAsking", label: "Cap Rate (%)", type: "number", showFor: ["net_lease", "multi_tenant"] },
+  { key: "leaseType", label: "Lease Type", type: "select", options: LEASE_TYPES, showFor: ["net_lease"] },
+  { key: "termRemainingYears", label: "Term Remaining (yrs)", type: "number", showFor: ["net_lease"] },
+  { key: "bumpStructure", label: "Bump Structure", type: "text", showFor: ["net_lease"] },
+  { key: "bumpPercent", label: "Bump % (annual)", type: "number", showFor: ["net_lease"] },
+  { key: "grossLeasableArea", label: "GLA (SF)", type: "number", showFor: ["multi_tenant"] },
+  { key: "vacancyRate", label: "Vacancy Rate (%)", type: "number", showFor: ["multi_tenant"] },
+  { key: "numberOfTenants", label: "Number of Tenants", type: "number", showFor: ["multi_tenant"] },
   { key: "constructionYear", label: "Construction Year", type: "number" },
   { key: "buildingSize", label: "Building SF", type: "number" },
   { key: "hhi3Mile", label: "HHI 3-Mile ($)", type: "number" },
@@ -138,7 +142,7 @@ export function DealIntake({ investors }: { investors: Investor[] }) {
 
   const missing = new Set(meta?.missingFields ?? []);
   const inferred = new Set(meta?.inferredFields ?? []);
-  const visibleFields = FIELDS.filter((f) => !f.netLeaseOnly || dealCategory === "net_lease");
+  const visibleFields = FIELDS.filter((f) => !f.showFor || f.showFor.includes(dealCategory));
   const visibleKeys = new Set(visibleFields.map((f) => f.key));
   const effectiveMissing = (meta?.missingFields ?? []).filter((k) => visibleKeys.has(k));
   const effectiveInferred = (meta?.inferredFields ?? []).filter((k) => visibleKeys.has(k));
@@ -318,6 +322,57 @@ export function DealIntake({ investors }: { investors: Investor[] }) {
               );
             })}
           </div>
+
+          {/* Multi-tenant: WALT summary + rent roll preview */}
+          {dealCategory === "multi_tenant" && draft && (() => {
+            const rentRoll = (draft.rentRoll as { tenantName: string; squareFeet?: number | null; annualRent: number; remainingYears: number; leaseType?: string | null }[] | null) ?? [];
+            const walt = (draft.walt as number | null);
+            if (!walt && rentRoll.length === 0) return null;
+            return (
+              <div className="card space-y-3">
+                {walt != null && (
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand/10 shrink-0">
+                      <span className="text-sm font-bold text-brand">{walt.toFixed(1)}</span>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900">WALT — {walt.toFixed(1)} yrs</p>
+                      <p className="text-xs text-gray-500">
+                        {walt >= 7 ? "Strong income durability" : walt >= 5 ? "Moderate — watch near-term expirations" : "Short — elevated rollover risk"}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {rentRoll.length > 0 && (
+                  <div>
+                    <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">Rent Roll ({rentRoll.length} tenants)</p>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-gray-100 text-left text-gray-400">
+                            <th className="pb-1 pr-3 font-medium">Tenant</th>
+                            <th className="pb-1 pr-3 font-medium text-right">SF</th>
+                            <th className="pb-1 pr-3 font-medium text-right">Annual Rent</th>
+                            <th className="pb-1 font-medium text-right">Yrs Left</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                          {rentRoll.map((r, i) => (
+                            <tr key={i}>
+                              <td className="py-1 pr-3 font-medium text-gray-800">{r.tenantName}</td>
+                              <td className="py-1 pr-3 text-right text-gray-500">{r.squareFeet != null ? r.squareFeet.toLocaleString() : "—"}</td>
+                              <td className="py-1 pr-3 text-right text-gray-500">${(r.annualRent / 1000).toFixed(0)}K</td>
+                              <td className="py-1 text-right text-gray-500">{r.remainingYears.toFixed(1)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           <button
             onClick={save}
