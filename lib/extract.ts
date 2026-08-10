@@ -34,12 +34,17 @@ export interface ExtractedDeal {
   population1Mile: number | null;
   sourceBroker: string | null;
   sourcePlatform: string | null;
-  // multi-tenant fields
+  // multi-tenant / retail plaza fields
   grossLeasableArea: number | null;
   numberOfTenants: number | null;
   vacancyRate: number | null;
+  anchorTenant: string | null;
   walt: number | null;
   rentRoll: TenantLeaseRowExtracted[] | null;
+  // land / all categories
+  lotSize: number | null;
+  zoning: string | null;
+  entitlements: string | null;
 }
 
 export interface ExtractResult {
@@ -56,9 +61,15 @@ const SYSTEM_OTHER_CRE = `You are a commercial real estate analyst. Extract stru
 
 const SYSTEM_MULTI_TENANT = `You are a commercial real estate analyst specializing in multi-tenant properties. Extract structured deal data including the rent roll from listing text. Return ONLY valid JSON, no prose, no markdown fences.`;
 
+const SYSTEM_LAND = `You are a commercial real estate analyst specializing in land and development sites. Extract structured deal data from listing text. Return ONLY valid JSON, no prose, no markdown fences.`;
+
+const SYSTEM_RETAIL_PLAZA = `You are a commercial real estate analyst specializing in retail shopping centers and plazas. Extract structured deal data including the rent roll from listing text. Return ONLY valid JSON, no prose, no markdown fences.`;
+
 export async function extractDeal(content: string, category?: string): Promise<ExtractResult> {
   const isOtherCre = category === "other_cre";
   const isMultiTenant = category === "multi_tenant";
+  const isLand = category === "land";
+  const isRetailPlaza = category === "retail_plaza";
 
   if (isMultiTenant) {
     const today = new Date().toISOString().slice(0, 10);
@@ -104,6 +115,90 @@ SOURCE:
 ${content.slice(0, 14000)}`;
 
     return askJson<ExtractResult>(prompt, { system: SYSTEM_MULTI_TENANT, maxTokens: 2000 });
+  }
+
+  if (isLand) {
+    const prompt = `Extract land / development site fields from the source below. This is a land deal — no tenants, no lease income, no DSCR. Do not flag income fields as missing.
+
+Enums:
+- sourcePlatform: one of "costar","loopnet","crexi","direct","other"
+- entitlements: one of "raw","partially_entitled","fully_entitled","permitted" — use null if unknown
+
+Rules:
+- Numbers only for money fields (no $ or % symbols).
+- lotSize in acres.
+- Use null for anything not present. Do not invent values.
+- Key fields: address, askingPrice, lotSize, zoning. Flag only these if absent.
+- confidenceLevel: "high" if address, price, and lotSize are all explicit; "medium" if 1 is inferred; "low" if 2+ missing.
+
+Return JSON exactly:
+{
+  "deal": {
+    "address": null, "city": null, "state": null, "assetType": null,
+    "askingPrice": null,
+    "lotSize": null,
+    "zoning": null,
+    "entitlements": null,
+    "buildingSize": null,
+    "constructionYear": null,
+    "hhi1Mile": null, "hhi3Mile": null, "population1Mile": null,
+    "sourceBroker": null, "sourcePlatform": null
+  },
+  "inferredFields": [],
+  "missingFields": [],
+  "confidenceLevel": "low",
+  "notes": ""
+}
+
+SOURCE:
+${content.slice(0, 12000)}`;
+
+    return askJson<ExtractResult>(prompt, { system: SYSTEM_LAND, maxTokens: 1000 });
+  }
+
+  if (isRetailPlaza) {
+    const today = new Date().toISOString().slice(0, 10);
+    const prompt = `Extract retail plaza / shopping center fields from the source below. Today's date is ${today}.
+
+Enums:
+- assetType: one of "strip_center","power_center","lifestyle_center","neighborhood_center","other"
+- sourcePlatform: one of "costar","loopnet","crexi","direct","other"
+- creditType per tenant: one of "national","regional","local"
+
+Rules:
+- Numbers only for money fields (no $ or % symbols).
+- vacancyRate as percent e.g. 5.0 means 5%.
+- remainingYears = years from today to lease expiration (compute from dates if needed, list in inferredFields if computed).
+- Extract every tenant you can find. annualRent and remainingYears are REQUIRED per row; null for optional fields.
+- walt = income-weighted average remaining term: Σ(remainingYears × annualRent) ÷ totalAnnualRent. Compute if rent roll available. List in inferredFields if computed.
+- anchorTenant = largest or most prominent tenant by SF or brand recognition.
+- Use null for anything not present. Do not invent values.
+- Key fields: address, askingPrice, noi/capRateAsking, grossLeasableArea, rentRoll, anchorTenant. Flag these in missingFields if absent.
+- confidenceLevel: "high" if rent roll, price, and NOI/cap rate present; "medium" if 1-2 missing; "low" if 3+ missing.
+
+Return JSON exactly:
+{
+  "deal": {
+    "address": null, "city": null, "state": null, "assetType": null,
+    "tenantName": null, "anchorTenant": null,
+    "askingPrice": null, "noi": null, "capRateAsking": null,
+    "constructionYear": null, "buildingSize": null,
+    "hhi1Mile": null, "hhi3Mile": null, "population1Mile": null,
+    "sourceBroker": null, "sourcePlatform": null,
+    "grossLeasableArea": null, "numberOfTenants": null, "vacancyRate": null,
+    "walt": null,
+    "rentRoll": []
+  },
+  "inferredFields": [],
+  "missingFields": [],
+  "confidenceLevel": "low",
+  "notes": ""
+}
+
+SOURCE:
+${content.slice(0, 14000)}`;
+
+    return askJson<ExtractResult>(prompt, { system: SYSTEM_RETAIL_PLAZA, maxTokens: 2000 });
   }
 
   if (isOtherCre) {

@@ -33,6 +33,8 @@ export const GUARANTY_TYPES: { value: string; label: string }[] = [
 export const DEAL_CATEGORIES: { value: string; label: string }[] = [
   { value: "net_lease", label: "Net Lease" },
   { value: "multi_tenant", label: "Multi-Tenant" },
+  { value: "retail_plaza", label: "Retail Plaza" },
+  { value: "land", label: "Land" },
   { value: "other_cre", label: "Other CRE" },
 ];
 

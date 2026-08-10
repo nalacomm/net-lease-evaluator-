@@ -74,6 +74,9 @@ type Deal = {
   grossLeasableArea: number | null;
   walt: number | null;
   rentRoll: { tenantName: string; suite?: string | null; squareFeet?: number | null; annualRent: number; remainingYears: number; leaseType?: string | null; bumpPercent?: number | null; creditType?: string | null }[] | null;
+  lotSize: number | null;
+  zoning: string | null;
+  entitlements: string | null;
   hhi3Mile: number | null;
   population1Mile: number | null;
   dscrCalculated: number | null;
@@ -521,7 +524,21 @@ export function DealProfile({
 
       {tab === "overview" && (
         <div className="space-y-4">
-          {deal.dealCategory === "multi_tenant" ? (
+          {deal.dealCategory === "land" ? (
+            <div className="card grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+              <Metric label="Asking Price" value={fmtMoney(deal.askingPrice)} />
+              <Metric label="Lot Size" value={deal.lotSize ? `${deal.lotSize.toLocaleString()} ac` : "—"} />
+              <Metric label="Zoning" value={deal.zoning ?? "—"} />
+              <Metric label="Entitlements" value={
+                deal.entitlements === "raw" ? "Raw / Unentitled" :
+                deal.entitlements === "partially_entitled" ? "Partially Entitled" :
+                deal.entitlements === "fully_entitled" ? "Fully Entitled" :
+                deal.entitlements === "permitted" ? "Permitted" :
+                deal.entitlements ?? "—"
+              } />
+              <Metric label="HHI 3-Mile" value={deal.hhi3Mile ? `$${(deal.hhi3Mile / 1000).toFixed(0)}K` : "—"} />
+            </div>
+          ) : deal.dealCategory === "multi_tenant" || deal.dealCategory === "retail_plaza" ? (
             <div className="card grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
               <Metric label="Asking Price" value={fmtMoney(deal.askingPrice)} />
               <Metric label="NOI" value={fmtMoney(deal.noi)} />
@@ -529,6 +546,8 @@ export function DealProfile({
               <Metric label="GLA" value={deal.grossLeasableArea ? `${deal.grossLeasableArea.toLocaleString()} SF` : "—"} />
               <Metric label="Vacancy" value={deal.vacancyRate != null ? `${deal.vacancyRate}%` : "—"} />
               <Metric label="Tenants" value={deal.numberOfTenants ?? "—"} />
+              {deal.dealCategory === "retail_plaza" && <Metric label="Anchor" value={deal.anchorTenant ?? "—"} />}
+              {deal.zoning && <Metric label="Zoning" value={deal.zoning} />}
               <Metric label="DSCR" value={fmtDscr(deal.dscrCalculated)} />
               <Metric label="Mo. Cash Flow" value={fmtMoney(deal.monthlyNetCashFlow)} />
               {deal.walt != null && (
@@ -572,8 +591,8 @@ export function DealProfile({
           </div>
           )}
 
-          {/* Rent roll for multi-tenant deals */}
-          {deal.dealCategory === "multi_tenant" && deal.rentRoll && deal.rentRoll.length > 0 && (
+          {/* Rent roll for multi-tenant / retail plaza deals */}
+          {(deal.dealCategory === "multi_tenant" || deal.dealCategory === "retail_plaza") && deal.rentRoll && deal.rentRoll.length > 0 && (
             <div className="card">
               <h3 className="mb-2 font-semibold">Rent Roll</h3>
               <div className="overflow-x-auto">
@@ -643,6 +662,12 @@ export function DealProfile({
                 )}
                 {deal.dealCategory === "multi_tenant" && (
                   <p className="text-xs text-gray-400 mt-0.5">Scored using multi-tenant criteria: cap rate, DSCR, WALT, occupancy, and lease stagger.</p>
+                )}
+                {deal.dealCategory === "retail_plaza" && (
+                  <p className="text-xs text-gray-400 mt-0.5">Scored using retail plaza criteria: cap rate, DSCR, anchor tenant, WALT, and occupancy.</p>
+                )}
+                {deal.dealCategory === "land" && (
+                  <p className="text-xs text-gray-400 mt-0.5">Scored on price, demographics, zoning, and entitlement status — no income or lease criteria applied.</p>
                 )}
               </div>
                 <ChevronDown
