@@ -89,6 +89,9 @@ model BuyBox {
   preferredStates String[]
   targetMarkets   String[]
 
+  // Zoning
+  acceptableZones String[]
+
   // Cash Flow
   currentMonthlyIncome Float?
 
@@ -139,13 +142,17 @@ model Deal {
   buildingSize     Float?
   lotSize          Float?
 
-  // Multi-tenant / Shopping Center
+  // Multi-tenant / Shopping Center / Retail Plaza
   numberOfTenants   Int?
   anchorTenant      String?
   vacancyRate       Float?    // percent, e.g. 5.0
   grossLeasableArea Float?    // total GLA in SF
   rentRoll          Json?     // TenantLeaseRow[] — per-tenant lease data
   walt              Float?    // Weighted Average Lease Term (income-weighted, years)
+
+  // Land / all categories
+  zoning            String?
+  entitlements      String?   // raw | partially_entitled | fully_entitled | permitted
 
   // Demographics
   hhi1Mile        Float?
@@ -317,7 +324,7 @@ model TenantRequirements {
   targetMarkets  String[]
   coTenancy      String?
   exclusivity    String?
-  zoningReqs     String?
+  zoningReqs     String[]
   siteTypePrefs  String[]
   additionalNotes String?
   rawInput        String?

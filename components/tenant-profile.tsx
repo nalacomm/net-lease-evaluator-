@@ -25,7 +25,7 @@ type TenantRequirements = {
   targetMarkets: string[];
   coTenancy: string | null;
   exclusivity: string | null;
-  zoningReqs: string | null;
+  zoningReqs: string[];
   siteTypePrefs: string[];
   additionalNotes: string | null;
   confidenceLevel: string | null;
@@ -329,7 +329,7 @@ export function TenantProfile({
                 value={req.coTenancy}
               />
               <Row label="Exclusivity" value={req.exclusivity} />
-              <Row label="Zoning" value={req.zoningReqs} />
+              <Row label="Zoning" value={req.zoningReqs?.length ? req.zoningReqs.join(", ") : null} />
             </div>
 
             {req.targetMarkets.length > 0 && (

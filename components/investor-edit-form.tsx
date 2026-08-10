@@ -85,6 +85,7 @@ type InvestorWithBuyBox = {
     assetTypesAcceptable: string[];
     preferredStates: string[];
     targetMarkets: string[];
+    acceptableZones: string[];
     currentMonthlyIncome: number | null;
     notes: string | null;
   } | null;
@@ -132,6 +133,7 @@ export function InvestorEditForm({ investor }: { investor: InvestorWithBuyBox })
   const [acceptable, setAcceptable] = useState<string[]>(bb?.assetTypesAcceptable ?? []);
   const [preferredStates, setPreferredStates] = useState((bb?.preferredStates ?? []).join(", "));
   const [targetMarkets, setTargetMarkets] = useState((bb?.targetMarkets ?? []).join(", "));
+  const [acceptableZones, setAcceptableZones] = useState((bb?.acceptableZones ?? []).join(", "));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [draftOpen, setDraftOpen] = useState(false);
@@ -191,6 +193,7 @@ export function InvestorEditForm({ investor }: { investor: InvestorWithBuyBox })
       if (bb.assetTypesAcceptable?.length) setAcceptable(bb.assetTypesAcceptable);
       if (bb.preferredStates?.length) setPreferredStates(bb.preferredStates.join(", "));
       if (bb.targetMarkets?.length) setTargetMarkets(bb.targetMarkets.join(", "));
+      if (bb.acceptableZones?.length) setAcceptableZones(bb.acceptableZones.join(", "));
       if (bb.narrativeSummary && !notes.trim()) setNotes(bb.narrativeSummary);
       setDraftSummary(bb.narrativeSummary ?? null);
       setDraftOpen(false);
@@ -208,6 +211,7 @@ export function InvestorEditForm({ investor }: { investor: InvestorWithBuyBox })
     try {
       const statesArray = preferredStates.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
       const marketsArray = targetMarkets.split(",").map((s) => s.trim()).filter(Boolean);
+      const zonesArray = acceptableZones.split(",").map((s) => s.trim()).filter(Boolean);
       const res = await fetch(`/api/investors/${investor.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -219,6 +223,7 @@ export function InvestorEditForm({ investor }: { investor: InvestorWithBuyBox })
             assetTypesAcceptable: acceptable,
             preferredStates: statesArray,
             targetMarkets: marketsArray,
+            acceptableZones: zonesArray,
           },
         }),
       });
@@ -372,6 +377,18 @@ export function InvestorEditForm({ investor }: { investor: InvestorWithBuyBox })
               placeholder="Washington, Baltimore, Bethesda"
             />
           </div>
+        </div>
+
+        <div className="mt-3">
+          <label className="label">Acceptable Zoning (comma-separated)</label>
+          <input
+            type="text"
+            className="input"
+            value={acceptableZones}
+            onChange={(e) => setAcceptableZones(e.target.value)}
+            placeholder="C-1, C-2, B-3, Mixed Use"
+          />
+          <p className="mt-1 text-xs text-gray-400">Zones where this investor's deals would be acceptable. Used to flag zoning mismatches on deals.</p>
         </div>
       </div>
 

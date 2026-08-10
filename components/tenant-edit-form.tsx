@@ -72,7 +72,7 @@ type TenantRequirements = {
   targetMarkets: string[];
   coTenancy: string | null;
   exclusivity: string | null;
-  zoningReqs: string | null;
+  zoningReqs: string[];
   siteTypePrefs: string[];
   additionalNotes: string | null;
 };
@@ -119,10 +119,10 @@ export function TenantEditForm({ tenant }: { tenant: TenantWithRequirements }) {
     preferredTerm: n(req?.preferredTerm),
     coTenancy: req?.coTenancy ?? "",
     exclusivity: req?.exclusivity ?? "",
-    zoningReqs: req?.zoningReqs ?? "",
     additionalNotes: req?.additionalNotes ?? "",
   });
   const [targetMarkets, setTargetMarkets] = useState((req?.targetMarkets ?? []).join(", "));
+  const [zoningReqs, setZoningReqs] = useState((req?.zoningReqs ?? []).join(", "));
   const [siteTypePrefs, setSiteTypePrefs] = useState<string[]>(req?.siteTypePrefs ?? []);
 
   const [saving, setSaving] = useState(false);
@@ -146,10 +146,8 @@ export function TenantEditForm({ tenant }: { tenant: TenantWithRequirements }) {
     setSaving(true);
     setError("");
     try {
-      const marketsArray = targetMarkets
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
+      const marketsArray = targetMarkets.split(",").map((s) => s.trim()).filter(Boolean);
+      const zonesArray = zoningReqs.split(",").map((s) => s.trim()).filter(Boolean);
 
       const res = await fetch(`/api/tenants/${tenant.id}`, {
         method: "PATCH",
@@ -164,6 +162,7 @@ export function TenantEditForm({ tenant }: { tenant: TenantWithRequirements }) {
           requirements: {
             ...form,
             targetMarkets: marketsArray,
+            zoningReqs: zonesArray,
             siteTypePrefs,
           },
         }),
@@ -310,14 +309,16 @@ export function TenantEditForm({ tenant }: { tenant: TenantWithRequirements }) {
               onChange={(e) => setF("exclusivity", e.target.value)}
             />
           </div>
-          <div>
-            <label className="label">Zoning Requirements</label>
+          <div className="col-span-full">
+            <label className="label">Acceptable Zoning (comma-separated)</label>
             <input
               type="text"
               className="input"
-              value={form.zoningReqs}
-              onChange={(e) => setF("zoningReqs", e.target.value)}
+              value={zoningReqs}
+              onChange={(e) => setZoningReqs(e.target.value)}
+              placeholder="C-1, C-2, B-3, Mixed Use"
             />
+            <p className="mt-1 text-xs text-gray-400">Zones where this tenant's use is permitted. Separate multiple zones with commas.</p>
           </div>
           <div className="col-span-full">
             <label className="label">Additional Notes</label>

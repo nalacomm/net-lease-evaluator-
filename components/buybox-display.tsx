@@ -27,6 +27,7 @@ type BuyBox = {
   assetTypesAcceptable: string[];
   preferredStates: string[];
   targetMarkets: string[];
+  acceptableZones: string[];
   currentMonthlyIncome: number | null;
   notes: string | null;
 };
@@ -133,6 +134,9 @@ export function BuyBoxDisplay({ bb }: { bb: BuyBox }) {
         )}
         {bb.targetMarkets.length > 0 && (
           <Row label="Target Markets" value={bb.targetMarkets.join(", ")} />
+        )}
+        {bb.acceptableZones?.length > 0 && (
+          <Row label="Acceptable Zoning" value={bb.acceptableZones.join(", ")} />
         )}
         {bb.notes && (
           <div className="mt-3 rounded-lg bg-gray-50 p-3 text-sm text-gray-600">

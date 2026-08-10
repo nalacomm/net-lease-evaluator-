@@ -29,6 +29,7 @@ function parseBb(bb: Record<string, unknown>) {
     assetTypesAcceptable: (bb.assetTypesAcceptable as string[]) || [],
     preferredStates: (bb.preferredStates as string[]) || [],
     targetMarkets: (bb.targetMarkets as string[]) || [],
+    acceptableZones: (bb.acceptableZones as string[]) || [],
     currentMonthlyIncome: bb.currentMonthlyIncome ? Number(bb.currentMonthlyIncome) : null,
     notes: (bb.notes as string) || null,
   };

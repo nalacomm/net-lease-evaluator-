@@ -86,7 +86,7 @@ type TenantRequirementsDraft = {
   siteTypePrefs: string[];
   coTenancy: string | null;
   exclusivity: string | null;
-  zoningReqs: string | null;
+  zoningReqs: string[] | null;
   additionalNotes: string | null;
   inferredFields: string[];
   missingFields: string[];
@@ -116,7 +116,6 @@ type ReqFormState = {
   preferredTerm: string;
   coTenancy: string;
   exclusivity: string;
-  zoningReqs: string;
   additionalNotes: string;
 };
 
@@ -136,7 +135,6 @@ const DEFAULT_REQ: ReqFormState = {
   preferredTerm: "",
   coTenancy: "",
   exclusivity: "",
-  zoningReqs: "",
   additionalNotes: "",
 };
 
@@ -159,6 +157,7 @@ export function TenantOnboarding() {
 
   const [req, setReq] = useState<ReqFormState>(DEFAULT_REQ);
   const [targetMarkets, setTargetMarkets] = useState("");
+  const [zoningReqs, setZoningReqs] = useState("");
   const [siteTypePrefs, setSiteTypePrefs] = useState<string[]>([]);
 
   const [locationQuery, setLocationQuery] = useState("");
@@ -232,10 +231,11 @@ export function TenantOnboarding() {
       preferredTerm: n(d.preferredTerm),
       coTenancy: d.coTenancy ?? "",
       exclusivity: d.exclusivity ?? "",
-      zoningReqs: d.zoningReqs ?? "",
       additionalNotes: d.additionalNotes ?? "",
     });
     setTargetMarkets((d.targetMarkets ?? []).join(", "));
+    const wz = d.zoningReqs;
+    setZoningReqs(Array.isArray(wz) ? wz.join(", ") : wz ?? "");
     setSiteTypePrefs(d.siteTypePrefs ?? []);
     if (d.additionalNotes) setNotes(d.additionalNotes);
     setWizardResult(d);
@@ -265,10 +265,8 @@ export function TenantOnboarding() {
     setSaving(true);
     setSaveError("");
     try {
-      const marketsArray = targetMarkets
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
+      const marketsArray = targetMarkets.split(",").map((s) => s.trim()).filter(Boolean);
+      const zonesArray = zoningReqs.split(",").map((s) => s.trim()).filter(Boolean);
       const res = await fetch("/api/tenants", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -289,6 +287,7 @@ export function TenantOnboarding() {
             minTerm: req.minTerm ? Number(req.minTerm) : null,
             preferredTerm: req.preferredTerm ? Number(req.preferredTerm) : null,
             targetMarkets: marketsArray,
+            zoningReqs: zonesArray,
             siteTypePrefs,
           },
         }),
@@ -535,12 +534,19 @@ export function TenantOnboarding() {
             </label>
             <input type="text" className="input" value={req.exclusivity} onChange={(e) => setReqField("exclusivity", e.target.value)} />
           </div>
-          <div>
+          <div className="col-span-full">
             <label className="label flex items-center gap-1.5">
-              Zoning Requirements
-              {inferred.has("zoningReqs") && req.zoningReqs && <span className="h-2 w-2 rounded-full bg-amber-400" title="AI-inferred" />}
+              Acceptable Zoning (comma-separated)
+              {inferred.has("zoningReqs") && zoningReqs && <span className="h-2 w-2 rounded-full bg-amber-400" title="AI-inferred" />}
             </label>
-            <input type="text" className="input" value={req.zoningReqs} onChange={(e) => setReqField("zoningReqs", e.target.value)} />
+            <input
+              type="text"
+              className="input"
+              value={zoningReqs}
+              onChange={(e) => setZoningReqs(e.target.value)}
+              placeholder="C-1, C-2, B-3, Mixed Use"
+            />
+            <p className="mt-1 text-xs text-gray-400">Zones where this tenant's use is permitted. Separate multiple zones with commas.</p>
           </div>
           <div>
             <label className="label flex items-center gap-1.5">

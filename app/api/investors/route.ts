@@ -58,6 +58,7 @@ export async function POST(req: Request) {
                 assetTypesAcceptable: bb.assetTypesAcceptable || [],
                 preferredStates: bb.preferredStates || [],
                 targetMarkets: bb.targetMarkets || [],
+                acceptableZones: bb.acceptableZones || [],
                 currentMonthlyIncome: bb.currentMonthlyIncome
                   ? Number(bb.currentMonthlyIncome)
                   : null,

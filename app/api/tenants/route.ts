@@ -45,7 +45,11 @@ export async function POST(req: Request) {
               targetMarkets: requirements.targetMarkets ?? [],
               coTenancy: requirements.coTenancy || null,
               exclusivity: requirements.exclusivity || null,
-              zoningReqs: requirements.zoningReqs || null,
+              zoningReqs: Array.isArray(requirements.zoningReqs)
+                ? requirements.zoningReqs
+                : requirements.zoningReqs
+                  ? requirements.zoningReqs.split(/[,;]+/).map((s: string) => s.trim()).filter(Boolean)
+                  : [],
               siteTypePrefs: requirements.siteTypePrefs ?? [],
               additionalNotes: requirements.additionalNotes || null,
               rawInput: requirements.rawInput || null,

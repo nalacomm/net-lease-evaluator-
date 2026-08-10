@@ -57,7 +57,7 @@ export interface RequirementsLike {
   minTerm?: number | null;
   targetMarkets?: string[];
   siteTypePrefs?: string[];
-  zoningReqs?: string | null;
+  zoningReqs?: string | string[] | null;
 }
 
 function gradeFor(score: number): SiteScoreResult["grade"] {
@@ -247,24 +247,29 @@ export function scoreSite(site: SiteLike, req: RequirementsLike): SiteScoreResul
   // Zoning (10)
   {
     const siteZone = (site.zoning ?? "").trim();
-    const reqZone = (req.zoningReqs ?? "").trim();
+    // zoningReqs may be a string[] (DB) or a legacy plain string
+    const rawReqs = req.zoningReqs;
+    const reqZones: string[] = Array.isArray(rawReqs)
+      ? rawReqs.filter(Boolean)
+      : rawReqs ? rawReqs.split(/[,;]+/).map((s) => s.trim()).filter(Boolean) : [];
     let pts = 0, max = 0, status: CheckStatus = "skip", detail = "No zoning requirement set";
-    if (reqZone) {
+    if (reqZones.length > 0) {
       max = 10;
+      const norm = (s: string) => s.toLowerCase().replace(/[\s\-]+/g, "");
+      const normSite = norm(siteZone);
       if (!siteZone) {
-        pts = 0; status = "fail"; detail = `Site zoning unknown — tenant requires: ${reqZone}`;
+        pts = 0; status = "fail";
+        detail = `Site zoning unknown — tenant accepts: ${reqZones.join(", ")}`;
       } else {
-        // Normalize both for comparison: lowercase, strip spaces/dashes
-        const norm = (s: string) => s.toLowerCase().replace(/[\s\-]+/g, "");
-        const normReq = norm(reqZone);
-        const normSite = norm(siteZone);
-        // Check if the site zoning contains or matches the required zone designation
-        const match = normSite.includes(normReq) || normReq.includes(normSite);
+        const match = reqZones.some((z) => {
+          const normZ = norm(z);
+          return normSite.includes(normZ) || normZ.includes(normSite);
+        });
         if (match) {
-          pts = 10; status = "pass"; detail = `${siteZone} — matches required ${reqZone}`;
+          pts = 10; status = "pass"; detail = `${siteZone} — matches accepted zone`;
         } else {
-          // Both provided but can't confirm match — flag for manual review
-          pts = 5; status = "warn"; detail = `Site: ${siteZone} · Required: ${reqZone} — verify compatibility`;
+          pts = 5; status = "warn";
+          detail = `Site: ${siteZone} · Accepted: ${reqZones.join(", ")} — verify compatibility`;
         }
       }
     } else if (siteZone) {
