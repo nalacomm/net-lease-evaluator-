@@ -732,9 +732,18 @@ function EmailDraft({ subject, body }: { subject: string; body: string }) {
 function DealReportOutput({ report, showScore = true }: { report: DealReportData; showScore?: boolean }) {
   const [editing, setEditing] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
+  const execRef = useRef<HTMLParagraphElement>(null);
+  const recRef = useRef<HTMLParagraphElement>(null);
+  const [editedSummary, setEditedSummary] = useState<string | null>(null);
+  const [editedRec, setEditedRec] = useState<string | null>(null);
 
   function toggleEdit() {
     const next = !editing;
+    if (!next) {
+      // Capture edits when finishing
+      setEditedSummary(execRef.current?.textContent ?? null);
+      setEditedRec(recRef.current?.textContent ?? null);
+    }
     setEditing(next);
     if (reportRef.current) {
       reportRef.current.contentEditable = next ? "true" : "false";
@@ -760,7 +769,7 @@ function DealReportOutput({ report, showScore = true }: { report: DealReportData
           </p>
         </div>
         <h3 className="mb-1 font-semibold">Executive Summary</h3>
-        <p className="text-sm text-gray-700">{report.execSummary}</p>
+        <p ref={execRef} className="text-sm text-gray-700">{report.execSummary}</p>
       </div>
 
       {report.deals.map((d) => (
@@ -805,7 +814,7 @@ function DealReportOutput({ report, showScore = true }: { report: DealReportData
       {report.recommendation && (
         <div className="card print:shadow-none">
           <h3 className="mb-1 font-semibold">Recommendation</h3>
-          <p className="text-sm text-gray-700">{report.recommendation}</p>
+          <p ref={recRef} className="text-sm text-gray-700">{report.recommendation}</p>
         </div>
       )}
       </div>
@@ -823,7 +832,7 @@ function DealReportOutput({ report, showScore = true }: { report: DealReportData
       </div>
       {editing && (
         <p className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800 print:hidden">
-          Click any text to edit or delete it. Changes only affect this session.
+          Click any text to edit or delete it. Changes only affect this session. The email draft below will update when you click Done editing.
         </p>
       )}
 
@@ -834,8 +843,8 @@ function DealReportOutput({ report, showScore = true }: { report: DealReportData
           ``,
           `Please find attached a net lease investment analysis report comparing ${report.deals.length} deal${report.deals.length !== 1 ? "s" : ""} we${report.investor.entityName ? ` have been tracking for ${report.investor.entityName}` : "'ve been reviewing"}.`,
           ``,
-          report.execSummary,
-          ...(report.recommendation ? [``, report.recommendation] : []),
+          editedSummary ?? report.execSummary,
+          ...((editedRec ?? report.recommendation) ? [``, editedRec ?? report.recommendation ?? ""] : []),
           ``,
           `Please review the attached report and let me know if you have any questions or would like to schedule a call to discuss.`,
           ``,
@@ -854,9 +863,17 @@ function DealReportOutput({ report, showScore = true }: { report: DealReportData
 function SiteReportOutput({ report, showScore = true }: { report: SiteReportData; showScore?: boolean }) {
   const [editing, setEditing] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
+  const execRef = useRef<HTMLParagraphElement>(null);
+  const recRef = useRef<HTMLParagraphElement>(null);
+  const [editedSummary, setEditedSummary] = useState<string | null>(null);
+  const [editedRec, setEditedRec] = useState<string | null>(null);
 
   function toggleEdit() {
     const next = !editing;
+    if (!next) {
+      setEditedSummary(execRef.current?.textContent ?? null);
+      setEditedRec(recRef.current?.textContent ?? null);
+    }
     setEditing(next);
     if (reportRef.current) {
       reportRef.current.contentEditable = next ? "true" : "false";
@@ -889,7 +906,7 @@ function SiteReportOutput({ report, showScore = true }: { report: SiteReportData
           </p>
         )}
         <h3 className="mb-1 font-semibold">Executive Summary</h3>
-        <p className="text-sm text-gray-700">{report.execSummary}</p>
+        <p ref={execRef} className="text-sm text-gray-700">{report.execSummary}</p>
       </div>
 
       {report.sites.map((s) => {
@@ -1013,7 +1030,7 @@ function SiteReportOutput({ report, showScore = true }: { report: SiteReportData
       {report.recommendation && (
         <div className="card print:shadow-none">
           <h3 className="mb-1 font-semibold">Recommendation</h3>
-          <p className="text-sm text-gray-700">{report.recommendation}</p>
+          <p ref={recRef} className="text-sm text-gray-700">{report.recommendation}</p>
         </div>
       )}
       </div>
@@ -1031,7 +1048,7 @@ function SiteReportOutput({ report, showScore = true }: { report: SiteReportData
       </div>
       {editing && (
         <p className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800 print:hidden">
-          Click any text to edit or delete it. Changes only affect this session.
+          Click any text to edit or delete it. Changes only affect this session. The email draft below will update when you click Done editing.
         </p>
       )}
 
@@ -1042,8 +1059,8 @@ function SiteReportOutput({ report, showScore = true }: { report: SiteReportData
           ``,
           `Please find attached a site comparison report evaluating ${report.sites.length} site${report.sites.length !== 1 ? "s" : ""} for your consideration${report.tenant.company ? ` on behalf of ${report.tenant.company}` : ""}.`,
           ``,
-          report.execSummary,
-          ...(report.recommendation ? [``, report.recommendation] : []),
+          editedSummary ?? report.execSummary,
+          ...((editedRec ?? report.recommendation) ? [``, editedRec ?? report.recommendation ?? ""] : []),
           ``,
           `Please review the attached and let me know which sites you'd like to prioritize or if you'd like to schedule time to walk through the findings together.`,
           ``,

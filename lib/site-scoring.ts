@@ -40,6 +40,7 @@ export interface SiteLike {
   city?: string | null;
   state?: string | null;
   siteType?: string | null;
+  zoning?: string | null;
 }
 
 export interface RequirementsLike {
@@ -56,6 +57,7 @@ export interface RequirementsLike {
   minTerm?: number | null;
   targetMarkets?: string[];
   siteTypePrefs?: string[];
+  zoningReqs?: string | null;
 }
 
 function gradeFor(score: number): SiteScoreResult["grade"] {
@@ -240,6 +242,35 @@ export function scoreSite(site: SiteLike, req: RequirementsLike): SiteScoreResul
       max = 0; detail = "Parking not provided";
     }
     breakdown.push({ category: "Parking", points: pts, max, status, detail });
+  }
+
+  // Zoning (10)
+  {
+    const siteZone = (site.zoning ?? "").trim();
+    const reqZone = (req.zoningReqs ?? "").trim();
+    let pts = 0, max = 0, status: CheckStatus = "skip", detail = "No zoning requirement set";
+    if (reqZone) {
+      max = 10;
+      if (!siteZone) {
+        pts = 0; status = "fail"; detail = `Site zoning unknown — tenant requires: ${reqZone}`;
+      } else {
+        // Normalize both for comparison: lowercase, strip spaces/dashes
+        const norm = (s: string) => s.toLowerCase().replace(/[\s\-]+/g, "");
+        const normReq = norm(reqZone);
+        const normSite = norm(siteZone);
+        // Check if the site zoning contains or matches the required zone designation
+        const match = normSite.includes(normReq) || normReq.includes(normSite);
+        if (match) {
+          pts = 10; status = "pass"; detail = `${siteZone} — matches required ${reqZone}`;
+        } else {
+          // Both provided but can't confirm match — flag for manual review
+          pts = 5; status = "warn"; detail = `Site: ${siteZone} · Required: ${reqZone} — verify compatibility`;
+        }
+      }
+    } else if (siteZone) {
+      status = "skip"; detail = `${siteZone} (no zoning requirement set)`;
+    }
+    breakdown.push({ category: "Zoning", points: pts, max, status, detail });
   }
 
   // Market Match (bonus up to +10)
