@@ -608,7 +608,8 @@ export function DealProfile({
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {deal.rentRoll.map((r, i) => {
-                      const expYr = new Date().getFullYear() + Math.ceil(r.remainingYears);
+                      const yrsLeft = r.remainingYears ?? null;
+                      const expYr = yrsLeft != null ? new Date().getFullYear() + Math.ceil(yrsLeft) : null;
                       return (
                         <tr key={i}>
                           <td className="py-2 pr-4 font-medium text-gray-900">
@@ -617,11 +618,13 @@ export function DealProfile({
                             {r.creditType === "regional" && <span className="ml-1.5 rounded bg-purple-50 px-1 py-0.5 text-[10px] font-semibold text-purple-700">REG</span>}
                           </td>
                           <td className="py-2 pr-4 text-right text-gray-500">{r.squareFeet != null ? r.squareFeet.toLocaleString() : "—"}</td>
-                          <td className="py-2 pr-4 text-right text-gray-500">${(r.annualRent / 1000).toFixed(0)}K</td>
+                          <td className="py-2 pr-4 text-right text-gray-500">{r.annualRent != null ? `$${(r.annualRent / 1000).toFixed(0)}K` : "—"}</td>
                           <td className="py-2 pr-4 text-right">
-                            <span className={`font-medium ${r.remainingYears < 2 ? "text-red-600" : r.remainingYears < 4 ? "text-yellow-600" : "text-gray-700"}`}>
-                              {r.remainingYears.toFixed(1)} <span className="text-xs text-gray-400">({expYr})</span>
-                            </span>
+                            {yrsLeft != null ? (
+                              <span className={`font-medium ${yrsLeft < 2 ? "text-red-600" : yrsLeft < 4 ? "text-yellow-600" : "text-gray-700"}`}>
+                                {yrsLeft.toFixed(1)} {expYr != null && <span className="text-xs text-gray-400">({expYr})</span>}
+                              </span>
+                            ) : <span className="text-gray-400">—</span>}
                           </td>
                           <td className="py-2 text-xs text-gray-500">{r.leaseType ?? "—"}</td>
                         </tr>
@@ -635,7 +638,7 @@ export function DealProfile({
                         {deal.rentRoll.reduce((s, r) => s + (r.squareFeet ?? 0), 0).toLocaleString()} SF
                       </td>
                       <td className="pt-2 pr-4 text-right text-xs font-semibold text-gray-700">
-                        ${(deal.rentRoll.reduce((s, r) => s + r.annualRent, 0) / 1000).toFixed(0)}K/yr
+                        ${(deal.rentRoll.reduce((s, r) => s + (r.annualRent ?? 0), 0) / 1000).toFixed(0)}K/yr
                       </td>
                       <td className="pt-2 pr-4 text-right text-xs font-semibold text-brand">
                         {deal.walt?.toFixed(1) ?? "—"} yrs WALT

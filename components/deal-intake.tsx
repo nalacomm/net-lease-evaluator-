@@ -332,9 +332,9 @@ export function DealIntake({ investors }: { investors: Investor[] }) {
             })}
           </div>
 
-          {/* Multi-tenant: WALT summary + rent roll preview */}
-          {dealCategory === "multi_tenant" && draft && (() => {
-            const rentRoll = (draft.rentRoll as { tenantName: string; squareFeet?: number | null; annualRent: number; remainingYears: number; leaseType?: string | null }[] | null) ?? [];
+          {/* Multi-tenant / retail plaza: WALT summary + rent roll preview */}
+          {(dealCategory === "multi_tenant" || dealCategory === "retail_plaza") && draft && (() => {
+            const rentRoll = (draft.rentRoll as { tenantName: string; squareFeet?: number | null; annualRent: number | null; remainingYears: number | null; leaseType?: string | null }[] | null) ?? [];
             const walt = (draft.walt as number | null);
             if (!walt && rentRoll.length === 0) return null;
             return (
@@ -370,8 +370,8 @@ export function DealIntake({ investors }: { investors: Investor[] }) {
                             <tr key={i}>
                               <td className="py-1 pr-3 font-medium text-gray-800">{r.tenantName}</td>
                               <td className="py-1 pr-3 text-right text-gray-500">{r.squareFeet != null ? r.squareFeet.toLocaleString() : "—"}</td>
-                              <td className="py-1 pr-3 text-right text-gray-500">${(r.annualRent / 1000).toFixed(0)}K</td>
-                              <td className="py-1 text-right text-gray-500">{r.remainingYears.toFixed(1)}</td>
+                              <td className="py-1 pr-3 text-right text-gray-500">{r.annualRent != null ? `$${(r.annualRent / 1000).toFixed(0)}K` : "—"}</td>
+                              <td className="py-1 text-right text-gray-500">{r.remainingYears != null ? r.remainingYears.toFixed(1) : "—"}</td>
                             </tr>
                           ))}
                         </tbody>
