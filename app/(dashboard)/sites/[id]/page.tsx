@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { SiteProfile } from "@/components/site-profile";
-import { scoreSite, applyMetricConfig, computeScore, SCORE_CATEGORIES, SiteCategoryScore, CheckStatus } from "@/lib/site-scoring";
+import { scoreSite } from "@/lib/site-scoring";
 
 export const dynamic = "force-dynamic";
 
@@ -26,10 +26,6 @@ export default async function SitePage({ params }: { params: { id: string } }) {
   ]);
 
   if (!site) notFound();
-
-  function castEntry(r: { category: string; points: number; max: number; status: string; detail: string }): SiteCategoryScore {
-    return { ...r, status: r.status as CheckStatus };
-  }
 
   const serialized = {
     id: site.id,
@@ -72,28 +68,10 @@ export default async function SitePage({ params }: { params: { id: string } }) {
     assignments: site.assignments.map((a) => ({
       id: a.id,
       tenantId: a.tenantId,
-      score: (() => {
-        if (!a.tenant.requirements) return a.score;
-        const config = a.scoringConfig as { enabledCategories?: string[] } | null;
-        const enabled = config?.enabledCategories ?? [...SCORE_CATEGORIES];
-        const fresh = scoreSite(site, a.tenant.requirements);
-        const stored = a.scoreBreakdown as { category: string; points: number; max: number; status: string; detail: string }[] | null;
-        const exceptional = stored?.find((r) => r.category === "Exceptional Flag (bonus)") ?? null;
-        let bd = applyMetricConfig(fresh.breakdown, enabled);
-        if (exceptional) bd = [...bd, castEntry(exceptional)];
-        return computeScore(bd).score;
-      })(),
-      grade: (() => {
-        if (!a.tenant.requirements) return a.grade;
-        const config = a.scoringConfig as { enabledCategories?: string[] } | null;
-        const enabled = config?.enabledCategories ?? [...SCORE_CATEGORIES];
-        const fresh = scoreSite(site, a.tenant.requirements);
-        const stored = a.scoreBreakdown as { category: string; points: number; max: number; status: string; detail: string }[] | null;
-        const exceptional = stored?.find((r) => r.category === "Exceptional Flag (bonus)") ?? null;
-        let bd = applyMetricConfig(fresh.breakdown, enabled);
-        if (exceptional) bd = [...bd, castEntry(exceptional)];
-        return computeScore(bd).grade;
-      })(),
+      // Use stored score/grade so this page matches the list and reports pages.
+      // Click "Re-score" to recompute and persist.
+      score: a.score,
+      grade: a.grade,
       gapAnalysis: a.gapAnalysis as {
         isExceptional: boolean;
         exceptionalReason: string | null;
@@ -111,17 +89,9 @@ export default async function SitePage({ params }: { params: { id: string } }) {
         verdict: string;
       }[] | null) ?? null,
       gapContext: a.gapContext ?? null,
-      scoreBreakdown: (() => {
-        if (!a.tenant.requirements) return null;
-        const config = a.scoringConfig as { enabledCategories?: string[] } | null;
-        const enabled = config?.enabledCategories ?? [...SCORE_CATEGORIES];
-        const fresh = scoreSite(site, a.tenant.requirements);
-        const stored = a.scoreBreakdown as { category: string; points: number; max: number; status: string; detail: string }[] | null;
-        const exceptional = stored?.find((r) => r.category === "Exceptional Flag (bonus)") ?? null;
-        let bd = applyMetricConfig(fresh.breakdown, enabled);
-        if (exceptional) bd = [...bd, castEntry(exceptional)];
-        return bd;
-      })(),
+      // Stored breakdown (reflects last rescore); used for display.
+      scoreBreakdown: (a.scoreBreakdown as { category: string; points: number; max: number; status: string; detail: string }[] | null) ?? null,
+      // Always recomputed so the checkbox-toggle UI reflects current site + requirements.
       fullBreakdown: a.tenant.requirements ? scoreSite(site, a.tenant.requirements).breakdown : null,
       scoringConfig: (a.scoringConfig as { enabledCategories?: string[] } | null) ?? null,
       tenant: { id: a.tenant.id, name: a.tenant.name },
