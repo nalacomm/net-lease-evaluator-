@@ -36,19 +36,15 @@ export default async function DealPage({
   ]);
   if (!deal) notFound();
 
-  // If viewing from a specific investor's context, use their assignment data
+  // Only apply investor context when explicitly requested via ?investorId=
+  // Defaulting to a single assignment caused the list score (primary) to differ from
+  // the detail score (assignment), giving users three different numbers for the same deal.
   const ctxInvestorId = searchParams.investorId ?? null;
   const ctxAssignment = ctxInvestorId
     ? deal.assignments.find((a) => a.investorId === ctxInvestorId)
     : null;
 
-  // When no explicit investor context: if there's exactly one assignment, use it as the default
-  // display so the badge reflects the investor this deal is actually assigned to, not whoever
-  // happened to be the primary investor at intake time.
-  const defaultAssignment =
-    !ctxInvestorId && deal.assignments.length === 1 ? deal.assignments[0] : null;
-
-  const effectiveAssignment = ctxAssignment ?? defaultAssignment;
+  const effectiveAssignment = ctxAssignment ?? null;
   const ctxInvestor = effectiveAssignment?.investor ?? null;
   const ctxBuyBox = ctxInvestor?.buyBox ?? null;
 
@@ -59,7 +55,7 @@ export default async function DealPage({
     scoringConfig: (deal.scoringConfig as { enabledCategories?: string[] } | null) ?? null,
     walt: deal.walt ?? null,
     rentRoll: (deal.rentRoll ?? null) as never,
-    // Override score/grade/breakdown with the assignment-specific values when in investor context
+    // Use assignment score/grade only when explicitly in investor context; otherwise use primary
     score: effectiveAssignment ? effectiveAssignment.score : deal.score,
     grade: effectiveAssignment ? effectiveAssignment.grade : deal.grade,
     scoreBreakdown: (
