@@ -336,12 +336,14 @@ export function scoreLandDeal(deal: DealLike, bb: BuyBoxLike): ScoreResult {
     breakdown.push({ category: "Demographics", points: pts, max: 20, status, detail });
   }
 
-  // ----- Zoning (20) — info if unknown, scored if present -----
+  // ----- Zoning (20) — skip if unknown, scored if present -----
   {
     const z = (deal.zoning ?? "").toLowerCase().trim();
-    let pts = 0; let status: CheckStatus = "info"; let detail: string;
-    if (!z) { detail = "Zoning unknown — verify before closing"; }
-    else {
+    let pts = 0; let max = 0; let status: CheckStatus = "info"; let detail: string;
+    if (!z) {
+      detail = "Zoning not set — not penalized";
+    } else {
+      max = 20;
       const isCommercial = /^c[-\s]?\d|commercial|retail|business|b-\d/i.test(z);
       const isOffice = /office|o-\d/i.test(z);
       const isIndustrial = /industrial|i-\d|flex|warehouse/i.test(z);
@@ -358,7 +360,7 @@ export function scoreLandDeal(deal: DealLike, bb: BuyBoxLike): ScoreResult {
         pts = 15; status = "warn"; detail = `${deal.zoning} — verify suitability for intended use`;
       }
     }
-    breakdown.push({ category: "Zoning", points: pts, max: 20, status, detail });
+    breakdown.push({ category: "Zoning", points: pts, max, status, detail });
   }
 
   // ----- Entitlements (15) -----

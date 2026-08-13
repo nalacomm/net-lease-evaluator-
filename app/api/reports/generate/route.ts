@@ -9,7 +9,7 @@ export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
-    const { investorId, dealIds, compareMode = false } = await req.json();
+    const { investorId, dealIds, compareMode = false, showScore = true } = await req.json();
     if (!investorId || !dealIds?.length) {
       return NextResponse.json({ error: "investorId + dealIds required" }, { status: 400 });
     }
@@ -61,7 +61,7 @@ export async function POST(req: Request) {
 Property: ${d.address ?? "Unknown"} | Tenant: ${d.tenantName ?? "?"} | Type: ${labelFor(ASSET_TYPES, d.assetType)}
 Price: ${fmtMoney(d.askingPrice)} | NOI: ${fmtMoney(d.noi)} | Cap Rate: ${fmtPercent(d.capRateAsking)}
 Lease: ${labelFor(LEASE_TYPES, d.leaseType)} | Term: ${d.termRemainingYears ?? "?"}yr | Bumps: ${d.bumpStructure ?? "?"}
-Guaranty: ${labelFor(GUARANTY_TYPES, d.guarantyType)} | DSCR: ${fmtDscr(fin.dscr)} | Score: ${score?.toFixed(0) ?? "?"}/100 (${grade ?? "?"})
+Guaranty: ${labelFor(GUARANTY_TYPES, d.guarantyType)} | DSCR: ${fmtDscr(fin.dscr)}${showScore ? ` | Score: ${score?.toFixed(0) ?? "?"}/100 (${grade ?? "?"})` : ""}
 Monthly Net Cash Flow: ${fmtMoney(fin.monthlyNetCashFlow)}`;
     }
 
@@ -69,10 +69,12 @@ Monthly Net Cash Flow: ${fmtMoney(fin.monthlyNetCashFlow)}`;
 
     const bbContext = `Your investment criteria: cap rate floor ${bb.capRateMin}%, target ${bb.capRateTarget}%. Maximum price ${fmtMoney(bb.priceMax)}. Preferred lease structure: ${bb.leaseTypePreferred.replace(/_/g, " ")}. Minimum DSCR: ${bb.dscrMin}x.`;
 
+    const scoreInstruction = showScore ? "" : "\nDo not mention scores, grades, or numerical ratings of any kind.";
+
     const summaryPrompt = compareMode
       ? `You are a commercial real estate advisor writing a personalized investment report for a client named ${investor.name}${investor.entityName ? ` (${investor.entityName})` : ""}.
 
-Write directly TO the investor using "you" and "your" — not about them in third person.
+Write directly TO the investor using "you" and "your" — not about them in third person.${scoreInstruction}
 ${bbContext}
 
 Properties being presented:
@@ -81,7 +83,7 @@ ${allSummaries}
 Write a 2-3 sentence executive summary. Speak directly to the investor about how these opportunities compare against each other and fit their strategy. No preamble, no "Here is the summary".`
       : `You are a commercial real estate advisor writing a personalized investment report for a client named ${investor.name}${investor.entityName ? ` (${investor.entityName})` : ""}.
 
-Write directly TO the investor using "you" and "your" — not about them in third person.
+Write directly TO the investor using "you" and "your" — not about them in third person.${scoreInstruction}
 ${bbContext}
 
 Properties being presented:
@@ -91,7 +93,7 @@ Write a 2-3 sentence executive summary evaluating how each property fits the inv
 
     const recommendationPrompt = `You are a commercial real estate advisor writing directly to your client, ${investor.name}.
 
-Use "you" and "your" throughout — never third person.
+Use "you" and "your" throughout — never third person.${scoreInstruction}
 ${bbContext}
 
 Properties under review:
@@ -119,7 +121,7 @@ Write a 2-3 sentence recommendation telling the client which property best fits 
         });
 
         const risksStrengths = await askText(
-          `You are advising ${investor.name} on this net lease property. Write strengths and risks speaking directly to the investor using "you/your".
+          `You are advising ${investor.name} on this net lease property. Write strengths and risks speaking directly to the investor using "you/your".${scoreInstruction}
 
 Property: ${dealSummary(d)}
 

@@ -254,13 +254,14 @@ export function scoreSite(site: SiteLike, req: RequirementsLike): SiteScoreResul
       : rawReqs ? rawReqs.split(/[,;]+/).map((s) => s.trim()).filter(Boolean) : [];
     let pts = 0, max = 0, status: CheckStatus = "skip", detail = "No zoning requirement set";
     if (reqZones.length > 0) {
-      max = 10;
       const norm = (s: string) => s.toLowerCase().replace(/[\s\-]+/g, "");
       const normSite = norm(siteZone);
       if (!siteZone) {
-        pts = 0; status = "fail";
-        detail = `Site zoning unknown — tenant accepts: ${reqZones.join(", ")}`;
+        // Site zoning not set — skip rather than penalize
+        status = "skip";
+        detail = `Site zoning not set (tenant accepts: ${reqZones.join(", ")}) — not penalized`;
       } else {
+        max = 10;
         const match = reqZones.some((z) => {
           const normZ = norm(z);
           return normSite.includes(normZ) || normZ.includes(normSite);
