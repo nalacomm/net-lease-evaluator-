@@ -1,5 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { DocumentBlockParam, TextBlockParam } from "@anthropic-ai/sdk/resources/messages/messages";
+import type {
+  BetaBase64PDFBlock,
+  BetaTextBlockParam,
+} from "@anthropic-ai/sdk/resources/beta/messages/messages";
 
 export const MODEL = "claude-sonnet-4-6";
 
@@ -55,10 +58,11 @@ export async function askJsonWithDocument<T = unknown>(
   opts: { system?: string; maxTokens?: number } = {}
 ): Promise<T> {
   const anthropic = getAnthropic();
-  const res = await anthropic.messages.create({
+  const res = await anthropic.beta.messages.create({
     model: MODEL,
     max_tokens: opts.maxTokens ?? 1500,
     system: opts.system,
+    betas: ["pdfs-2024-09-25"],
     messages: [
       {
         role: "user",
@@ -70,8 +74,8 @@ export async function askJsonWithDocument<T = unknown>(
               media_type: "application/pdf",
               data: pdfBase64,
             },
-          } as DocumentBlockParam,
-          { type: "text", text: prompt } as TextBlockParam,
+          } as BetaBase64PDFBlock,
+          { type: "text", text: prompt } as BetaTextBlockParam,
         ],
       },
     ],
