@@ -283,11 +283,11 @@ ${content.slice(0, 12000)}`;
 }
 
 /**
- * Extract deal fields directly from a PDF buffer using Claude's native document API.
- * Avoids pdf-parse entirely — Claude reads the visual layout including tables.
+ * Extract deal fields from a PDF using Claude's native document API.
+ * Accepts a base64-encoded PDF string. Avoids pdf-parse entirely — Claude reads
+ * the visual layout including tables that text parsers miss.
  */
-export async function extractDealFromPdf(buffer: Buffer, category?: string): Promise<ExtractResult> {
-  const pdfBase64 = buffer.toString("base64");
+export async function extractDealFromPdf(pdfBase64: string, category?: string): Promise<ExtractResult> {
   const today = new Date().toISOString().slice(0, 10);
 
   const isOtherCre = category === "other_cre";

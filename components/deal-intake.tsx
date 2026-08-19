@@ -93,10 +93,19 @@ export function DealIntake({ investors }: { investors: Investor[] }) {
           body: JSON.stringify({ url, dealCategory }),
         });
       } else {
-        const fd = new FormData();
-        if (file) fd.append("file", file);
-        fd.append("dealCategory", dealCategory);
-        res = await fetch("/api/intake/pdf", { method: "POST", body: fd });
+        if (!file) throw new Error("No file selected.");
+        // Convert PDF to base64 client-side and send as JSON.
+        // This avoids multipart FormData parsing issues in the serverless runtime.
+        const arrayBuf = await file.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuf);
+        let binary = "";
+        for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+        const pdfBase64 = btoa(binary);
+        res = await fetch("/api/intake/pdf", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pdfBase64, dealCategory }),
+        });
       }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Extraction failed");
