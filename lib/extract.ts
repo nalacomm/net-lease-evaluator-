@@ -239,7 +239,8 @@ ${content.slice(0, 12000)}`;
     return askJson<ExtractResult>(prompt, { system: SYSTEM_OTHER_CRE, maxTokens: 1000 });
   }
 
-  const prompt = `Extract net lease deal fields from the source below.
+  const today = new Date().toISOString().slice(0, 10);
+  const prompt = `Extract net lease deal fields from the source below. Today's date is ${today}.
 
 Enums:
 - assetType: one of "eclc","qsr","pharmacy","medical","dollar_store","retail","restaurant","other"
@@ -250,7 +251,11 @@ Enums:
 Rules:
 - Numbers only for money/percent fields (no $ or % symbols). capRateAsking and bumpPercent as plain numbers (e.g. 7.5 means 7.5%).
 - Use null for anything not present. Do not invent values.
-- termRemainingYears may be derived from lease expiration vs today; if so list it in inferredFields.
+- capRateAsking: use the cap rate EXPLICITLY STATED in the offering summary (e.g. "Cap Rate: 6.45%"). Do not compute it from NOI/price.
+- noi: use the NOI or base rent figure that the broker uses to derive the stated cap rate — typically labeled "NOI", "Rent", or "Base Rent" in the offering summary. If the OM shows a step-up rent, use the stabilized/going-forward rent figure tied to the cap rate, not a transitional in-place rent.
+- termRemainingYears: compute as the number of years from TODAY (${today}) to the lease expiration date. Do NOT use the total lease term or years from commencement — only years remaining from today.
+- leaseType: if the lease abstract or OM explicitly says "Triple Net (NNN)" or "NNN", use "nnn". Only use "modified_nnn" if the document explicitly calls it Modified NNN. Minor landlord carve-outs (e.g. roof/structure responsibility) alone do not make it Modified NNN.
+- guarantyType: extract from the "Guarantor" field in the lease abstract. "Corporate" → "corporate"; franchise entity → "multi_unit_franchisee"; individual/personal → "single_personal".
 - Track which fields were INFERRED (not explicitly stated) and which key fields are MISSING.
 - confidenceLevel: "high" if all key fields (price, noi/capRate, leaseType, term, guaranty) are explicit; "medium" if 1-2 inferred; "low" if 3+ inferred or missing.
 
