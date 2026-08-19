@@ -25,6 +25,7 @@ export async function POST(req: Request) {
     return NextResponse.json(result);
   } catch (e) {
     console.error("intake/pdf error", e);
-    return NextResponse.json({ error: humanizeAiError(e) }, { status: 500 });
+    const tag = e instanceof Error ? `[${e.constructor.name}] ` : "";
+    return NextResponse.json({ error: tag + humanizeAiError(e) }, { status: 500 });
   }
 }
