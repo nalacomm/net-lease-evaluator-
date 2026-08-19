@@ -1,4 +1,4 @@
-import { askJson } from "./anthropic";
+import { askJson, askJsonWithDocument } from "./anthropic";
 
 export interface TenantLeaseRowExtracted {
   tenantName: string;
@@ -280,4 +280,207 @@ SOURCE:
 ${content.slice(0, 12000)}`;
 
   return askJson<ExtractResult>(prompt, { system: SYSTEM_NET_LEASE, maxTokens: 1500 });
+}
+
+/**
+ * Extract deal fields directly from a PDF buffer using Claude's native document API.
+ * Avoids pdf-parse entirely — Claude reads the visual layout including tables.
+ */
+export async function extractDealFromPdf(buffer: Buffer, category?: string): Promise<ExtractResult> {
+  const pdfBase64 = buffer.toString("base64");
+  const today = new Date().toISOString().slice(0, 10);
+
+  const isOtherCre = category === "other_cre";
+  const isMultiTenant = category === "multi_tenant";
+  const isLand = category === "land";
+  const isRetailPlaza = category === "retail_plaza";
+
+  if (isMultiTenant) {
+    const prompt = `Extract multi-tenant commercial real estate fields from the attached PDF. Today's date is ${today}.
+
+Enums:
+- assetType: one of "retail","office","industrial","medical","mixed_use","strip_center","power_center","lifestyle_center","other"
+- sourcePlatform: one of "costar","loopnet","crexi","direct","other"
+- creditType per tenant: one of "national","regional","local"
+
+Rules:
+- Numbers only for money fields (no $ or % symbols).
+- vacancyRate as percent e.g. 5.0 means 5%.
+- remainingYears = years from today to lease expiration (compute from dates if needed, list in inferredFields if computed).
+- For the rentRoll, extract every tenant you can find. annualRent and remainingYears are REQUIRED for each row; use null for optional fields.
+- walt = income-weighted average remaining term: Σ(remainingYears × annualRent) ÷ totalAnnualRent. Compute it if you have the rent roll. List in inferredFields if computed.
+- Use null for anything not present. Do not invent values.
+- Key fields: address, askingPrice, noi/capRateAsking, grossLeasableArea, rentRoll. Flag these in missingFields if absent.
+- confidenceLevel: "high" if rent roll, price, and NOI/cap rate are all present; "medium" if 1-2 are missing; "low" if 3+ missing.
+
+Return JSON exactly:
+{
+  "deal": {
+    "address": null, "city": null, "state": null, "assetType": null,
+    "tenantName": null,
+    "operatorName": null, "operatorUnitCount": null, "guarantyType": null,
+    "askingPrice": null, "noi": null, "capRateAsking": null,
+    "leaseType": null, "termRemainingYears": null, "bumpStructure": null, "bumpPercent": null,
+    "constructionYear": null, "buildingSize": null,
+    "hhi1Mile": null, "hhi3Mile": null, "population1Mile": null,
+    "sourceBroker": null, "sourcePlatform": null,
+    "grossLeasableArea": null, "numberOfTenants": null, "vacancyRate": null,
+    "walt": null,
+    "rentRoll": []
+  },
+  "inferredFields": [],
+  "missingFields": [],
+  "confidenceLevel": "low",
+  "notes": ""
+}`;
+    return askJsonWithDocument<ExtractResult>(pdfBase64, prompt, { system: SYSTEM_MULTI_TENANT, maxTokens: 2000 });
+  }
+
+  if (isLand) {
+    const prompt = `Extract land / development site fields from the attached PDF. This is a land deal — no tenants, no lease income, no DSCR. Do not flag income fields as missing.
+
+Enums:
+- sourcePlatform: one of "costar","loopnet","crexi","direct","other"
+- entitlements: one of "raw","partially_entitled","fully_entitled","permitted" — use null if unknown
+
+Rules:
+- Numbers only for money fields (no $ or % symbols).
+- lotSize in acres.
+- Use null for anything not present. Do not invent values.
+- Key fields: address, askingPrice, lotSize, zoning. Flag only these if absent.
+- confidenceLevel: "high" if address, price, and lotSize are all explicit; "medium" if 1 is inferred; "low" if 2+ missing.
+
+Return JSON exactly:
+{
+  "deal": {
+    "address": null, "city": null, "state": null, "assetType": null,
+    "askingPrice": null,
+    "lotSize": null,
+    "zoning": null,
+    "entitlements": null,
+    "buildingSize": null,
+    "constructionYear": null,
+    "hhi1Mile": null, "hhi3Mile": null, "population1Mile": null,
+    "sourceBroker": null, "sourcePlatform": null
+  },
+  "inferredFields": [],
+  "missingFields": [],
+  "confidenceLevel": "low",
+  "notes": ""
+}`;
+    return askJsonWithDocument<ExtractResult>(pdfBase64, prompt, { system: SYSTEM_LAND, maxTokens: 1000 });
+  }
+
+  if (isRetailPlaza) {
+    const prompt = `Extract retail plaza / shopping center fields from the attached PDF. Today's date is ${today}.
+
+Enums:
+- assetType: one of "strip_center","power_center","lifestyle_center","neighborhood_center","other"
+- sourcePlatform: one of "costar","loopnet","crexi","direct","other"
+- creditType per tenant: one of "national","regional","local"
+
+Rules:
+- Numbers only for money fields (no $ or % symbols).
+- vacancyRate as percent e.g. 5.0 means 5%.
+- remainingYears = years from today to lease expiration (compute from dates if needed, list in inferredFields if computed).
+- Extract every tenant you can find. annualRent and remainingYears are REQUIRED per row; null for optional fields.
+- walt = income-weighted average remaining term: Σ(remainingYears × annualRent) ÷ totalAnnualRent. Compute if rent roll available. List in inferredFields if computed.
+- anchorTenant = largest or most prominent tenant by SF or brand recognition.
+- Use null for anything not present. Do not invent values.
+- Key fields: address, askingPrice, noi/capRateAsking, grossLeasableArea, rentRoll, anchorTenant. Flag these in missingFields if absent.
+- confidenceLevel: "high" if rent roll, price, and NOI/cap rate present; "medium" if 1-2 missing; "low" if 3+ missing.
+
+Return JSON exactly:
+{
+  "deal": {
+    "address": null, "city": null, "state": null, "assetType": null,
+    "tenantName": null, "anchorTenant": null,
+    "askingPrice": null, "noi": null, "capRateAsking": null,
+    "constructionYear": null, "buildingSize": null,
+    "hhi1Mile": null, "hhi3Mile": null, "population1Mile": null,
+    "sourceBroker": null, "sourcePlatform": null,
+    "grossLeasableArea": null, "numberOfTenants": null, "vacancyRate": null,
+    "walt": null,
+    "rentRoll": []
+  },
+  "inferredFields": [],
+  "missingFields": [],
+  "confidenceLevel": "low",
+  "notes": ""
+}`;
+    return askJsonWithDocument<ExtractResult>(pdfBase64, prompt, { system: SYSTEM_RETAIL_PLAZA, maxTokens: 2000 });
+  }
+
+  if (isOtherCre) {
+    const prompt = `Extract general commercial real estate fields from the attached PDF. This is NOT a net lease property — do not look for or flag NNN fields (NOI, cap rate, lease type, guaranty, term, operator info) as missing.
+
+Enums:
+- assetType: one of "eclc","qsr","pharmacy","medical","dollar_store","retail","restaurant","other"
+- sourcePlatform: one of "costar","loopnet","crexi","direct","other"
+
+Rules:
+- Numbers only for money fields (no $ or % symbols).
+- Use null for anything not present. Do not invent values.
+- Track which fields were INFERRED (not explicitly stated) and which key fields are MISSING.
+- Key fields for this deal type: address, assetType, askingPrice. Flag only these if absent.
+- confidenceLevel: "high" if address, asset type, and price are all explicit; "medium" if 1 is inferred; "low" if 2+ are missing.
+- Leave all NNN fields (noi, capRateAsking, leaseType, termRemainingYears, bumpStructure, bumpPercent, guarantyType, operatorName, operatorUnitCount) as null — do not list them in missingFields.
+
+Return JSON exactly:
+{
+  "deal": {
+    "address": null, "city": null, "state": null, "assetType": null,
+    "tenantName": null, "operatorName": null, "operatorUnitCount": null, "guarantyType": null,
+    "askingPrice": null, "noi": null, "capRateAsking": null,
+    "leaseType": null, "termRemainingYears": null, "bumpStructure": null, "bumpPercent": null,
+    "constructionYear": null, "buildingSize": null,
+    "hhi1Mile": null, "hhi3Mile": null, "population1Mile": null,
+    "sourceBroker": null, "sourcePlatform": null
+  },
+  "inferredFields": [],
+  "missingFields": [],
+  "confidenceLevel": "low",
+  "notes": ""
+}`;
+    return askJsonWithDocument<ExtractResult>(pdfBase64, prompt, { system: SYSTEM_OTHER_CRE, maxTokens: 1000 });
+  }
+
+  // NNN (default)
+  const prompt = `Extract net lease deal fields from the attached PDF. Today's date is ${today}.
+
+Enums:
+- assetType: one of "eclc","qsr","pharmacy","medical","dollar_store","retail","restaurant","other"
+- leaseType: one of "absolute_nnn","nnn","modified_nnn","gross"
+- guarantyType: one of "corporate","multi_unit_franchisee","single_personal"
+- sourcePlatform: one of "costar","loopnet","crexi","direct","other"
+
+Rules:
+- Numbers only for money/percent fields (no $ or % symbols). capRateAsking and bumpPercent as plain numbers (e.g. 7.5 means 7.5%).
+- Use null for anything not present. Do not invent values.
+- capRateAsking: use the cap rate EXPLICITLY STATED in the offering summary (e.g. "Cap Rate: 6.45%"). Do not compute it from NOI/price.
+- noi: use the NOI or base rent figure that the broker uses to derive the stated cap rate — typically labeled "NOI", "Rent", or "Base Rent" in the offering summary. If the OM shows a step-up rent, use the stabilized/going-forward rent figure tied to the cap rate, not a transitional in-place rent.
+- termRemainingYears: compute as the number of years from TODAY (${today}) to the lease expiration date. Do NOT use the total lease term or years from commencement — only years remaining from today.
+- leaseType: if the lease abstract or OM explicitly says "Triple Net (NNN)" or "NNN", use "nnn". Only use "modified_nnn" if the document explicitly calls it Modified NNN. Minor landlord carve-outs (e.g. roof/structure responsibility) alone do not make it Modified NNN.
+- guarantyType: extract from the "Guarantor" field in the lease abstract or offering summary. "Corporate" → "corporate"; franchise entity → "multi_unit_franchisee"; individual/personal → "single_personal".
+- Track which fields were INFERRED (not explicitly stated) and which key fields are MISSING.
+- confidenceLevel: "high" if all key fields (price, noi/capRate, leaseType, term, guaranty) are explicit; "medium" if 1-2 inferred; "low" if 3+ inferred or missing.
+
+Return JSON exactly:
+{
+  "deal": {
+    "address": null, "city": null, "state": null, "assetType": null,
+    "tenantName": null, "operatorName": null, "operatorUnitCount": null, "guarantyType": null,
+    "askingPrice": null, "noi": null, "capRateAsking": null,
+    "leaseType": null, "termRemainingYears": null, "bumpStructure": null, "bumpPercent": null,
+    "constructionYear": null, "buildingSize": null,
+    "hhi1Mile": null, "hhi3Mile": null, "population1Mile": null,
+    "sourceBroker": null, "sourcePlatform": null
+  },
+  "inferredFields": [],
+  "missingFields": [],
+  "confidenceLevel": "low",
+  "notes": ""
+}`;
+
+  return askJsonWithDocument<ExtractResult>(pdfBase64, prompt, { system: SYSTEM_NET_LEASE, maxTokens: 1500 });
 }

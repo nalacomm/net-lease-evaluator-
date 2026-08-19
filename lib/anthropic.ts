@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import type { DocumentBlockParam, TextBlockParam } from "@anthropic-ai/sdk/resources/messages/messages";
 
 export const MODEL = "claude-sonnet-4-6";
 
@@ -40,6 +41,43 @@ export async function askJson<T = unknown>(
   opts: { system?: string; maxTokens?: number } = {}
 ): Promise<T> {
   const raw = await askText(prompt, opts);
+  return parseJson<T>(raw);
+}
+
+/**
+ * Call Claude with a PDF document block + text prompt. Returns parsed JSON.
+ * Uses the Anthropic native document type so Claude can read tables and layouts
+ * that text-extraction parsers miss.
+ */
+export async function askJsonWithDocument<T = unknown>(
+  pdfBase64: string,
+  prompt: string,
+  opts: { system?: string; maxTokens?: number } = {}
+): Promise<T> {
+  const anthropic = getAnthropic();
+  const res = await anthropic.messages.create({
+    model: MODEL,
+    max_tokens: opts.maxTokens ?? 1500,
+    system: opts.system,
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "document",
+            source: {
+              type: "base64",
+              media_type: "application/pdf",
+              data: pdfBase64,
+            },
+          } as DocumentBlockParam,
+          { type: "text", text: prompt } as TextBlockParam,
+        ],
+      },
+    ],
+  });
+  const block = res.content.find((b) => b.type === "text");
+  const raw = block && block.type === "text" ? block.text : "";
   return parseJson<T>(raw);
 }
 
