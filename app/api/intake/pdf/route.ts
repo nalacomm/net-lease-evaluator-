@@ -21,15 +21,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Verify the decoded bytes start with %PDF
-    const header = atob(pdfBase64.slice(0, 512));
-    if (!header.includes("%PDF")) {
-      return NextResponse.json(
-        { error: "This does not appear to be a valid PDF." },
-        { status: 422 }
-      );
-    }
-
     const result = await extractDealFromPdf(pdfBase64, dealCategory);
     return NextResponse.json(result);
   } catch (e) {
