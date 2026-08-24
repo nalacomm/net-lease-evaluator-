@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { scoreSite, applyMetricConfig, computeScore, SCORE_CATEGORIES, SiteLike, RequirementsLike } from "@/lib/site-scoring";
 
 export async function GET(_: Request, { params }: { params: { id: string } }) {
   const tenant = await prisma.tenant.findUnique({
@@ -73,7 +74,55 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       });
     }
 
-    return NextResponse.json(tenant);
+    // Re-score all site assignments when requirements change
+    let rescoreResults: {
+      siteId: string;
+      siteLabel: string;
+      previousScore: number | null;
+      previousGrade: string | null;
+      newScore: number;
+      newGrade: string;
+    }[] = [];
+
+    if (requirements) {
+      const [siteAssignments, updatedReqs] = await Promise.all([
+        prisma.siteAssignment.findMany({
+          where: { tenantId: params.id },
+          include: { site: true },
+        }),
+        prisma.tenantRequirements.findUnique({ where: { tenantId: params.id } }),
+      ]);
+
+      if (updatedReqs && siteAssignments.length > 0) {
+        rescoreResults = (
+          await Promise.all(
+            siteAssignments.map(async (sa) => {
+              const previousScore = sa.score;
+              const previousGrade = sa.grade;
+              const config = sa.scoringConfig as { enabledCategories?: string[] } | null;
+              const enabledCats = config?.enabledCategories ?? [...SCORE_CATEGORIES];
+              const fullBreakdown = scoreSite(sa.site as SiteLike, updatedReqs as RequirementsLike).breakdown;
+              const breakdown = applyMetricConfig(fullBreakdown, enabledCats);
+              const { score, grade } = computeScore(breakdown);
+              await prisma.siteAssignment.update({
+                where: { siteId_tenantId: { siteId: sa.siteId, tenantId: params.id } },
+                data: { score, grade, scoreBreakdown: breakdown as object[] },
+              });
+              return {
+                siteId: sa.siteId,
+                siteLabel: sa.site.name ?? sa.site.address ?? "Site",
+                previousScore,
+                previousGrade,
+                newScore: score,
+                newGrade: grade,
+              };
+            })
+          )
+        );
+      }
+    }
+
+    return NextResponse.json({ ...tenant, rescoreResults });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Failed" }, { status: 500 });
   }

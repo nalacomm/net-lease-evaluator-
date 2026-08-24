@@ -2,15 +2,21 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 import { scoreDeal, BuyBoxLike, DealLike, TenantLeaseRow, computeWalt } from "./scoring";
 
+export interface AnalyzeDealResult {
+  dealId: string;
+  address: string | null;
+  tenantName: string | null;
+  previousScore: number | null;
+  previousGrade: string | null;
+  newScore: number;
+  newGrade: string;
+}
+
 /**
  * Recompute score, grade, finance fields, and self-checker notes for a deal,
- * then persist. Returns the previous and new score.
+ * then persist. Returns before/after comparison for diff display.
  */
-export async function analyzeDeal(dealId: string): Promise<{
-  previousScore: number | null;
-  newScore: number;
-  grade: string;
-}> {
+export async function analyzeDeal(dealId: string): Promise<AnalyzeDealResult> {
   const deal = await prisma.deal.findUnique({
     where: { id: dealId },
     include: { investor: { include: { buyBox: true } } },
@@ -24,7 +30,7 @@ export async function analyzeDeal(dealId: string): Promise<{
         where: { id: dealId },
         data: { score: null, grade: null, scoreBreakdown: Prisma.DbNull, selfCheckerNotes: null, scoreRationale: null },
       });
-      return { previousScore: deal.score, newScore: 0, grade: "F" };
+      return { dealId, address: deal.address, tenantName: deal.tenantName, previousScore: deal.score, previousGrade: deal.grade, newScore: 0, newGrade: "F" };
     }
     throw new Error("Deal has no primary investor — re-assign to an investor first");
   }
@@ -32,6 +38,7 @@ export async function analyzeDeal(dealId: string): Promise<{
   if (!bb) throw new Error("Investor has no buy box");
 
   const previousScore = deal.score;
+  const previousGrade = deal.grade;
 
   // For multi-tenant deals, attach rentRoll and compute WALT before scoring
   const rentRoll = (deal.rentRoll ?? null) as TenantLeaseRow[] | null;
@@ -65,7 +72,7 @@ export async function analyzeDeal(dealId: string): Promise<{
     },
   });
 
-  return { previousScore, newScore: result.score, grade: result.grade };
+  return { dealId, address: deal.address, tenantName: deal.tenantName, previousScore, previousGrade, newScore: result.score, newGrade: result.grade };
 }
 
 function buildSelfCheckerNotes(

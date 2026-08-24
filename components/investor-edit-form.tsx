@@ -136,6 +136,15 @@ export function InvestorEditForm({ investor }: { investor: InvestorWithBuyBox })
   const [acceptableZones, setAcceptableZones] = useState((bb?.acceptableZones ?? []).join(", "));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [rescoreResults, setRescoreResults] = useState<{
+    dealId: string;
+    address: string | null;
+    tenantName: string | null;
+    previousScore: number | null;
+    previousGrade: string | null;
+    newScore: number;
+    newGrade: string;
+  }[] | null>(null);
   const [draftOpen, setDraftOpen] = useState(false);
   const [draftNarrative, setDraftNarrative] = useState("");
   const [draftFiles, setDraftFiles] = useState<File[]>([]);
@@ -229,12 +238,75 @@ export function InvestorEditForm({ investor }: { investor: InvestorWithBuyBox })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Update failed");
-      router.push(`/investors/${investor.id}`);
-      router.refresh();
+      if (data.rescoreResults?.length > 0) {
+        setRescoreResults(data.rescoreResults);
+        setSaving(false);
+      } else {
+        router.push(`/investors/${investor.id}`);
+        router.refresh();
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Update failed");
       setSaving(false);
     }
+  }
+
+  if (rescoreResults) {
+    const GRADE_COLOR: Record<string, string> = { A: "#22c55e", B: "#3b82f6", C: "#f59e0b", D: "#f97316", F: "#ef4444" };
+    return (
+      <div className="card space-y-4">
+        <h3 className="font-semibold text-base">Profile Saved — Deals Rescored</h3>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-gray-500 border-b border-gray-200 dark:border-gray-700">
+              <th className="pb-2 font-medium">Deal</th>
+              <th className="pb-2 font-medium text-right">Before</th>
+              <th className="pb-2 font-medium text-right">After</th>
+              <th className="pb-2 font-medium text-right">Change</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rescoreResults.map((r) => {
+              const delta = r.newScore - (r.previousScore ?? r.newScore);
+              const gradeChanged = r.previousGrade !== r.newGrade;
+              const scoreChanged = Math.abs(delta) >= 1;
+              return (
+                <tr key={r.dealId} className="border-b border-gray-100 dark:border-gray-800 last:border-0">
+                  <td className="py-2 pr-4 max-w-[200px] truncate">
+                    {r.address ?? r.tenantName ?? "Unknown"}
+                    {r.tenantName && r.address ? <span className="block text-xs text-gray-400">{r.tenantName}</span> : null}
+                  </td>
+                  <td className="py-2 text-right whitespace-nowrap">
+                    <span style={{ color: GRADE_COLOR[r.previousGrade ?? ""] ?? "#9ca3af" }} className="font-bold mr-1">{r.previousGrade ?? "—"}</span>
+                    <span className="text-gray-400">{r.previousScore != null ? r.previousScore.toFixed(0) : "—"}</span>
+                  </td>
+                  <td className="py-2 text-right whitespace-nowrap">
+                    <span style={{ color: GRADE_COLOR[r.newGrade] ?? "#9ca3af" }} className="font-bold mr-1">{r.newGrade}</span>
+                    <span className="text-gray-400">{r.newScore.toFixed(0)}</span>
+                  </td>
+                  <td className="py-2 text-right whitespace-nowrap">
+                    {!scoreChanged && !gradeChanged ? (
+                      <span className="text-gray-400">—</span>
+                    ) : (
+                      <span className={delta > 0 ? "text-green-500" : delta < 0 ? "text-red-500" : "text-gray-400"}>
+                        {delta > 0 ? `+${delta.toFixed(0)}` : delta < 0 ? delta.toFixed(0) : "±0"}
+                        {gradeChanged ? ` (${r.previousGrade} → ${r.newGrade})` : ""}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        <button
+          className="btn-primary"
+          onClick={() => { router.push(`/investors/${investor.id}`); router.refresh(); }}
+        >
+          View Investor Profile
+        </button>
+      </div>
+    );
   }
 
   return (
