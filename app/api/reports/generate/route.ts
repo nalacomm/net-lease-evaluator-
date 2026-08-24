@@ -47,7 +47,12 @@ export async function POST(req: Request) {
     const assignmentMap = new Map(assignments.map((a) => [a.dealId, a]));
 
     function dealSummary(d: (typeof deals)[0]) {
-      const a = assignmentMap.get(d.id);
+      const config = d.scoringConfig as { enabledCategories?: string[] } | null;
+      const enabled = config?.enabledCategories;
+      const has = (cat: string) => !enabled || enabled.includes(cat);
+
+      const isPrimary = primaryIds.has(d.id);
+      const a = isPrimary ? undefined : assignmentMap.get(d.id);
       const score = a?.score ?? d.score;
       const grade = a?.grade ?? d.grade;
       const fin = computeFinance({
@@ -57,13 +62,49 @@ export async function POST(req: Request) {
         ratePercent: bb.interestRate,
         amortizationYears: bb.amortizationYears,
       });
-      return `
-Property: ${d.address ?? "Unknown"} | Tenant: ${d.tenantName ?? "?"} | Type: ${labelFor(ASSET_TYPES, d.assetType)}
-Price: ${fmtMoney(d.askingPrice)} | NOI: ${fmtMoney(d.noi)} | Cap Rate: ${fmtPercent(d.capRateAsking)}
-Lease: ${labelFor(LEASE_TYPES, d.leaseType)} | Term: ${d.termRemainingYears ?? "?"}yr | Bumps: ${d.bumpStructure ?? "?"}
-Guaranty: ${labelFor(GUARANTY_TYPES, d.guarantyType)} | DSCR: ${fmtDscr(fin.dscr)}${showScore ? ` | Score: ${score?.toFixed(0) ?? "?"}/100 (${grade ?? "?"})` : ""}
-Monthly Net Cash Flow: ${fmtMoney(fin.monthlyNetCashFlow)}`;
+
+      const priceFields = [
+        has("Price vs Ceiling") && `Price: ${fmtMoney(d.askingPrice)}`,
+        has("Cap Rate") && `NOI: ${fmtMoney(d.noi)}`,
+        has("Cap Rate") && `Cap Rate: ${fmtPercent(d.capRateAsking)}`,
+      ].filter(Boolean).join(" | ");
+
+      const leaseFields = [
+        has("Lease Type") && `Lease: ${labelFor(LEASE_TYPES, d.leaseType)}`,
+        has("Term Remaining") && `Term: ${d.termRemainingYears ?? "?"}yr`,
+        has("Rent Bumps") && `Bumps: ${d.bumpStructure ?? "?"}`,
+      ].filter(Boolean).join(" | ");
+
+      const finFields = [
+        has("Guaranty") && `Guaranty: ${labelFor(GUARANTY_TYPES, d.guarantyType)}`,
+        has("DSCR") && `DSCR: ${fmtDscr(fin.dscr)}`,
+        showScore && score != null ? `Score: ${score.toFixed(0)}/100 (${grade ?? "?"})` : null,
+      ].filter(Boolean).join(" | ");
+
+      return [
+        `Property: ${d.address ?? "Unknown"} | Tenant: ${d.tenantName ?? "?"} | Type: ${labelFor(ASSET_TYPES, d.assetType)}`,
+        priceFields,
+        leaseFields,
+        finFields,
+        `Monthly Net Cash Flow: ${fmtMoney(fin.monthlyNetCashFlow)}`,
+      ].filter(Boolean).join("\n");
     }
+
+    // Union of disabled categories across all deals — used in global prompts (exec summary, recommendation)
+    const allDisabledCategories = (() => {
+      const seen = new Set<string>();
+      for (const d of deals) {
+        const config = d.scoringConfig as { enabledCategories?: string[] } | null;
+        const enabled = config?.enabledCategories;
+        if (!enabled) continue;
+        const breakdown = (d.scoreBreakdown as { category: string }[] | null) ?? [];
+        breakdown.map((b) => b.category).filter((c) => !enabled.includes(c)).forEach((c) => seen.add(c));
+      }
+      return Array.from(seen);
+    })();
+    const globalCatInstruction = allDisabledCategories.length > 0
+      ? `\nThe investor has opted out of evaluating the following criteria — do not mention them: ${allDisabledCategories.join(", ")}.`
+      : "";
 
     const allSummaries = deals.map(dealSummary).join("\n\n---\n");
 
@@ -86,7 +127,7 @@ Monthly Net Cash Flow: ${fmtMoney(fin.monthlyNetCashFlow)}`;
     const summaryPrompt = compareMode
       ? `You are a commercial real estate advisor writing a personalized investment report for a client named ${investor.name}${investor.entityName ? ` (${investor.entityName})` : ""}.
 
-Write directly TO the investor using "you" and "your" — not about them in third person.${scoreInstruction}
+Write directly TO the investor using "you" and "your" — not about them in third person.${scoreInstruction}${globalCatInstruction}
 ${bbContext}
 
 Properties being presented:
@@ -95,7 +136,7 @@ ${allSummaries}
 Write a 2-3 sentence executive summary. Speak directly to the investor about how these opportunities compare against each other and fit their strategy. No preamble, no "Here is the summary".`
       : `You are a commercial real estate advisor writing a personalized investment report for a client named ${investor.name}${investor.entityName ? ` (${investor.entityName})` : ""}.
 
-Write directly TO the investor using "you" and "your" — not about them in third person.${scoreInstruction}
+Write directly TO the investor using "you" and "your" — not about them in third person.${scoreInstruction}${globalCatInstruction}
 ${bbContext}
 
 Properties being presented:
@@ -105,7 +146,7 @@ Write a 2-3 sentence executive summary evaluating how each property fits the inv
 
     const recommendationPrompt = `You are a commercial real estate advisor writing directly to your client, ${investor.name}.
 
-Use "you" and "your" throughout — never third person.${scoreInstruction}
+Use "you" and "your" throughout — never third person.${scoreInstruction}${globalCatInstruction}
 ${bbContext}
 
 Properties under review:
@@ -121,7 +162,8 @@ Write a 2-3 sentence recommendation telling the client which property best fits 
     // Per-deal AI risks/strengths — written to the investor directly
     const dealDetails = await Promise.all(
       deals.map(async (d) => {
-        const a = assignmentMap.get(d.id);
+        const isPrimary = primaryIds.has(d.id);
+        const a = isPrimary ? undefined : assignmentMap.get(d.id);
         const score = a?.score ?? d.score;
         const grade = a?.grade ?? d.grade;
         const fin = computeFinance({
@@ -133,8 +175,9 @@ Write a 2-3 sentence recommendation telling the client which property best fits 
         });
 
         const catInstruction = dealCategoryInstruction(d);
+        const noBoilerplate = "\nNever include generic single-tenant, single-asset concentration risk language. The investor selected net lease and already understands this structure.";
         const risksStrengths = await askText(
-          `You are advising ${investor.name} on this net lease property. Write strengths and risks speaking directly to the investor using "you/your".${scoreInstruction}${catInstruction}
+          `You are advising ${investor.name} on this net lease property. Write strengths and risks speaking directly to the investor using "you/your".${scoreInstruction}${catInstruction}${noBoilerplate}
 
 Property: ${dealSummary(d)}
 
