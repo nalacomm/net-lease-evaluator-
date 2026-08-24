@@ -41,6 +41,9 @@ export async function runGapAnalysis(
     ? `\nADDITIONAL CONTEXT PROVIDED BY ANALYST:\n${additionalContext.trim()}\n`
     : "";
 
+  // AI prose never mentions scores or grades — display is handled by the UI
+  const scoreSuppressionInstruction = "\nDo not mention scores, grades, or numerical ratings in your written analysis.";
+
   // Build suppression instruction for deselected categories
   const disabledCategories = enabledCategories
     ? scoreResult.breakdown.map((b) => b.category).filter((c) => !enabledCategories.includes(c))
@@ -85,7 +88,7 @@ ${bbDesc}
 SCORE (${scoreResult.score}/100 based on applicable criteria):
 ${appliedBreakdown || "All applicable criteria passed."}
 ${contextSection}
-This is NOT a net lease deal. Do not mention NNN, lease type, DSCR, term, guaranty, or cap rate in your analysis — those metrics simply don't apply here.${categoryInstruction}
+This is NOT a net lease deal. Do not mention NNN, lease type, DSCR, term, guaranty, or cap rate in your analysis — those metrics simply don't apply here.${scoreSuppressionInstruction}${categoryInstruction}
 
 Analyze this deal:
 1. How well does it fit the investor's budget, location preferences, and asset type focus?
@@ -117,7 +120,6 @@ Return JSON only:
     `Term remaining: ${deal.termRemainingYears ?? "?"} yrs`,
     `Guaranty: ${labelFor(GUARANTY_TYPES, deal.guarantyType)}`,
     `Operator units: ${deal.operatorUnitCount ?? "?"}`,
-    `Score vs buy box: ${scoreResult.score}/100 (${scoreResult.grade})`,
   ].join("\n");
 
   const bbDesc = [
@@ -146,7 +148,7 @@ ${bbDesc}
 
 SCORE GAPS (categories that failed or warned):
 ${breakdown || "None — deal meets all thresholds."}
-${contextSection}${categoryInstruction}
+${contextSection}${scoreSuppressionInstruction}${categoryInstruction}
 Analyze this deal:
 1. Despite any low score, are there exceptional qualities that make it potentially worth a second look? (location, tenant quality, construction age, market position, credit, etc.)
 2. What specific buy box parameters would the investor need to relax to make this deal work?

@@ -69,7 +69,8 @@ Monthly Net Cash Flow: ${fmtMoney(fin.monthlyNetCashFlow)}`;
 
     const bbContext = `Your investment criteria: cap rate floor ${bb.capRateMin}%, target ${bb.capRateTarget}%. Maximum price ${fmtMoney(bb.priceMax)}. Preferred lease structure: ${bb.leaseTypePreferred.replace(/_/g, " ")}. Minimum DSCR: ${bb.dscrMin}x.`;
 
-    const scoreInstruction = showScore ? "" : "\nDo not mention scores, grades, or numerical ratings of any kind.";
+    // showScore controls structured display only — AI prose never mentions scores
+    const scoreInstruction = "\nDo not mention scores, grades, or numerical ratings of any kind in your written analysis.";
 
     // Build per-deal disabled-category instruction based on each deal's scoringConfig
     function dealCategoryInstruction(d: (typeof deals)[0]): string {

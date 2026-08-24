@@ -78,7 +78,6 @@ export async function POST(
                 d.address ?? d.tenantName ?? "Unknown",
                 d.dealCategory === "other_cre" ? "(Other CRE)" : "(Net Lease)",
                 d.grade ? `Grade ${d.grade}` : null,
-                d.score != null ? `Score ${d.score}` : null,
                 d.askingPrice ? fmtMoney(d.askingPrice) : null,
                 d.assetType ? labelFor(ASSET_TYPES, d.assetType) : null,
               ]
@@ -105,7 +104,7 @@ Write a profile summary covering:
 3. Deal-breakers or constraints to keep in mind when sourcing for them
 4. A brief read on their current pipeline based on the deals evaluated
 
-Keep it concise: 3-4 short paragraphs, plain language. No headers. Write directly about the investor.`;
+Keep it concise: 3-4 short paragraphs, plain language. No headers. Write directly about the investor. Do not mention scores or numerical ratings.`;
 
     const summary = await askText(prompt, { maxTokens: 600 });
 
