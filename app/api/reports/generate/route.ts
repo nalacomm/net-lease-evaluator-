@@ -71,6 +71,17 @@ Monthly Net Cash Flow: ${fmtMoney(fin.monthlyNetCashFlow)}`;
 
     const scoreInstruction = showScore ? "" : "\nDo not mention scores, grades, or numerical ratings of any kind.";
 
+    // Build per-deal disabled-category instruction based on each deal's scoringConfig
+    function dealCategoryInstruction(d: (typeof deals)[0]): string {
+      const config = d.scoringConfig as { enabledCategories?: string[] } | null;
+      const enabled = config?.enabledCategories;
+      if (!enabled) return "";
+      const breakdown = (d.scoreBreakdown as { category: string }[] | null) ?? [];
+      const disabled = breakdown.map((b) => b.category).filter((c) => !enabled.includes(c));
+      if (disabled.length === 0) return "";
+      return `\nThe investor has opted out of evaluating the following criteria — do not mention them: ${disabled.join(", ")}.`;
+    }
+
     const summaryPrompt = compareMode
       ? `You are a commercial real estate advisor writing a personalized investment report for a client named ${investor.name}${investor.entityName ? ` (${investor.entityName})` : ""}.
 
@@ -120,8 +131,9 @@ Write a 2-3 sentence recommendation telling the client which property best fits 
           amortizationYears: bb.amortizationYears,
         });
 
+        const catInstruction = dealCategoryInstruction(d);
         const risksStrengths = await askText(
-          `You are advising ${investor.name} on this net lease property. Write strengths and risks speaking directly to the investor using "you/your".${scoreInstruction}
+          `You are advising ${investor.name} on this net lease property. Write strengths and risks speaking directly to the investor using "you/your".${scoreInstruction}${catInstruction}
 
 Property: ${dealSummary(d)}
 

@@ -31,13 +31,22 @@ export async function runGapAnalysis(
     bumpMinPercent?: number | null;
     guarantyPreferred: string;
   },
-  additionalContext?: string
+  additionalContext?: string,
+  enabledCategories?: string[]
 ): Promise<GapAnalysisResult> {
   const scoreResult = scoreDeal(deal, bb);
   const isOtherCre = (deal.dealCategory ?? "net_lease") === "other_cre";
 
   const contextSection = additionalContext?.trim()
     ? `\nADDITIONAL CONTEXT PROVIDED BY ANALYST:\n${additionalContext.trim()}\n`
+    : "";
+
+  // Build suppression instruction for deselected categories
+  const disabledCategories = enabledCategories
+    ? scoreResult.breakdown.map((b) => b.category).filter((c) => !enabledCategories.includes(c))
+    : [];
+  const categoryInstruction = disabledCategories.length > 0
+    ? `\nThe investor has opted out of evaluating the following criteria — do not mention them: ${disabledCategories.join(", ")}.`
     : "";
 
   // Other CRE prompt — focused only on applicable criteria
@@ -60,7 +69,7 @@ export async function runGapAnalysis(
     ].filter(Boolean).join("\n") || "General commercial investment criteria.";
 
     const appliedBreakdown = scoreResult.breakdown
-      .filter((b) => b.max > 0 && b.status !== "pass")
+      .filter((b) => b.max > 0 && b.status !== "pass" && (enabledCategories ? enabledCategories.includes(b.category) : true))
       .map((b) => `${b.category}: ${b.points}/${b.max} — ${b.detail}`)
       .join("\n");
 
@@ -76,7 +85,7 @@ ${bbDesc}
 SCORE (${scoreResult.score}/100 based on applicable criteria):
 ${appliedBreakdown || "All applicable criteria passed."}
 ${contextSection}
-This is NOT a net lease deal. Do not mention NNN, lease type, DSCR, term, guaranty, or cap rate in your analysis — those metrics simply don't apply here.
+This is NOT a net lease deal. Do not mention NNN, lease type, DSCR, term, guaranty, or cap rate in your analysis — those metrics simply don't apply here.${categoryInstruction}
 
 Analyze this deal:
 1. How well does it fit the investor's budget, location preferences, and asset type focus?
@@ -122,7 +131,7 @@ Return JSON only:
   ].join("\n");
 
   const breakdown = scoreResult.breakdown
-    .filter((b) => b.max > 0 && b.status !== "pass")
+    .filter((b) => b.max > 0 && b.status !== "pass" && (enabledCategories ? enabledCategories.includes(b.category) : true))
     .map((b) => `${b.category}: ${b.points}/${b.max} — ${b.detail}`)
     .join("\n");
 
@@ -137,7 +146,7 @@ ${bbDesc}
 
 SCORE GAPS (categories that failed or warned):
 ${breakdown || "None — deal meets all thresholds."}
-${contextSection}
+${contextSection}${categoryInstruction}
 Analyze this deal:
 1. Despite any low score, are there exceptional qualities that make it potentially worth a second look? (location, tenant quality, construction age, market position, credit, etc.)
 2. What specific buy box parameters would the investor need to relax to make this deal work?

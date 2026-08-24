@@ -64,6 +64,7 @@ export async function POST(
       .filter(Boolean)
       .join("\n\n");
 
+    const scoringConfig = deal.scoringConfig as { enabledCategories?: string[] } | null;
     const result = await runGapAnalysis(
       deal as DealLike & { tenantName?: string | null; address?: string | null; assetType?: string | null },
       bb as BuyBoxLike & {
@@ -71,7 +72,8 @@ export async function POST(
         priceStretch?: number | null; termMinYears: number; dscrMin: number;
         bumpMinPercent?: number | null; guarantyPreferred: string;
       },
-      combined || undefined
+      combined || undefined,
+      scoringConfig?.enabledCategories
     );
 
     if (effectiveInvestorId) {
