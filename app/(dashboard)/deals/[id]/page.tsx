@@ -83,9 +83,14 @@ export default async function DealPage({
     })),
   };
 
-  // Load cached gap analysis from the assignment (if it exists)
-  const cachedGapAnalysis = effectiveAssignment?.gapAnalysis
-    ? (effectiveAssignment.gapAnalysis as {
+  // Load cached gap analysis — prefer the explicit investor context, then fall back to any
+  // assignment that has stored gap data (so it persists when navigating without ?investorId=)
+  const gapAssignment =
+    ctxAssignment ??
+    deal.assignments.find((a) => a.gapAnalysis != null) ??
+    null;
+  const cachedGapAnalysis = gapAssignment?.gapAnalysis
+    ? (gapAssignment.gapAnalysis as {
         isExceptional: boolean;
         exceptionalReason: string | null;
         buyBoxAdjustments: { field: string; currentValue: string; requiredValue: string; impact: string }[];

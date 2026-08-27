@@ -16,7 +16,7 @@ export async function POST(
     const contentType = req.headers.get("content-type") ?? "";
     if (contentType.includes("multipart/form-data")) {
       const form = await req.formData();
-      investorId = (form.get("investorId") as string | null) ?? null;
+      investorId = (form.get("investorId") as string | null) || null;
       runtimeContext = (form.get("additionalContext") as string | null) ?? "";
 
       // Extract text from any uploaded PDFs
