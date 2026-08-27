@@ -88,6 +88,7 @@ export function SiteList({
 }) {
   const [sort, setSort] = useState<SortKey>("createdAt");
   const [dir, setDir] = useState<SortDir>("desc");
+  const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const reported = useMemo(() => new Set(reportedSiteIds), [reportedSiteIds]);
 
@@ -102,7 +103,14 @@ export function SiteList({
   }
 
   const sorted = useMemo(() => {
-    return [...sites].sort((a, b) => {
+    let r = [...sites];
+    if (query.trim()) {
+      const q = query.trim().toLowerCase();
+      r = r.filter((s) =>
+        [s.name, s.address, s.city, s.state, ...(s.tenantNames ?? [])].some((v) => v?.toLowerCase().includes(q))
+      );
+    }
+    return r.sort((a, b) => {
       let cmp = 0;
       if (sort === "bestGrade") {
         cmp = gradeNum(a.bestGrade) - gradeNum(b.bestGrade);
@@ -115,13 +123,21 @@ export function SiteList({
       }
       return dir === "asc" ? cmp : -cmp;
     });
-  }, [sites, sort, dir]);
+  }, [sites, query, sort, dir]);
 
   const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
   const paged = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  // reset page when filter shrinks results past current page
 
   return (
     <div className="space-y-4">
+      <input
+        type="search"
+        className="input max-w-xs"
+        placeholder="Search name, address, tenant…"
+        value={query}
+        onChange={(e) => { setQuery(e.target.value); setPage(1); }}
+      />
     <div className="overflow-x-auto rounded-xl border border-border">
       <table className="w-full text-sm">
         <thead>

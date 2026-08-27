@@ -98,6 +98,7 @@ export function DealList({
   const [priceMin, setPriceMin] = useState("");
   const [priceMax, setPriceMax] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
 
   const stateOptions = useMemo(() => {
@@ -117,6 +118,12 @@ export function DealList({
 
   const filtered = useMemo(() => {
     let r = [...deals];
+    if (query.trim()) {
+      const q = query.trim().toLowerCase();
+      r = r.filter((d) =>
+        [d.address, d.tenantName, d.city, d.state, ...(d.investorNames ?? [])].some((v) => v?.toLowerCase().includes(q))
+      );
+    }
     if (assetFilter) r = r.filter((d) => d.assetType === assetFilter);
     if (statusFilter) r = r.filter((d) => d.status === statusFilter);
     if (gradeFilter) r = r.filter((d) => d.grade === gradeFilter);
@@ -138,7 +145,7 @@ export function DealList({
       return dir === "asc" ? cmp : -cmp;
     });
     return r;
-  }, [deals, sort, dir, assetFilter, statusFilter, gradeFilter, stateFilter, priceMin, priceMax]);
+  }, [deals, query, sort, dir, assetFilter, statusFilter, gradeFilter, stateFilter, priceMin, priceMax]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -148,6 +155,13 @@ export function DealList({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
+        <input
+          type="search"
+          className="input max-w-xs"
+          placeholder="Search address, tenant, investor…"
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); setPage(1); }}
+        />
         <button
           onClick={() => setShowFilters((s) => !s)}
           className={`btn-secondary gap-1 ${activeFilters > 0 ? "border-brand text-brand" : ""}`}

@@ -74,15 +74,32 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
+function slugify(s: string) {
+  return s.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40);
+}
+
+function printWithFilename(label: string) {
+  const now = new Date();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  const yy = String(now.getFullYear()).slice(2);
+  const slug = slugify(label) || "Deal";
+  const prev = document.title;
+  document.title = `${slug}-Net_Lease_Evaluation-${mm}${dd}${yy}`;
+  window.print();
+  document.title = prev;
+}
+
 export function DealExportClient({ data }: { data: ExportData }) {
   const { deal, investor, buyBox, score, grade, scoreBreakdown, fin, gapAnalysis, date } = data;
   const isShoppingCenter = deal.assetType === "Shopping Center";
+  const printLabel = deal.address ?? deal.tenantName ?? "Deal";
 
   return (
     <div className="min-h-screen bg-white p-6 print:p-0">
       {/* Screen controls */}
       <div className="mb-6 flex items-center justify-between print:hidden">
-        <button onClick={() => window.print()} className="btn-primary gap-2">
+        <button onClick={() => printWithFilename(printLabel)} className="btn-primary gap-2">
           <Printer className="h-4 w-4" /> Print / Save as PDF
         </button>
         <button onClick={() => window.history.back()} className="btn-secondary">← Back</button>

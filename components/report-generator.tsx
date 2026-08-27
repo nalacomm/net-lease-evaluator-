@@ -672,13 +672,18 @@ export function ReportGenerator({
 
 // ── Print with filename ────────────────────────────────────────────────────
 
-function printReport() {
+function slugify(s: string) {
+  return s.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40);
+}
+
+function printWithLabel(label: string) {
   const now = new Date();
   const mm = String(now.getMonth() + 1).padStart(2, "0");
   const dd = String(now.getDate()).padStart(2, "0");
   const yy = String(now.getFullYear()).slice(2);
+  const slug = slugify(label) || "Report";
   const prev = document.title;
-  document.title = `EDH-BD-Deal_Evaluation-${mm}${dd}${yy}`;
+  document.title = `${slug}-Net_Lease_Evaluation-${mm}${dd}${yy}`;
   window.print();
   document.title = prev;
 }
@@ -826,7 +831,7 @@ function DealReportOutput({ report, showScore = true }: { report: DealReportData
         >
           {editing ? <><PencilOff className="h-4 w-4" /> Done editing</> : <><Pencil className="h-4 w-4" /> Edit report</>}
         </button>
-        <button onClick={printReport} className="btn-secondary flex-1">
+        <button onClick={() => printWithLabel(report.deals[0]?.address ?? report.deals[0]?.tenantName ?? report.investor.name)} className="btn-secondary flex-1">
           <FileText className="h-4 w-4" /> Print / Save as PDF
         </button>
       </div>
@@ -1042,7 +1047,7 @@ function SiteReportOutput({ report, showScore = true }: { report: SiteReportData
         >
           {editing ? <><PencilOff className="h-4 w-4" /> Done editing</> : <><Pencil className="h-4 w-4" /> Edit report</>}
         </button>
-        <button onClick={printReport} className="btn-secondary flex-1">
+        <button onClick={() => printWithLabel(report.sites[0]?.name ?? report.sites[0]?.address ?? report.tenant.name)} className="btn-secondary flex-1">
           <FileText className="h-4 w-4" /> Print / Save as PDF
         </button>
       </div>
