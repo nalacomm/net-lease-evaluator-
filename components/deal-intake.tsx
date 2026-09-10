@@ -118,14 +118,15 @@ export function DealIntake({ investors }: { investors: Investor[] }) {
           });
         }
       }
-      let data: Record<string, unknown>;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let data: any;
       try {
         data = await res.json();
       } catch {
         // Non-JSON response — likely a Vercel timeout or gateway error
         throw new Error(res.status === 504 ? "Request timed out. Try a smaller or compressed PDF." : `Server error (${res.status}). Try again.`);
       }
-      if (!res.ok) throw new Error((data.error as string) ?? "Extraction failed");
+      if (!res.ok) throw new Error(data.error ?? "Extraction failed");
       setDraft(data.deal);
       setMeta({
         inferredFields: data.inferredFields ?? [],
