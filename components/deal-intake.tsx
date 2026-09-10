@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { upload } from "@vercel/blob/client";
 import {
   ASSET_TYPES,
   LEASE_TYPES,
@@ -98,15 +97,23 @@ export function DealIntake({ investors }: { investors: Investor[] }) {
         if (!file) throw new Error("No file selected.");
         const DIRECT_LIMIT = 4 * 1024 * 1024; // 4 MB — Vercel function body limit
         if (file.size > DIRECT_LIMIT) {
-          // Large file: upload directly to Vercel Blob, then send the URL
-          const blob = await upload(file.name, file, {
-            access: "public",
-            handleUploadUrl: "/api/intake/pdf-token",
+          // Large file: get signed upload URL from server, then PUT directly to Supabase Storage
+          const tokenRes = await fetch("/api/intake/supabase-token", { method: "POST" });
+          if (!tokenRes.ok) {
+            const tokenErr = await tokenRes.json().catch(() => ({}));
+            throw new Error((tokenErr as { error?: string }).error ?? "Failed to prepare upload. Try again.");
+          }
+          const { signedUrl, path } = await tokenRes.json() as { signedUrl: string; path: string };
+          const uploadRes = await fetch(signedUrl, {
+            method: "PUT",
+            body: file,
+            headers: { "Content-Type": "application/pdf" },
           });
+          if (!uploadRes.ok) throw new Error("Upload failed. Try again.");
           res = await fetch("/api/intake/pdf", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ blobUrl: blob.url, dealCategory }),
+            body: JSON.stringify({ supabasePath: path, dealCategory }),
           });
         } else {
           // Small file: send raw binary directly

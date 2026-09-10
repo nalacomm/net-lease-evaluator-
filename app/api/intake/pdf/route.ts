@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { del } from "@vercel/blob";
+import { createClient } from "@supabase/supabase-js";
 import { extractDealFromPdf } from "@/lib/extract";
 import { humanizeAiError } from "@/lib/ai-error";
 
@@ -14,19 +15,35 @@ export async function POST(req: Request) {
     let pdfBuffer: Buffer;
 
     if (contentType.includes("application/json")) {
-      // Large-file path: browser uploaded directly to Vercel Blob, we get the URL
-      const body = await req.json() as { blobUrl?: string; dealCategory?: string };
+      const body = await req.json() as { blobUrl?: string; supabasePath?: string; dealCategory?: string };
       dealCategory = body.dealCategory ?? "net_lease";
-      if (!body.blobUrl) {
+
+      if (body.supabasePath) {
+        // Large-file path: browser uploaded directly to Supabase Storage
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
+        const { data, error } = await supabase.storage
+          .from("temp-pdfs")
+          .download(body.supabasePath);
+        if (error || !data) {
+          return NextResponse.json({ error: "Could not retrieve uploaded PDF." }, { status: 400 });
+        }
+        pdfBuffer = Buffer.from(await data.arrayBuffer());
+        // Best-effort cleanup
+        supabase.storage.from("temp-pdfs").remove([body.supabasePath]).catch(() => {});
+      } else if (body.blobUrl) {
+        // Legacy Vercel Blob path (kept for compatibility)
+        const response = await fetch(body.blobUrl);
+        if (!response.ok) {
+          return NextResponse.json({ error: "Could not retrieve uploaded PDF." }, { status: 400 });
+        }
+        pdfBuffer = Buffer.from(await response.arrayBuffer());
+        try { await del(body.blobUrl); } catch { /* best-effort */ }
+      } else {
         return NextResponse.json({ error: "No PDF URL received." }, { status: 400 });
       }
-      const response = await fetch(body.blobUrl);
-      if (!response.ok) {
-        return NextResponse.json({ error: "Could not retrieve uploaded PDF." }, { status: 400 });
-      }
-      pdfBuffer = Buffer.from(await response.arrayBuffer());
-      // Clean up the temporary blob
-      try { await del(body.blobUrl); } catch { /* best-effort */ }
     } else if (contentType.includes("application/pdf") || contentType.includes("application/octet-stream")) {
       // Small-file path: raw binary body
       dealCategory = url.searchParams.get("dealCategory") ?? "net_lease";
