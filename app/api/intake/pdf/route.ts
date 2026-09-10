@@ -6,12 +6,28 @@ export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
+    const url = new URL(req.url);
     const contentType = req.headers.get("content-type") ?? "";
 
     let dealCategory = "net_lease";
-    let pdfBuffer: Buffer | null = null;
+    let pdfBuffer: Buffer;
 
-    if (contentType.includes("multipart/form-data")) {
+    if (contentType.includes("application/pdf") || contentType.includes("application/octet-stream")) {
+      // Raw binary upload — bypasses multipart parser entirely
+      dealCategory = url.searchParams.get("dealCategory") ?? "net_lease";
+      const arrayBuffer = await req.arrayBuffer();
+      if (!arrayBuffer.byteLength) {
+        return NextResponse.json({ error: "No PDF file received." }, { status: 400 });
+      }
+      if (arrayBuffer.byteLength > 30 * 1024 * 1024) {
+        return NextResponse.json(
+          { error: `This PDF is ${(arrayBuffer.byteLength / 1024 / 1024).toFixed(1)} MB — too large (limit 30 MB). Try a compressed version or paste key pages as text.` },
+          { status: 422 }
+        );
+      }
+      pdfBuffer = Buffer.from(arrayBuffer);
+    } else if (contentType.includes("multipart/form-data")) {
+      // FormData path (small files)
       const form = await req.formData();
       dealCategory = (form.get("dealCategory") as string | null) ?? "net_lease";
       const file = form.get("file") as File | null;
@@ -35,8 +51,6 @@ export async function POST(req: Request) {
       pdfBuffer = Buffer.from(body.pdfBase64, "base64");
     }
 
-    // Convert buffer to base64 server-side and use Claude's native document API —
-    // avoids pdf-parse compatibility issues and gets visual layout understanding.
     const pdfBase64 = pdfBuffer.toString("base64");
     const result = await extractDealFromPdf(pdfBase64, dealCategory);
     return NextResponse.json(result);

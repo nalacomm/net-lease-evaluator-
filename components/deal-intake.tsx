@@ -95,10 +95,12 @@ export function DealIntake({ investors }: { investors: Investor[] }) {
         });
       } else {
         if (!file) throw new Error("No file selected.");
-        const fd = new FormData();
-        fd.append("file", file);
-        fd.append("dealCategory", dealCategory);
-        res = await fetch("/api/intake/pdf", { method: "POST", body: fd });
+        const params = new URLSearchParams({ dealCategory });
+        res = await fetch(`/api/intake/pdf?${params}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/pdf" },
+          body: file,
+        });
       }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Extraction failed");
