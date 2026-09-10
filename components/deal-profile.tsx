@@ -173,6 +173,7 @@ export function DealProfile({
   // Initialize from cached assignment data — no re-run needed on revisit
   const [gapAnalysis, setGapAnalysis] = useState<GapAnalysisData | null>(cachedGapAnalysis ?? null);
   const [gapLoading, setGapLoading] = useState(false);
+  const [flexAssetType, setFlexAssetType] = useState(false);
   const [showContext, setShowContext] = useState(false);
   const [contextText, setContextText] = useState(deal.analysisContext ?? "");
   const [contextFiles, setContextFiles] = useState<File[]>([]);
@@ -271,6 +272,7 @@ export function DealProfile({
       const fd = new FormData();
       fd.append("investorId", investorContext?.investorId ?? "");
       fd.append("additionalContext", contextText);
+      fd.append("flexAssetType", flexAssetType ? "true" : "false");
       contextFiles.forEach((f) => fd.append("files", f));
       const res = await fetch(`/api/deals/${deal.id}/gap-analysis`, {
         method: "POST",
@@ -414,10 +416,10 @@ export function DealProfile({
             onClick={runGapAnalysis}
             disabled={gapLoading}
             className="btn-secondary"
-            title="AI analysis of this deal against the investor buy box"
+            title={flexAssetType ? "AI analysis — evaluating across asset types (financial fit only)" : "AI analysis of this deal against the investor buy box"}
           >
             {gapLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lightbulb className="h-4 w-4" />}
-            AI Analysis
+            AI Analysis{flexAssetType && <span className="ml-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700">flex</span>}
           </button>
           <button
             onClick={deleteDeal}
@@ -471,6 +473,18 @@ export function DealProfile({
                   </p>
                 )}
               </div>
+              <label className="flex cursor-pointer items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={flexAssetType}
+                  onChange={(e) => setFlexAssetType(e.target.checked)}
+                  className="mt-0.5 rounded"
+                />
+                <span className="text-gray-700">
+                  <span className="font-medium">Evaluate across asset types</span>
+                  <span className="ml-1 text-gray-400 text-xs">— financial fit only, ignore asset type mismatch</span>
+                </span>
+              </label>
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={saveContext}

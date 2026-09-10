@@ -12,12 +12,14 @@ export async function POST(
   try {
     let investorId: string | null = null;
     let runtimeContext = "";
+    let flexAssetType = false;
 
     const contentType = req.headers.get("content-type") ?? "";
     if (contentType.includes("multipart/form-data")) {
       const form = await req.formData();
       investorId = (form.get("investorId") as string | null) || null;
       runtimeContext = (form.get("additionalContext") as string | null) ?? "";
+      flexAssetType = form.get("flexAssetType") === "true";
 
       // Extract text from any uploaded PDFs
       const files = form.getAll("files") as File[];
@@ -73,7 +75,8 @@ export async function POST(
         bumpMinPercent?: number | null; guarantyPreferred: string;
       },
       combined || undefined,
-      scoringConfig?.enabledCategories
+      scoringConfig?.enabledCategories,
+      flexAssetType
     );
 
     if (effectiveInvestorId) {

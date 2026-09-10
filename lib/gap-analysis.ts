@@ -32,13 +32,18 @@ export async function runGapAnalysis(
     guarantyPreferred: string;
   },
   additionalContext?: string,
-  enabledCategories?: string[]
+  enabledCategories?: string[],
+  flexAssetType?: boolean
 ): Promise<GapAnalysisResult> {
   const scoreResult = scoreDeal(deal, bb);
   const isOtherCre = (deal.dealCategory ?? "net_lease") === "other_cre";
 
   const contextSection = additionalContext?.trim()
     ? `\nADDITIONAL CONTEXT PROVIDED BY ANALYST:\n${additionalContext.trim()}\n`
+    : "";
+
+  const flexInstruction = flexAssetType
+    ? `\nCROSS-ASSET EVALUATION: The deal's asset type (${labelFor(ASSET_TYPES, deal.assetType)}) differs from the investor's current buy box focus. Evaluate whether the deal's financial fundamentals — yield, income, lease structure, credit quality, and market position — meet the investor's core investment goals. Note any asset-class-specific considerations the investor should be aware of, but let financial fit drive the verdict. Do not flag the asset type difference as a gap to close.`
     : "";
 
   // AI prose never mentions scores or grades — display is handled by the UI
@@ -134,6 +139,7 @@ Return JSON only:
 
   const breakdown = scoreResult.breakdown
     .filter((b) => b.max > 0 && b.status !== "pass" && (enabledCategories ? enabledCategories.includes(b.category) : true))
+    .filter((b) => !flexAssetType || !b.category.toLowerCase().includes("asset type"))
     .map((b) => `${b.category}: ${b.points}/${b.max} — ${b.detail}`)
     .join("\n");
 
@@ -148,7 +154,7 @@ ${bbDesc}
 
 SCORE GAPS (categories that failed or warned):
 ${breakdown || "None — deal meets all thresholds."}
-${contextSection}${scoreSuppressionInstruction}${categoryInstruction}
+${contextSection}${flexInstruction}${scoreSuppressionInstruction}${categoryInstruction}
 Analyze this deal:
 1. Despite any low score, are there exceptional qualities that make it potentially worth a second look? (location, tenant quality, construction age, market position, credit, etc.)
 2. What specific buy box parameters would the investor need to relax to make this deal work?
