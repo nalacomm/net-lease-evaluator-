@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { upload } from "@vercel/blob/client";
 import {
   ASSET_TYPES,
   LEASE_TYPES,
@@ -95,15 +96,36 @@ export function DealIntake({ investors }: { investors: Investor[] }) {
         });
       } else {
         if (!file) throw new Error("No file selected.");
-        const params = new URLSearchParams({ dealCategory });
-        res = await fetch(`/api/intake/pdf?${params}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/pdf" },
-          body: file,
-        });
+        const DIRECT_LIMIT = 4 * 1024 * 1024; // 4 MB — Vercel function body limit
+        if (file.size > DIRECT_LIMIT) {
+          // Large file: upload directly to Vercel Blob, then send the URL
+          const blob = await upload(file.name, file, {
+            access: "public",
+            handleUploadUrl: "/api/intake/pdf-token",
+          });
+          res = await fetch("/api/intake/pdf", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ blobUrl: blob.url, dealCategory }),
+          });
+        } else {
+          // Small file: send raw binary directly
+          const params = new URLSearchParams({ dealCategory });
+          res = await fetch(`/api/intake/pdf?${params}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/pdf" },
+            body: file,
+          });
+        }
       }
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Extraction failed");
+      let data: Record<string, unknown>;
+      try {
+        data = await res.json();
+      } catch {
+        // Non-JSON response — likely a Vercel timeout or gateway error
+        throw new Error(res.status === 504 ? "Request timed out. Try a smaller or compressed PDF." : `Server error (${res.status}). Try again.`);
+      }
+      if (!res.ok) throw new Error((data.error as string) ?? "Extraction failed");
       setDraft(data.deal);
       setMeta({
         inferredFields: data.inferredFields ?? [],
