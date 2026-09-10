@@ -108,6 +108,7 @@ export default async function DealExportPage({
       bumpStructure: deal.bumpStructure ?? (deal.bumpPercent ? `${deal.bumpPercent}% annual` : null),
 
       // Physical
+      fuelPumps: deal.fuelPumps ?? null,
       constructionYear: deal.constructionYear,
       buildingSize: deal.buildingSize ? `${deal.buildingSize.toLocaleString()} SF` : null,
       lotSize: deal.lotSize ? `${deal.lotSize.toLocaleString()} SF` : null,

@@ -1,6 +1,7 @@
 export const ASSET_TYPES: { value: string; label: string }[] = [
   { value: "eclc", label: "ECLC / Early Childhood" },
   { value: "qsr", label: "QSR" },
+  { value: "c_store", label: "Convenience Store / C-Store" },
   { value: "pharmacy", label: "Pharmacy" },
   { value: "medical", label: "Medical" },
   { value: "retail", label: "Retail" },
@@ -19,6 +20,7 @@ export const SHOPPING_CENTER_FIELDS = [
 
 export const LEASE_TYPES: { value: string; label: string }[] = [
   { value: "absolute_nnn", label: "Absolute NNN" },
+  { value: "ground_lease_nnn", label: "Ground Lease (Absolute NNN)" },
   { value: "nnn", label: "NNN" },
   { value: "modified_nnn", label: "Modified NNN" },
   { value: "gross", label: "Gross" },

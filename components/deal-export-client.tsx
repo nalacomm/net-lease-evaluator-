@@ -28,6 +28,7 @@ type ExportData = {
     leaseType: string; termRemainingYears: number | null;
     leaseCommenceDate: string | null; leaseExpirationDate: string | null;
     bumpStructure: string | null;
+    fuelPumps: number | null;
     constructionYear: number | null; buildingSize: string | null; lotSize: string | null;
     numberOfTenants: number | null; anchorTenant: string | null;
     vacancyRate: string | null; grossLeasableArea: string | null;
@@ -194,6 +195,7 @@ export function DealExportClient({ data }: { data: ExportData }) {
             <Row label="Year Built" value={deal.constructionYear} />
             <Row label="Building SF" value={deal.buildingSize} />
             <Row label="Lot Size" value={deal.lotSize} />
+            {deal.fuelPumps != null && <Row label="Fuel Pumps" value={deal.fuelPumps} />}
           </Section>
 
           {isShoppingCenter && (

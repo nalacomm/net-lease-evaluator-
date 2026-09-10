@@ -20,6 +20,7 @@ const NUM_FIELDS = [
   "capRateAsking",
   "termRemainingYears",
   "bumpPercent",
+  "fuelPumps",
   "constructionYear",
   "buildingSize",
   "lotSize",

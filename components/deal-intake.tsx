@@ -35,6 +35,7 @@ const FIELDS: FieldDef[] = [
   { key: "termRemainingYears", label: "Term Remaining (yrs)", type: "number", showFor: ["net_lease"] },
   { key: "bumpStructure", label: "Bump Structure", type: "text", showFor: ["net_lease"] },
   { key: "bumpPercent", label: "Bump % (annual)", type: "number", showFor: ["net_lease"] },
+  { key: "fuelPumps", label: "Fuel Pumps (C-Store)", type: "number", showFor: ["net_lease"] },
   { key: "grossLeasableArea", label: "GLA (SF)", type: "number", showFor: ["multi_tenant", "retail_plaza"] },
   { key: "vacancyRate", label: "Vacancy Rate (%)", type: "number", showFor: ["multi_tenant", "retail_plaza"] },
   { key: "numberOfTenants", label: "Number of Tenants", type: "number", showFor: ["multi_tenant", "retail_plaza"] },

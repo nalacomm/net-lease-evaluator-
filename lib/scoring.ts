@@ -579,8 +579,8 @@ export function scoreDeal(deal: DealLike, bb: BuyBoxLike): ScoreResult {
     let pts = 0;
     let status: CheckStatus = "fail";
     let detail = lt || "unknown";
-    if (lt === "absolute_nnn") {
-      pts = 15; status = "pass"; detail = "Absolute NNN";
+    if (lt === "absolute_nnn" || lt === "ground_lease_nnn") {
+      pts = 15; status = "pass"; detail = lt === "ground_lease_nnn" ? "Ground Lease (Absolute NNN)" : "Absolute NNN";
     } else if (lt === "nnn") {
       pts = 10; status = "pass"; detail = "NNN";
     } else if (lt === "modified_nnn") {

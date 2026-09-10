@@ -38,6 +38,7 @@ const FIELDS: FieldDef[] = [
   { key: "termRemainingYears", label: "Term Remaining (yrs)", type: "number", netLeaseOnly: true },
   { key: "bumpStructure", label: "Bump Structure", type: "text", netLeaseOnly: true },
   { key: "bumpPercent", label: "Bump % (annual)", type: "number", netLeaseOnly: true },
+  { key: "fuelPumps", label: "Fuel Pumps (C-Store)", type: "number", netLeaseOnly: true },
   { key: "constructionYear", label: "Construction Year", type: "number" },
   { key: "buildingSize", label: "Building SF", type: "number" },
   { key: "hhi3Mile", label: "HHI 3-Mile ($)", type: "number" },

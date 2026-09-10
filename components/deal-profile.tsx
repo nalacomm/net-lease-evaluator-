@@ -66,6 +66,7 @@ type Deal = {
   termRemainingYears: number | null;
   bumpStructure: string | null;
   bumpPercent: number | null;
+  fuelPumps: number | null;
   constructionYear: number | null;
   buildingSize: number | null;
   numberOfTenants: number | null;
@@ -588,6 +589,9 @@ export function DealProfile({
               label="Operator Units"
               value={deal.operatorUnitCount ?? "—"}
             />
+            {deal.fuelPumps != null && (
+              <Metric label="Fuel Pumps" value={deal.fuelPumps} />
+            )}
           </div>
           )}
 

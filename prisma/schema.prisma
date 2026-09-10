@@ -142,6 +142,9 @@ model Deal {
   buildingSize     Float?
   lotSize          Float?
 
+  // Convenience Store / C-Store
+  fuelPumps        Int?
+
   // Multi-tenant / Shopping Center / Retail Plaza
   numberOfTenants   Int?
   anchorTenant      String?
