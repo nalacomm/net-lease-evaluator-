@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { askJson } from "@/lib/anthropic";
+import { askJson, askTextWithDocument } from "@/lib/anthropic";
 import { humanizeAiError } from "@/lib/ai-error";
 
-const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5 MB
+const MAX_FILE_BYTES = 30 * 1024 * 1024; // 30 MB
 
 export const maxDuration = 60;
 
@@ -56,10 +56,13 @@ export async function POST(req: Request) {
       const buffer = Buffer.from(await file.arrayBuffer());
       if (file.type === "application/pdf") {
         try {
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          const pdfParse = require("pdf-parse/lib/pdf-parse.js");
-          const parsed = await pdfParse(buffer);
-          combined += `\n\n--- Flyer/Document: ${file.name} ---\n${parsed.text}`;
+          const pdfBase64 = buffer.toString("base64");
+          const text = await askTextWithDocument(
+            pdfBase64,
+            "Extract all text content from this document. Include all figures, names, addresses, and data points.",
+            { maxTokens: 3000 }
+          );
+          combined += `\n\n--- Flyer/Document: ${file.name} ---\n${text}`;
         } catch { /* skip */ }
       } else {
         combined += `\n\n--- File: ${file.name} ---\n${buffer.toString("utf-8").slice(0, 8000)}`;

@@ -52,6 +52,38 @@ export async function askJson<T = unknown>(
  * Uses the Anthropic native document type so Claude can read tables and layouts
  * that text-extraction parsers miss.
  */
+export async function askTextWithDocument(
+  pdfBase64: string,
+  prompt: string,
+  opts: { system?: string; maxTokens?: number } = {}
+): Promise<string> {
+  const anthropic = getAnthropic();
+  const res = await anthropic.beta.messages.create({
+    model: MODEL,
+    max_tokens: opts.maxTokens ?? 2000,
+    system: opts.system,
+    betas: ["pdfs-2024-09-25"],
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "document",
+            source: {
+              type: "base64",
+              media_type: "application/pdf",
+              data: pdfBase64,
+            },
+          } as BetaBase64PDFBlock,
+          { type: "text", text: prompt } as BetaTextBlockParam,
+        ],
+      },
+    ],
+  });
+  const block = res.content.find((b) => b.type === "text");
+  return block && block.type === "text" ? block.text : "";
+}
+
 export async function askJsonWithDocument<T = unknown>(
   pdfBase64: string,
   prompt: string,

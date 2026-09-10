@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { runGapAnalysis } from "@/lib/gap-analysis";
+import { askTextWithDocument } from "@/lib/anthropic";
 import { BuyBoxLike, DealLike } from "@/lib/scoring";
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 export async function POST(
   req: Request,
@@ -28,9 +29,13 @@ export async function POST(
         try {
           const buffer = Buffer.from(await file.arrayBuffer());
           if (file.type === "application/pdf") {
-            const pdfParse = (await import("pdf-parse")).default;
-            const parsed = await pdfParse(buffer);
-            runtimeContext += `\n\n--- ${file.name} ---\n${parsed.text.slice(0, 8000)}`;
+            const pdfBase64 = buffer.toString("base64");
+            const text = await askTextWithDocument(
+              pdfBase64,
+              "Extract all text content from this document. Include all financial figures, dates, names, and key data points.",
+              { maxTokens: 2000 }
+            );
+            runtimeContext += `\n\n--- ${file.name} ---\n${text.slice(0, 8000)}`;
           } else {
             runtimeContext += `\n\n--- ${file.name} ---\n${buffer.toString("utf-8").slice(0, 8000)}`;
           }

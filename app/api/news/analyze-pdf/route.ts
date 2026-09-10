@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { askText } from "@/lib/anthropic";
+import { askTextWithDocument } from "@/lib/anthropic";
 import { ANALYSIS_SYSTEM, buildAnalysisPrompt, parseAndNormalizeAnalysis } from "@/lib/parse-analysis";
 
 export const maxDuration = 120;
 
-const MAX_FILE_BYTES = 10 * 1024 * 1024;
+const MAX_FILE_BYTES = 30 * 1024 * 1024;
 
 export type PdfInsight = {
   type: "cap_rate" | "tenant_expansion" | "market_data" | "demographics" | "interest_rates" | "regulatory" | "credit_rating" | "other";
@@ -39,32 +39,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Only PDF files are supported." }, { status: 400 });
     }
 
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    const pdfBase64 = Buffer.from(await file.arrayBuffer()).toString("base64");
 
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const pdfParse = require("pdf-parse/lib/pdf-parse.js");
-    const parsed = await pdfParse(buffer);
-    const rawText: string = parsed.text ?? "";
-
-    if (!rawText.trim()) {
-      return NextResponse.json({ error: "Could not extract text from this PDF. It may be a scanned image." }, { status: 422 });
-    }
-
-    // For large documents, take the first 12k + last 4k chars — captures intro/exec summary and conclusion
-    let truncated: string;
-    if (rawText.length > 16000) {
-      truncated = rawText.slice(0, 12000) + "\n\n[... middle sections omitted ...]\n\n" + rawText.slice(-4000);
-    } else {
-      truncated = rawText;
-    }
-
-    const raw = await askText(buildAnalysisPrompt(truncated), { system: ANALYSIS_SYSTEM, maxTokens: 1500 });
+    // Use Claude's native document API — handles modern PDFs, scanned layouts, tables
+    const raw = await askTextWithDocument(
+      pdfBase64,
+      buildAnalysisPrompt("(see attached PDF document above)"),
+      { system: ANALYSIS_SYSTEM, maxTokens: 1500 }
+    );
     const result = parseAndNormalizeAnalysis(raw);
 
     return NextResponse.json({
       ...result,
-      rawContent: rawText.slice(0, 50000),
+      rawContent: "",
     });
   } catch (e) {
     console.error("analyze-pdf error", e);
