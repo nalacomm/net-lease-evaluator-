@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { askJson } from "@/lib/anthropic";
+import { askJson, askTextWithDocument } from "@/lib/anthropic";
 import { extractDeal } from "@/lib/extract";
 
 export const maxDuration = 60;
@@ -50,9 +50,13 @@ export async function POST(req: Request) {
       const buffer = Buffer.from(await file.arrayBuffer());
       if (file.type === "application/pdf") {
         try {
-          const pdfParse = (await import("pdf-parse")).default;
-          const parsed = await pdfParse(buffer);
-          combinedContext += `\n\n--- Document: ${file.name} ---\n${parsed.text}`;
+          const pdfBase64 = buffer.toString("base64");
+          const text = await askTextWithDocument(
+            pdfBase64,
+            "Extract all text content from this document. Include all figures, names, and key data points.",
+            { maxTokens: 2000 }
+          );
+          combinedContext += `\n\n--- Document: ${file.name} ---\n${text}`;
         } catch {
           // Skip unreadable PDFs
         }
