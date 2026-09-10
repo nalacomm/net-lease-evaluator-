@@ -38,7 +38,7 @@ export function Sidebar() {
     <aside className="hidden md:flex md:w-60 md:shrink-0 md:flex-col md:border-r md:border-gray-200 md:bg-white print:!hidden">
       <div className="flex h-16 flex-col justify-center px-5">
         <span className="text-lg font-bold text-brand">Net Lease</span>
-        <span className="text-[10px] text-gray-400">{process.env.NEXT_PUBLIC_COMMIT_SHA ? process.env.NEXT_PUBLIC_COMMIT_SHA.slice(0, 7) : (process.env.NEXT_PUBLIC_APP_VERSION ?? "dev")}</span>
+        <span className="text-[10px] text-gray-400">{(process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ?? process.env.NEXT_PUBLIC_COMMIT_SHA ?? "dev").slice(0, 7)}</span>
       </div>
       <nav className="flex-1 space-y-1 px-3">
         {TABS.map((t) => {
