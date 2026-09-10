@@ -95,31 +95,10 @@ export function DealIntake({ investors }: { investors: Investor[] }) {
         });
       } else {
         if (!file) throw new Error("No file selected.");
-        // Vercel enforces a 4.5 MB request body limit. Base64 adds ~33% overhead,
-        // so PDFs larger than ~3 MB will be rejected before reaching the server.
-        const MAX_PDF_BYTES = 3 * 1024 * 1024;
-        if (file.size > MAX_PDF_BYTES) {
-          throw new Error(
-            `This PDF is ${(file.size / 1024 / 1024).toFixed(1)} MB — too large for direct upload (limit ~3 MB). ` +
-            `Copy the key pages (executive summary, offering summary, lease abstract) as text and use Text mode instead.`
-          );
-        }
-        const pdfBase64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const dataUrl = reader.result as string;
-            const b64 = dataUrl.split(",")[1];
-            if (!b64) reject(new Error("Could not read PDF as base64."));
-            else resolve(b64);
-          };
-          reader.onerror = () => reject(new Error("Failed to read the PDF file."));
-          reader.readAsDataURL(file);
-        });
-        res = await fetch("/api/intake/pdf", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pdfBase64, dealCategory }),
-        });
+        const fd = new FormData();
+        fd.append("file", file);
+        fd.append("dealCategory", dealCategory);
+        res = await fetch("/api/intake/pdf", { method: "POST", body: fd });
       }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Extraction failed");
