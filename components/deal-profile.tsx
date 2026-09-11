@@ -174,7 +174,6 @@ export function DealProfile({
   const [gapAnalysis, setGapAnalysis] = useState<GapAnalysisData | null>(cachedGapAnalysis ?? null);
   const [gapLoading, setGapLoading] = useState(false);
   const [flexAssetType, setFlexAssetType] = useState(false);
-  const [knowledgeLevel, setKnowledgeLevel] = useState<"level1" | "level2" | null>(null);
   const [showContext, setShowContext] = useState(false);
   const [contextText, setContextText] = useState(deal.analysisContext ?? "");
   const [contextFiles, setContextFiles] = useState<File[]>([]);
@@ -274,7 +273,6 @@ export function DealProfile({
       fd.append("investorId", investorContext?.investorId ?? "");
       fd.append("additionalContext", contextText);
       fd.append("flexAssetType", flexAssetType ? "true" : "false");
-      if (knowledgeLevel) fd.append("knowledgeLevel", knowledgeLevel);
       contextFiles.forEach((f) => fd.append("files", f));
       const res = await fetch(`/api/deals/${deal.id}/gap-analysis`, {
         method: "POST",
@@ -487,28 +485,7 @@ export function DealProfile({
                   <span className="ml-1 text-gray-400 text-xs">— financial fit only, ignore asset type mismatch</span>
                 </span>
               </label>
-              {deal.assetType === "c_store" && (
-                <div className="space-y-1">
-                  <p className="text-xs font-medium text-gray-700">Investor knowledge level</p>
-                  <p className="text-xs text-gray-400">Sets how the AI frames its analysis — plain language or institutional depth</p>
-                  <div className="flex gap-2">
-                    {(["level1", "level2"] as const).map((lvl) => (
-                      <button
-                        key={lvl}
-                        onClick={() => setKnowledgeLevel(knowledgeLevel === lvl ? null : lvl)}
-                        className={`rounded-md border px-3 py-1 text-xs font-medium transition-colors ${
-                          knowledgeLevel === lvl
-                            ? "border-brand bg-brand text-white"
-                            : "border-gray-300 bg-white text-gray-600 hover:border-brand/60"
-                        }`}
-                      >
-                        {lvl === "level1" ? "Level 1 — Never heard of it" : "Level 2 — One year in"}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <div className="flex flex-wrap items-center gap-2">
+<div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={saveContext}
                   disabled={savingContext}
