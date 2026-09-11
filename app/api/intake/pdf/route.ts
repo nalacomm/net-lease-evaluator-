@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { del } from "@vercel/blob";
-import { createClient } from "@supabase/supabase-js";
+import { prisma } from "@/lib/prisma";
 import { extractDealFromPdf } from "@/lib/extract";
 import { humanizeAiError } from "@/lib/ai-error";
 
@@ -15,24 +15,29 @@ export async function POST(req: Request) {
     let pdfBuffer: Buffer;
 
     if (contentType.includes("application/json")) {
-      const body = await req.json() as { blobUrl?: string; supabasePath?: string; dealCategory?: string };
+      const body = await req.json() as {
+        uploadId?: string;
+        blobUrl?: string;
+        dealCategory?: string;
+      };
       dealCategory = body.dealCategory ?? "net_lease";
 
-      if (body.supabasePath) {
-        // Large-file path: browser uploaded directly to Supabase Storage
-        const supabase = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.SUPABASE_SERVICE_ROLE_KEY!
+      if (body.uploadId) {
+        // Chunked upload path: reassemble from DB
+        const chunks = await prisma.$queryRawUnsafe<{ data: string }[]>(
+          `SELECT "data" FROM "pdf_upload_chunks" WHERE "upload_id" = $1 ORDER BY "chunk_index" ASC`,
+          body.uploadId
         );
-        const { data, error } = await supabase.storage
-          .from("temp-pdfs")
-          .download(body.supabasePath);
-        if (error || !data) {
-          return NextResponse.json({ error: "Could not retrieve uploaded PDF." }, { status: 400 });
+        if (!chunks.length) {
+          return NextResponse.json({ error: "Upload not found or expired. Please try again." }, { status: 400 });
         }
-        pdfBuffer = Buffer.from(await data.arrayBuffer());
-        // Best-effort cleanup
-        supabase.storage.from("temp-pdfs").remove([body.supabasePath]).catch(() => {});
+        const base64 = chunks.map((c) => c.data).join("");
+        pdfBuffer = Buffer.from(base64, "base64");
+        // Clean up — best effort
+        prisma.$executeRawUnsafe(
+          `DELETE FROM "pdf_upload_chunks" WHERE "upload_id" = $1`,
+          body.uploadId
+        ).catch(() => {});
       } else if (body.blobUrl) {
         // Legacy Vercel Blob path (kept for compatibility)
         const response = await fetch(body.blobUrl);
@@ -42,7 +47,7 @@ export async function POST(req: Request) {
         pdfBuffer = Buffer.from(await response.arrayBuffer());
         try { await del(body.blobUrl); } catch { /* best-effort */ }
       } else {
-        return NextResponse.json({ error: "No PDF URL received." }, { status: 400 });
+        return NextResponse.json({ error: "No PDF data received." }, { status: 400 });
       }
     } else if (contentType.includes("application/pdf") || contentType.includes("application/octet-stream")) {
       // Small-file path: raw binary body

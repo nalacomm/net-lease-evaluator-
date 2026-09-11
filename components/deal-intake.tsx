@@ -95,25 +95,35 @@ export function DealIntake({ investors }: { investors: Investor[] }) {
         });
       } else {
         if (!file) throw new Error("No file selected.");
-        const DIRECT_LIMIT = 4 * 1024 * 1024; // 4 MB — Vercel function body limit
-        if (file.size > DIRECT_LIMIT) {
-          // Large file: get signed upload URL from server, then PUT directly to Supabase Storage
-          const tokenRes = await fetch("/api/intake/supabase-token", { method: "POST" });
-          if (!tokenRes.ok) {
-            const tokenErr = await tokenRes.json().catch(() => ({}));
-            throw new Error((tokenErr as { error?: string }).error ?? "Failed to prepare upload. Try again.");
+        const CHUNK_SIZE = 3 * 1024 * 1024; // 3 MB — encodes to ~4 MB base64, under Vercel's 4.5 MB body limit
+        if (file.size > CHUNK_SIZE) {
+          // Large file: split into base64 chunks, store in DB, reassemble server-side
+          const uploadId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+          const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+          for (let i = 0; i < totalChunks; i++) {
+            const slice = file.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+            const arrayBuffer = await slice.arrayBuffer();
+            // Safe base64 encode — avoid spread on large arrays
+            const uint8 = new Uint8Array(arrayBuffer);
+            let binary = "";
+            for (let j = 0; j < uint8.length; j += 32768) {
+              binary += String.fromCharCode(...uint8.subarray(j, Math.min(j + 32768, uint8.length)));
+            }
+            const data = btoa(binary);
+            const chunkRes = await fetch("/api/intake/pdf-chunk", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ uploadId, chunkIndex: i, totalChunks, data }),
+            });
+            if (!chunkRes.ok) {
+              const err = await chunkRes.json().catch(() => ({}));
+              throw new Error((err as { error?: string }).error ?? `Upload failed at part ${i + 1} of ${totalChunks}.`);
+            }
           }
-          const { signedUrl, path } = await tokenRes.json() as { signedUrl: string; path: string };
-          const uploadRes = await fetch(signedUrl, {
-            method: "PUT",
-            body: file,
-            headers: { "Content-Type": "application/pdf" },
-          });
-          if (!uploadRes.ok) throw new Error("Upload failed. Try again.");
           res = await fetch("/api/intake/pdf", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ supabasePath: path, dealCategory }),
+            body: JSON.stringify({ uploadId, dealCategory }),
           });
         } else {
           // Small file: send raw binary directly
