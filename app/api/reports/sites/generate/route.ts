@@ -35,7 +35,7 @@ export async function POST(req: Request) {
     if (!tenant) return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
     const tenantName = tenant.name;
 
-    const req_ = tenant.requirements;
+    const req_ = tenant.requirements[0] ?? null;
 
     const reqContext = req_
       ? [

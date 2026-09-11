@@ -7,13 +7,15 @@ import { Plus } from "lucide-react";
 export const dynamic = "force-dynamic";
 
 export default async function TenantsPage() {
-  const tenants = await prisma.tenant.findMany({
+  const rawTenants = await prisma.tenant.findMany({
     include: {
-      requirements: true,
+      requirements: { orderBy: { createdAt: "asc" } },
       _count: { select: { siteAssignments: true } },
     },
     orderBy: { createdAt: "desc" },
   });
+  // Flatten requirements array to single default for the list component
+  const tenants = rawTenants.map((t) => ({ ...t, requirements: t.requirements[0] ?? null }));
 
   return (
     <div className="space-y-5">
@@ -37,7 +39,7 @@ export default async function TenantsPage() {
           }
         />
       ) : (
-        <TenantList tenants={tenants} />
+        <TenantList tenants={tenants as never} />
       )}
     </div>
   );

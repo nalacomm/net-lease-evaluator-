@@ -27,7 +27,7 @@ model Investor {
   entityName String?
   notes           String?
   investorSummary String?
-  buyBox      BuyBox?
+  buyBoxes    BuyBox[]
   deals       Deal[]
   reports     Report[]
   assignments DealAssignment[]
@@ -37,8 +37,11 @@ model Investor {
 
 model BuyBox {
   id         String   @id @default(cuid())
-  investorId String   @unique
+  investorId String
   investor   Investor @relation(fields: [investorId], references: [id], onDelete: Cascade)
+
+  name      String   @default("Default")
+  appliesTo String[] @default([])
 
   // Cap Rate
   capRateMin    Float
@@ -300,7 +303,7 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  requirements    TenantRequirements?
+  requirements    TenantRequirements[]
   siteAssignments SiteAssignment[]
   campaigns       Campaign[]
   siteReports     SiteReport[]
@@ -308,8 +311,11 @@ model Tenant {
 
 model TenantRequirements {
   id       String @id @default(cuid())
-  tenantId String @unique
+  tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  name      String   @default("Default")
+  appliesTo String[] @default([])
 
   minSF          Float?
   maxSF          Float?

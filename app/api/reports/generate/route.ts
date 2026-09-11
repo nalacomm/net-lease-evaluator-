@@ -4,6 +4,7 @@ import { askText } from "@/lib/anthropic";
 import { fmtMoney, fmtPercent, fmtDscr } from "@/lib/format";
 import { labelFor, ASSET_TYPES, LEASE_TYPES, GUARANTY_TYPES } from "@/lib/constants";
 import { computeFinance } from "@/lib/finance";
+import { pickBuyBox } from "@/lib/investor";
 
 export const maxDuration = 60;
 
@@ -19,10 +20,13 @@ export async function POST(req: Request) {
 
     const investor = await prisma.investor.findUnique({
       where: { id: investorId },
-      include: { buyBox: true },
+      include: { buyBoxes: true },
     });
     if (!investor) return NextResponse.json({ error: "Investor not found" }, { status: 404 });
-    const bb = investor.buyBox!;
+    const bb = pickBuyBox(investor.buyBoxes);
+    if (!bb) return NextResponse.json({ error: "Investor has no buy box" }, { status: 400 });
+    // bb is guaranteed non-null past this point; TS needs the assertion inside closures
+    const buyBox = bb;
 
     // Only pull deals that belong to this investor (primary or assigned)
     const [primaryDeals, assignments] = await Promise.all([
@@ -58,9 +62,9 @@ export async function POST(req: Request) {
       const fin = computeFinance({
         price: d.askingPrice ?? 0,
         noi: d.noi ?? 0,
-        ltv: bb.ltv,
-        ratePercent: bb.interestRate,
-        amortizationYears: bb.amortizationYears,
+        ltv: bb!.ltv,
+        ratePercent: bb!.interestRate,
+        amortizationYears: bb!.amortizationYears,
       });
 
       const priceFields = [

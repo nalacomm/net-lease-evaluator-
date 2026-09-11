@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/ui";
 import { FinancePlanner } from "@/components/finance-planner";
 import { fmtMoney, fmtPercent } from "@/lib/format";
 import { ArrowLeft } from "lucide-react";
+import { pickBuyBox } from "@/lib/investor";
 
 export const dynamic = "force-dynamic";
 
@@ -18,18 +19,22 @@ export default async function FinancePage({
   const [deal, contextInvestor] = await Promise.all([
     prisma.deal.findUnique({
       where: { id: params.dealId },
-      include: { investor: { include: { buyBox: true } } },
+      include: { investor: { include: { buyBoxes: true } } },
     }),
     searchParams.investorId
       ? prisma.investor.findUnique({
           where: { id: searchParams.investorId },
-          include: { buyBox: true },
+          include: { buyBoxes: true },
         })
       : null,
   ]);
   if (!deal) notFound();
-  // Use the context investor's buy box if provided (e.g. from investor profile page)
-  const bb = contextInvestor?.buyBox ?? deal.investor?.buyBox ?? null;
+  const _assetType = deal.assetType;
+  const bb = contextInvestor
+    ? pickBuyBox(contextInvestor.buyBoxes, _assetType)
+    : deal.investor
+    ? pickBuyBox(deal.investor.buyBoxes, _assetType)
+    : null;
   const investorLabel = contextInvestor?.name ?? deal.investor?.name ?? null;
 
   if (!deal.askingPrice || !deal.noi || !bb) {

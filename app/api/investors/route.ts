@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 export async function GET() {
   const investors = await prisma.investor.findMany({
     orderBy: { createdAt: "asc" },
-    include: { buyBox: true },
+    include: { buyBoxes: true },
   });
   return NextResponse.json(investors);
 }
@@ -23,9 +23,9 @@ export async function POST(req: Request) {
         phone: body.phone || null,
         entityName: body.entityName || null,
         notes: body.notes || null,
-        buyBox: bb
+        buyBoxes: bb
           ? {
-              create: {
+              create: [{
                 capRateMin: Number(bb.capRateMin) || 0,
                 capRateTarget: Number(bb.capRateTarget) || 0,
                 priceMax: Number(bb.priceMax) || 0,
@@ -63,11 +63,11 @@ export async function POST(req: Request) {
                   ? Number(bb.currentMonthlyIncome)
                   : null,
                 notes: bb.notes || null,
-              },
+              }],
             }
           : undefined,
       },
-      include: { buyBox: true },
+      include: { buyBoxes: true },
     });
     return NextResponse.json(investor, { status: 201 });
   } catch (e) {

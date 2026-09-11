@@ -16,15 +16,16 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       prisma.siteAssignment.findUnique({ where: { siteId_tenantId: { siteId: params.id, tenantId } } }),
     ]);
     if (!site) return NextResponse.json({ error: "Site not found" }, { status: 404 });
-    if (!tenant?.requirements) return NextResponse.json({ error: "Tenant requirements not found" }, { status: 404 });
+    const tenantReq = tenant?.requirements?.[0] ?? null;
+    if (!tenantReq) return NextResponse.json({ error: "Tenant requirements not found" }, { status: 404 });
 
     // Combine explicit context with persistent site notes
     const combinedContext = [context?.trim(), site.notes?.trim()].filter(Boolean).join("\n\n") || undefined;
 
-    const result = await runSiteGapAnalysis(site, tenant.requirements, tenant.name, combinedContext);
+    const result = await runSiteGapAnalysis(site, tenantReq, tenant!.name, combinedContext);
 
     // Build score with optional exceptional bonus
-    const baseScore = scoreSite(site, tenant.requirements);
+    const baseScore = scoreSite(site, tenantReq);
     const breakdown = [...baseScore.breakdown];
     if (result.isExceptional) {
       breakdown.push({

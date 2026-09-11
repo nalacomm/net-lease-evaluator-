@@ -7,6 +7,7 @@ import { runGapAnalysis } from "@/lib/gap-analysis";
 import { DealExportClient } from "@/components/deal-export-client";
 import type { BuyBoxLike, DealLike } from "@/lib/scoring";
 import type { GapAnalysisResult } from "@/lib/gap-analysis";
+import { pickBuyBox } from "@/lib/investor";
 
 export const dynamic = "force-dynamic";
 
@@ -21,9 +22,9 @@ export default async function DealExportPage({
     where: { id: params.id },
     include: {
       assignments: {
-        include: { investor: { include: { buyBox: true } } },
+        include: { investor: { include: { buyBoxes: true } } },
       },
-      investor: { include: { buyBox: true } },
+      investor: { include: { buyBoxes: true } },
     },
   });
   if (!deal) notFound();
@@ -33,7 +34,7 @@ export default async function DealExportPage({
     ? deal.assignments.find((a) => a.investorId === ctxInvestorId)
     : null;
   const investor = ctxAssignment?.investor ?? deal.investor;
-  const bb = investor?.buyBox ?? null;
+  const bb = investor ? pickBuyBox(investor.buyBoxes, deal.assetType) : null;
 
   const score = ctxAssignment?.score ?? deal.score;
   const grade = ctxAssignment?.grade ?? deal.grade;

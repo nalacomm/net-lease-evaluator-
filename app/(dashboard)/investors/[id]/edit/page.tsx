@@ -12,14 +12,18 @@ export default async function EditInvestorPage({
 }) {
   const investor = await prisma.investor.findUnique({
     where: { id: params.id },
-    include: { buyBox: true },
+    include: { buyBoxes: true },
   });
   if (!investor) notFound();
+
+  const { pickBuyBox } = await import("@/lib/investor");
+  const defaultBb = pickBuyBox(investor.buyBoxes);
+  const investorForForm = { ...investor, buyBox: defaultBb ?? null };
 
   return (
     <div className="space-y-5">
       <PageHeader title={`Edit — ${investor.name}`} />
-      <InvestorEditForm investor={investor as never} />
+      <InvestorEditForm investor={investorForForm as never} />
     </div>
   );
 }

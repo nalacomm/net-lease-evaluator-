@@ -10,15 +10,16 @@ export default async function EditTenantPage({
 }: {
   params: { id: string };
 }) {
-  const tenant = await prisma.tenant.findUnique({
+  const rawTenant = await prisma.tenant.findUnique({
     where: { id: params.id },
-    include: { requirements: true },
+    include: { requirements: { orderBy: { createdAt: "asc" } } },
   });
-  if (!tenant) notFound();
+  if (!rawTenant) notFound();
+  const tenant = { ...rawTenant, requirements: rawTenant.requirements[0] ?? null };
 
   return (
     <div className="space-y-5">
-      <PageHeader title={`Edit — ${tenant.name}`} />
+      <PageHeader title={`Edit — ${rawTenant.name}`} />
       <TenantEditForm tenant={tenant as never} />
     </div>
   );

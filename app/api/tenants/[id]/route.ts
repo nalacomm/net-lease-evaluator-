@@ -67,11 +67,15 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         narrativeSummary: requirements.narrativeSummary || null,
       };
 
-      await prisma.tenantRequirements.upsert({
+      const existingReq = await prisma.tenantRequirements.findFirst({
         where: { tenantId: params.id },
-        update: reqData,
-        create: { tenantId: params.id, ...reqData },
+        orderBy: { createdAt: "asc" },
       });
+      if (existingReq) {
+        await prisma.tenantRequirements.update({ where: { id: existingReq.id }, data: reqData });
+      } else {
+        await prisma.tenantRequirements.create({ data: { tenantId: params.id, ...reqData } });
+      }
     }
 
     // Re-score all site assignments when requirements change
@@ -90,7 +94,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
           where: { tenantId: params.id },
           include: { site: true },
         }),
-        prisma.tenantRequirements.findUnique({ where: { tenantId: params.id } }),
+        prisma.tenantRequirements.findFirst({
+          where: { tenantId: params.id },
+          orderBy: { createdAt: "asc" },
+        }),
       ]);
 
       if (updatedReqs && siteAssignments.length > 0) {

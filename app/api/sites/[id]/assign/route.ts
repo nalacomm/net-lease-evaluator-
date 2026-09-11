@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { scoreSite } from "@/lib/site-scoring";
+import { pickRequirements } from "@/lib/investor";
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   try {
@@ -14,7 +15,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     if (!site) return NextResponse.json({ error: "Site not found" }, { status: 404 });
     if (!tenant) return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
 
-    const req_ = tenant.requirements;
+    const req_ = pickRequirements(tenant.requirements, site.siteType);
     let score: number | null = null;
     let grade: string | null = null;
     let scoreBreakdown = null;

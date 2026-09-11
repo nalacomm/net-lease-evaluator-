@@ -25,7 +25,7 @@ export default async function DealPage({
         assignments: {
           include: {
             investor: {
-              include: { buyBox: true },
+              include: { buyBoxes: true },
             },
           },
         },
@@ -46,7 +46,8 @@ export default async function DealPage({
 
   const effectiveAssignment = ctxAssignment ?? null;
   const ctxInvestor = effectiveAssignment?.investor ?? null;
-  const ctxBuyBox = ctxInvestor?.buyBox ?? null;
+  const { pickBuyBox } = await import("@/lib/investor");
+  const ctxBuyBox = ctxInvestor ? pickBuyBox(ctxInvestor.buyBoxes, deal.assetType) : null;
 
   const serialized = {
     ...deal,

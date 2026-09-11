@@ -61,9 +61,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     // Rescore all existing tenant assignments with the updated site data
     await Promise.all(
       site.assignments
-        .filter((a) => a.tenant.requirements)
+        .filter((a) => a.tenant.requirements.length > 0)
         .map((a) => {
-          const req = a.tenant.requirements!;
+          const req = a.tenant.requirements[0];
           const config = a.scoringConfig as { enabledCategories?: string[] } | null;
           const enabled = config?.enabledCategories ?? [...SCORE_CATEGORIES];
           const fresh = scoreSite(site, req);

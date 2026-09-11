@@ -50,17 +50,21 @@ export async function POST(
 
     const deal = await prisma.deal.findUnique({
       where: { id: params.id },
-      include: { investor: { include: { buyBox: true } } },
+      include: { investor: { include: { buyBoxes: true } } },
     });
     if (!deal) return NextResponse.json({ error: "Deal not found" }, { status: 404 });
 
-    let bb = deal.investor?.buyBox ?? null;
+    const { pickBuyBox } = await import("@/lib/investor");
+    let bb = deal.investor ? pickBuyBox(deal.investor.buyBoxes, deal.assetType) : null;
     if (investorId) {
       const inv = await prisma.investor.findUnique({
         where: { id: investorId },
-        include: { buyBox: true },
+        include: { buyBoxes: true },
       });
-      if (inv?.buyBox) bb = inv.buyBox;
+      if (inv) {
+        const invBb = pickBuyBox(inv.buyBoxes, deal.assetType);
+        if (invBb) bb = invBb;
+      }
     }
     const effectiveInvestorId = investorId ?? deal.investor?.id ?? null;
 

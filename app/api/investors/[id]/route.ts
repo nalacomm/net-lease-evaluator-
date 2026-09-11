@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { analyzeDeal, AnalyzeDealResult } from "@/lib/analyze";
+import { pickBuyBox } from "@/lib/investor";
 
 function parseBb(bb: Record<string, unknown>) {
   return {
+    name: (bb.name as string) || "Default",
+    appliesTo: (bb.appliesTo as string[]) || [],
     capRateMin: Number(bb.capRateMin) || 0,
     capRateTarget: Number(bb.capRateTarget) || 0,
     priceMax: Number(bb.priceMax) || 0,
@@ -41,7 +44,7 @@ export async function GET(
 ) {
   const investor = await prisma.investor.findUnique({
     where: { id: params.id },
-    include: { buyBox: true },
+    include: { buyBoxes: true },
   });
   if (!investor) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(investor);
@@ -63,17 +66,29 @@ export async function PATCH(
         phone: body.phone || null,
         entityName: body.entityName || null,
         notes: body.notes || null,
-        buyBox: bb
-          ? {
-              upsert: {
-                create: parseBb(bb),
-                update: parseBb(bb),
-              },
-            }
-          : undefined,
       },
-      include: { buyBox: true },
+      include: { buyBoxes: true },
     });
+
+    if (bb) {
+      // Find the default buy box (empty appliesTo = catch-all), then first, then create
+      const bbData = parseBb(bb);
+      const targetName = bbData.name ?? "Default";
+      const existing = await prisma.buyBox.findFirst({
+        where: { investorId: params.id, name: targetName },
+      }) ?? await prisma.buyBox.findFirst({ where: { investorId: params.id } });
+      if (existing) {
+        await prisma.buyBox.update({ where: { id: existing.id }, data: bbData });
+      } else {
+        await prisma.buyBox.create({ data: { investorId: params.id, ...bbData } });
+      }
+      // Reload with updated buy boxes
+      const refreshed = await prisma.investor.findUnique({
+        where: { id: params.id },
+        include: { buyBoxes: true },
+      });
+      Object.assign(investor, refreshed);
+    }
 
     // Re-analyze all deals associated with this investor after buy box change
     let rescoreResults: AnalyzeDealResult[] = [];

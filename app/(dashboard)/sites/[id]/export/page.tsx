@@ -85,16 +85,14 @@ export default async function SiteExportPage({
         requirementAdjustments?: { field: string; currentValue: string; requiredValue: string; impact: string }[];
         verdict: string;
       } | null,
-      requirements: a.tenant.requirements
-        ? {
-            minSF: a.tenant.requirements.minSF,
-            maxSF: a.tenant.requirements.maxSF,
-            maxRentPsf: a.tenant.requirements.maxRentPsf,
-            minTraffic: a.tenant.requirements.minTraffic,
-            targetMarkets: a.tenant.requirements.targetMarkets,
-            siteTypePrefs: a.tenant.requirements.siteTypePrefs,
-          }
-        : null,
+      requirements: (() => { const r = a.tenant.requirements[0]; return r ? {
+            minSF: r.minSF,
+            maxSF: r.maxSF,
+            maxRentPsf: r.maxRentPsf,
+            minTraffic: r.minTraffic,
+            targetMarkets: r.targetMarkets,
+            siteTypePrefs: r.siteTypePrefs,
+          } : null; })(),
     })),
     newsFlags: site.newsFlags.map((f) => ({
       id: f.id,

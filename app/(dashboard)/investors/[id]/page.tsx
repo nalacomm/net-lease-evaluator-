@@ -6,6 +6,7 @@ import { fmtMoney } from "@/lib/format";
 import { PageHeader, GradeBadge } from "@/components/ui";
 import { BuyBoxDisplay } from "@/components/buybox-display";
 import { InvestorAnalysis } from "@/components/investor-analysis";
+import { pickBuyBox } from "@/lib/investor";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ export default async function InvestorPage({
   const investor = await prisma.investor.findUnique({
     where: { id: params.id },
     include: {
-      buyBox: true,
+      buyBoxes: true,
       deals: { orderBy: { createdAt: "desc" } },
       assignments: {
         include: { deal: true },
@@ -26,7 +27,7 @@ export default async function InvestorPage({
     },
   });
   if (!investor) notFound();
-  const bb = investor.buyBox;
+  const bb = pickBuyBox(investor.buyBoxes);
 
   // Income projections: hypothetical monthly income if each deal is acquired
   const projections = bb
@@ -85,7 +86,7 @@ export default async function InvestorPage({
             <Link href={`/investors/${investor.id}/edit`} className="btn-secondary">
               Edit Investor
             </Link>
-            {!bb && (
+            {investor.buyBoxes.length === 0 && (
               <Link href={`/investors/${investor.id}/buybox`} className="btn-primary">
                 Build Buy Box
               </Link>
@@ -181,11 +182,28 @@ export default async function InvestorPage({
         </div>
       )}
 
-      {/* Buy box */}
-      {bb ? (
-        <div>
-          <h2 className="mb-2 font-semibold">Buy Box</h2>
-          <BuyBoxDisplay bb={bb} />
+      {/* Buy boxes */}
+      {investor.buyBoxes.length > 0 ? (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold">Buy {investor.buyBoxes.length === 1 ? "Box" : "Boxes"}</h2>
+            <Link href={`/investors/${investor.id}/buybox`} className="btn-secondary text-xs">
+              Manage Buy Boxes
+            </Link>
+          </div>
+          {investor.buyBoxes.map((box) => (
+            <div key={box.id}>
+              {investor.buyBoxes.length > 1 && (
+                <p className="mb-2 text-sm font-medium text-gray-700">
+                  {box.name}
+                  {box.appliesTo.length > 0 && (
+                    <span className="ml-2 text-xs text-gray-400">({box.appliesTo.join(", ")})</span>
+                  )}
+                </p>
+              )}
+              <BuyBoxDisplay bb={box} />
+            </div>
+          ))}
         </div>
       ) : (
         <div className="card text-sm text-gray-600">

@@ -26,7 +26,7 @@ export async function GET(
   const deal = await prisma.deal.findUnique({
     where: { id: params.id },
     include: {
-      investor: { include: { buyBox: true } },
+      investor: { include: { buyBoxes: true } },
       updates: { orderBy: { createdAt: "desc" } },
       newsFlags: { include: { newsItem: true }, orderBy: { createdAt: "desc" } },
     },

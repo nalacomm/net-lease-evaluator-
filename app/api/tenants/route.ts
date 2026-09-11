@@ -28,7 +28,7 @@ export async function POST(req: Request) {
         notes: notes || null,
         ...(requirements && {
           requirements: {
-            create: {
+            create: [{
               minSF: requirements.minSF ? parseFloat(requirements.minSF) : null,
               maxSF: requirements.maxSF ? parseFloat(requirements.maxSF) : null,
               preferredSF: requirements.preferredSF ? parseFloat(requirements.preferredSF) : null,
@@ -57,7 +57,7 @@ export async function POST(req: Request) {
               missingFields: requirements.missingFields ?? [],
               confidenceLevel: requirements.confidenceLevel || null,
               narrativeSummary: requirements.narrativeSummary || null,
-            },
+            }],
           },
         }),
       },

@@ -5,16 +5,19 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { fmtMoney } from "@/lib/format";
 
+type BuyBoxSummary = {
+  capRateMin: number;
+  priceMax: number;
+  assetTypesPreferred: string[];
+  appliesTo: string[];
+};
+
 type InvestorRow = {
   id: string;
   name: string;
   entityName: string | null;
   _count: { deals: number };
-  buyBox: {
-    capRateMin: number;
-    priceMax: number;
-    assetTypesPreferred: string[];
-  } | null;
+  buyBoxes: BuyBoxSummary[];
 };
 
 export function InvestorList({ investors }: { investors: InvestorRow[] }) {
@@ -46,13 +49,16 @@ export function InvestorList({ investors }: { investors: InvestorRow[] }) {
                 <p className="text-sm text-gray-500">
                   {inv.entityName ?? "—"} · {inv._count.deals} deals
                 </p>
-                {inv.buyBox && (
-                  <p className="mt-1 text-xs text-gray-400">
-                    Cap floor {inv.buyBox.capRateMin}% · Max{" "}
-                    {fmtMoney(inv.buyBox.priceMax)} ·{" "}
-                    {inv.buyBox.assetTypesPreferred.join(", ")}
-                  </p>
-                )}
+                {inv.buyBoxes.length > 0 && (() => {
+                  const bb = inv.buyBoxes.find((b) => b.appliesTo.length === 0) ?? inv.buyBoxes[0];
+                  return (
+                    <p className="mt-1 text-xs text-gray-400">
+                      Cap floor {bb.capRateMin}% · Max {fmtMoney(bb.priceMax)}
+                      {bb.assetTypesPreferred.length > 0 && ` · ${bb.assetTypesPreferred.join(", ")}`}
+                      {inv.buyBoxes.length > 1 && ` · ${inv.buyBoxes.length} buy boxes`}
+                    </p>
+                  );
+                })()}
               </div>
               <ChevronRight className="h-5 w-5 text-gray-400" />
             </Link>

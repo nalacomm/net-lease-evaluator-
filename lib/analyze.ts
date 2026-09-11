@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 import { scoreDeal, BuyBoxLike, DealLike, TenantLeaseRow, computeWalt } from "./scoring";
+import { pickBuyBox } from "./investor";
 
 export interface AnalyzeDealResult {
   dealId: string;
@@ -19,7 +20,7 @@ export interface AnalyzeDealResult {
 export async function analyzeDeal(dealId: string): Promise<AnalyzeDealResult> {
   const deal = await prisma.deal.findUnique({
     where: { id: dealId },
-    include: { investor: { include: { buyBox: true } } },
+    include: { investor: { include: { buyBoxes: true } } },
   });
   if (!deal) throw new Error("Deal not found");
 
@@ -34,7 +35,7 @@ export async function analyzeDeal(dealId: string): Promise<AnalyzeDealResult> {
     }
     throw new Error("Deal has no primary investor — re-assign to an investor first");
   }
-  const bb = deal.investor.buyBox;
+  const bb = pickBuyBox(deal.investor.buyBoxes, deal.assetType);
   if (!bb) throw new Error("Investor has no buy box");
 
   const previousScore = deal.score;

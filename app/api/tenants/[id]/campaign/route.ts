@@ -155,7 +155,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     });
     if (!tenant) return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
 
-    const r = tenant.requirements;
+    const r = tenant.requirements[0] ?? null;
 
     // Build requirements rows
     const sizeStr = r

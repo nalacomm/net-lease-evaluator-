@@ -92,18 +92,16 @@ export default async function SitePage({ params }: { params: { id: string } }) {
       // Stored breakdown (reflects last rescore); used for display.
       scoreBreakdown: (a.scoreBreakdown as { category: string; points: number; max: number; status: string; detail: string }[] | null) ?? null,
       // Always recomputed so the checkbox-toggle UI reflects current site + requirements.
-      fullBreakdown: a.tenant.requirements ? scoreSite(site, a.tenant.requirements).breakdown : null,
+      fullBreakdown: (() => { const r = a.tenant.requirements[0]; return r ? scoreSite(site, r).breakdown : null; })(),
       scoringConfig: (a.scoringConfig as { enabledCategories?: string[] } | null) ?? null,
       tenant: { id: a.tenant.id, name: a.tenant.name },
-      requirements: a.tenant.requirements
-        ? {
-            minSF: a.tenant.requirements.minSF,
-            maxSF: a.tenant.requirements.maxSF,
-            leaseTermYears: a.tenant.requirements.minTerm,
-            minTrafficCount: a.tenant.requirements.minTraffic,
-            preferredSiteTypes: a.tenant.requirements.siteTypePrefs,
-          }
-        : null,
+      requirements: (() => { const r = a.tenant.requirements[0]; return r ? {
+            minSF: r.minSF,
+            maxSF: r.maxSF,
+            leaseTermYears: r.minTerm,
+            minTrafficCount: r.minTraffic,
+            preferredSiteTypes: r.siteTypePrefs,
+          } : null; })(),
     })),
   };
 

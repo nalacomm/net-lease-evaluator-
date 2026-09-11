@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { scoreDeal, BuyBoxLike, DealLike } from "@/lib/scoring";
+import { pickBuyBox } from "@/lib/investor";
 
 export async function POST(
   req: Request,
@@ -16,14 +17,15 @@ export async function POST(
       prisma.deal.findUnique({ where: { id: params.id } }),
       prisma.investor.findUnique({
         where: { id: investorId },
-        include: { buyBox: true },
+        include: { buyBoxes: true },
       }),
     ]);
 
     if (!deal) return NextResponse.json({ error: "Deal not found" }, { status: 404 });
-    if (!investor?.buyBox) return NextResponse.json({ error: "Investor has no buy box" }, { status: 400 });
+    const bb = investor ? pickBuyBox(investor.buyBoxes, deal.assetType) : null;
+    if (!bb) return NextResponse.json({ error: "Investor has no buy box" }, { status: 400 });
 
-    const result = scoreDeal(deal as DealLike, investor.buyBox as BuyBoxLike);
+    const result = scoreDeal(deal as DealLike, bb as BuyBoxLike);
 
     const assignment = await prisma.dealAssignment.upsert({
       where: { dealId_investorId: { dealId: params.id, investorId } },

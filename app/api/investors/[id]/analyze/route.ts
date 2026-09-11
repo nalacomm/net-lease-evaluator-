@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { askText } from "@/lib/anthropic";
 import { fmtMoney, fmtPercent } from "@/lib/format";
 import { labelFor, ASSET_TYPES, LEASE_TYPES, GUARANTY_TYPES } from "@/lib/constants";
+import { pickBuyBox } from "@/lib/investor";
 
 export const maxDuration = 60;
 
@@ -14,7 +15,7 @@ export async function POST(
     const investor = await prisma.investor.findUnique({
       where: { id: params.id },
       include: {
-        buyBox: true,
+        buyBoxes: true,
         deals: {
           orderBy: { createdAt: "desc" },
           take: 20,
@@ -40,7 +41,7 @@ export async function POST(
       return NextResponse.json({ error: "Investor not found" }, { status: 404 });
     }
 
-    const bb = investor.buyBox;
+    const bb = pickBuyBox(investor.buyBoxes);
 
     const bbSection = bb
       ? [

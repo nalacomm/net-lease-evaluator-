@@ -11,11 +11,11 @@ export default async function TenantPage({
 }: {
   params: { id: string };
 }) {
-  const [tenant, allSites, tenantSiteReports] = await Promise.all([
+  const [rawTenant, allSites, tenantSiteReports] = await Promise.all([
     prisma.tenant.findUnique({
       where: { id: params.id },
       include: {
-        requirements: true,
+        requirements: { orderBy: { createdAt: "asc" } },
         siteAssignments: {
           include: { site: true },
           orderBy: { createdAt: "desc" },
@@ -34,16 +34,17 @@ export default async function TenantPage({
   ]);
 
   const reportedSiteIds = new Set(tenantSiteReports.flatMap((r) => r.siteIds));
-  if (!tenant) notFound();
+  if (!rawTenant) notFound();
+  const tenant = { ...rawTenant, requirements: rawTenant.requirements[0] ?? null };
 
   return (
     <div className="space-y-5">
       <PageHeader
-        title={tenant.name}
-        subtitle={tenant.company ?? undefined}
+        title={rawTenant.name}
+        subtitle={rawTenant.company ?? undefined}
         action={
           <div className="flex flex-wrap gap-2">
-            <Link href={`/tenants/${tenant.id}/edit`} className="btn-secondary">
+            <Link href={`/tenants/${rawTenant.id}/edit`} className="btn-secondary">
               Edit Tenant
             </Link>
           </div>

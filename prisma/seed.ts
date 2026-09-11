@@ -33,8 +33,8 @@ async function main() {
       entityName: "Octopus Island LLC",
       notes:
         "Primary thesis: early childhood education / ECLC. TLE brand preferred.",
-      buyBox: {
-        create: {
+      buyBoxes: {
+        create: [{
           capRateMin: 6.75,
           capRateTarget: 7.0,
           priceMax: 7000000,
@@ -67,7 +67,7 @@ async function main() {
           currentMonthlyIncome: 31033,
           notes:
             "Primary thesis: early childhood education / ECLC. TLE brand preferred. Open to other NNN assets for comparison. Sits toward right side of leverage spectrum — primary goal is increasing total monthly cash flow with each acquisition. Existing portfolio: 9300 Lyons Mill Rd, Owings Mills MD — absolute NNN, 20-year term, $372,400/yr, closed 12/29/2025.",
-        },
+        }],
       },
     },
   });

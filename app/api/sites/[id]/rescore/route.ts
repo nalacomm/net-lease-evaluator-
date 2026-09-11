@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { scoreSite, applyMetricConfig, computeScore, SCORE_CATEGORIES, SiteCategoryScore, CheckStatus } from "@/lib/site-scoring";
+import { pickRequirements } from "@/lib/investor";
 
 export const dynamic = "force-dynamic";
 
@@ -15,9 +16,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       prisma.siteAssignment.findUnique({ where: { siteId_tenantId: { siteId: params.id, tenantId } } }),
     ]);
     if (!site) return NextResponse.json({ error: "Site not found" }, { status: 404 });
-    if (!tenant?.requirements) return NextResponse.json({ error: "Tenant requirements not found" }, { status: 404 });
+    const tenantReq = tenant ? pickRequirements(tenant.requirements, site.siteType) : null;
+    if (!tenantReq) return NextResponse.json({ error: "Tenant requirements not found" }, { status: 404 });
 
-    const fullBreakdown = scoreSite(site, tenant.requirements).breakdown;
+    const fullBreakdown = scoreSite(site, tenantReq).breakdown;
 
     // If caller passes enabledCategories, apply config; otherwise default to all
     const categories: string[] = Array.isArray(enabledCategories) && enabledCategories.length > 0
