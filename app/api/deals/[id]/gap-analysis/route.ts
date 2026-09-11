@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { runGapAnalysis } from "@/lib/gap-analysis";
+import { runGapAnalysis, KnowledgeLevel } from "@/lib/gap-analysis";
 import { askTextWithDocument } from "@/lib/anthropic";
 import { BuyBoxLike, DealLike } from "@/lib/scoring";
 
@@ -14,6 +14,7 @@ export async function POST(
     let investorId: string | null = null;
     let runtimeContext = "";
     let flexAssetType = false;
+    let knowledgeLevel: KnowledgeLevel | null = null;
 
     const contentType = req.headers.get("content-type") ?? "";
     if (contentType.includes("multipart/form-data")) {
@@ -21,6 +22,8 @@ export async function POST(
       investorId = (form.get("investorId") as string | null) || null;
       runtimeContext = (form.get("additionalContext") as string | null) ?? "";
       flexAssetType = form.get("flexAssetType") === "true";
+      const kl = form.get("knowledgeLevel") as string | null;
+      if (kl === "level1" || kl === "level2") knowledgeLevel = kl;
 
       // Extract text from any uploaded PDFs
       const files = form.getAll("files") as File[];
@@ -81,7 +84,8 @@ export async function POST(
       },
       combined || undefined,
       scoringConfig?.enabledCategories,
-      flexAssetType
+      flexAssetType,
+      knowledgeLevel
     );
 
     if (effectiveInvestorId) {
